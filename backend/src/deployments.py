@@ -1,6 +1,5 @@
 import hashlib
 import hmac
-import mimetypes
 import secrets
 from typing import Annotated
 
@@ -10,9 +9,9 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from .database import get_session
 from .models import Deployment, DeploymentBase, DeploymentCreated, Manifest
+from .storage import sign_uploads
 
 router = APIRouter(prefix="/api/deployments", tags=["deployments"])
-mime_types = mimetypes.MimeTypes()
 
 Session = Annotated[AsyncSession, Depends(get_session)]
 Credentials = Annotated[HTTPAuthorizationCredentials, Depends(HTTPBearer())]
@@ -20,12 +19,6 @@ Credentials = Annotated[HTTPAuthorizationCredentials, Depends(HTTPBearer())]
 
 def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
-
-
-def content_type(path: str) -> str:
-    mime_type, encoding = mime_types.guess_file_type(path)
-    # Compressed files would otherwise get the MIME type of their contents
-    return mime_type if mime_type and not encoding else "application/octet-stream"
 
 
 async def get_deployment(
@@ -49,9 +42,12 @@ async def create_deployment(manifest: Manifest, session: Session) -> DeploymentC
         file_count=len(manifest.files),
         total_size=sum(file.size for file in manifest.files),
     )
+    upload_url, uploads = await sign_uploads(deployment.slug, manifest.files)
     session.add(deployment)
     await session.commit()
-    return DeploymentCreated(**deployment.model_dump(), token=token)
+    return DeploymentCreated(
+        **deployment.model_dump(), token=token, upload_url=upload_url, uploads=uploads
+    )
 
 
 @router.get("/{slug}")

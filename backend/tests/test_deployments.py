@@ -1,12 +1,14 @@
 import base64
 import hashlib
+import json
 import re
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
 
 from src.config import settings
-from src.deployments import content_type
+from src.storage import content_type
 
 URL = "/api/deployments"
 SHA256 = base64.b64encode(hashlib.sha256(b"").digest()).decode()
@@ -37,6 +39,34 @@ def test_create_deployment(client: TestClient) -> None:
     assert body["file_count"] == 4
     assert body["total_size"] == 35
     assert body["token"]
+
+
+def test_create_deployment_signs_one_policy_per_file(client: TestClient) -> None:
+    body = client.post(URL, json=manifest("index.html", "assets/app.js", size=5)).json()
+
+    assert body["upload_url"] == f"{settings.s3_public_endpoint}{settings.s3_bucket}"
+    assert [upload["path"] for upload in body["uploads"]] == [
+        "index.html",
+        "assets/app.js",
+    ]
+
+    fields = body["uploads"][1]["fields"]
+    assert fields["key"] == f"{body['slug']}/assets/app.js"
+    assert fields["Content-Type"] == "text/javascript"
+    assert fields["x-amz-checksum-sha256"] == SHA256
+
+    policy = json.loads(base64.b64decode(fields["policy"]))
+    for condition in (
+        {"bucket": settings.s3_bucket},
+        {"key": fields["key"]},
+        {"Content-Type": "text/javascript"},
+        {"x-amz-checksum-algorithm": "SHA256"},
+        {"x-amz-checksum-sha256": SHA256},
+        ["content-length-range", 5, 5],
+    ):
+        assert condition in policy["conditions"]
+    expires_in = datetime.fromisoformat(policy["expiration"]) - datetime.now(UTC)
+    assert timedelta(minutes=59) < expires_in <= settings.upload_window
 
 
 def test_slugs_are_unique(client: TestClient) -> None:

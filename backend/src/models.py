@@ -82,5 +82,12 @@ class Deployment(DeploymentBase, table=True):
     token_hash: str = Field(description="SHA-256 hash of the management token")
 
 
+class UploadPolicy(SQLModel):
+    path: str = Field(description="Path from the manifest")
+    fields: dict[str, str] = Field(description="Form fields to send before the file")
+
+
 class DeploymentCreated(DeploymentBase):
     token: str = Field(description="Management token, only returned once")
+    upload_url: str = Field(description="URL to POST each file to")
+    uploads: list[UploadPolicy] = Field(description="Signed upload policy per file")

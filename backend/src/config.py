@@ -1,3 +1,4 @@
+from datetime import timedelta
 from typing import Literal
 
 from pydantic import AnyHttpUrl, ByteSize, Field, SecretStr
@@ -32,6 +33,13 @@ class Settings(BaseSettings):
     )
     max_deployment_files: int = Field(
         default=500, description="Maximum number of files in a deployment"
+    )
+
+    # Garage rejects POST policies signed more than 24 hours ago
+    upload_window: timedelta = Field(
+        default=timedelta(hours=1),
+        le=timedelta(hours=24),
+        description="How long upload policies stay valid",
     )
 
 

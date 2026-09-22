@@ -1,4 +1,5 @@
 import pytest
+from pydantic import ValidationError
 
 from src.config import Settings
 
@@ -29,3 +30,10 @@ def test_internal_and_public_storage_endpoints_are_distinct_settings() -> None:
 
     assert str(settings.s3_endpoint) == "http://garage:3900/"
     assert str(settings.s3_public_endpoint) == "https://uploads.example.com/"
+
+
+def test_upload_window_is_capped_at_24_hours(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("REDOOST_UPLOAD_WINDOW", "PT25H")
+
+    with pytest.raises(ValidationError):
+        Settings()  # pyright: ignore[reportCallIssue]

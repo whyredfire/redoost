@@ -4,20 +4,18 @@ from fastapi.testclient import TestClient
 import src.main as api
 
 
-class AvailableStorage:
-    async def check_connection(self) -> None:
-        return None
+async def available() -> None:
+    return None
 
 
-class UnavailableStorage:
-    async def check_connection(self) -> None:
-        raise ConnectionError
+async def unavailable() -> None:
+    raise ConnectionError
 
 
 def test_health_when_dependencies_are_available(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(api, "storage", AvailableStorage())
+    monkeypatch.setattr(api, "check_storage", available)
     response = client.get("/health")
 
     assert response.status_code == 200
@@ -27,7 +25,7 @@ def test_health_when_dependencies_are_available(
 def test_health_when_s3_is_unavailable(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(api, "storage", UnavailableStorage())
+    monkeypatch.setattr(api, "check_storage", unavailable)
     response = client.get("/health")
 
     assert response.status_code == 503

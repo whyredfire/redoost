@@ -10,10 +10,9 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import SQLAlchemyError
 
-from .config import settings
 from .database import check_database, create_tables
 from .deployments import router as deployments_router
-from .storage import S3Storage
+from .storage import check_storage
 
 
 @asynccontextmanager
@@ -24,7 +23,6 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(deployments_router)
-storage = S3Storage(settings)
 
 
 class HealthResponse(BaseModel):
@@ -36,7 +34,7 @@ class HealthResponse(BaseModel):
 @app.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse | JSONResponse:
     try:
-        await asyncio.gather(check_database(), storage.check_connection())
+        await asyncio.gather(check_database(), check_storage())
     except BotoCoreError, ClientError, ConnectionError, SQLAlchemyError:
         return JSONResponse(status_code=503, content={"status": "unavailable"})
     return HealthResponse(status="ok")
