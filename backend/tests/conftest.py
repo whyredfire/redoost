@@ -1,4 +1,8 @@
 import os
+from collections.abc import Iterator
+
+import pytest
+from fastapi.testclient import TestClient
 
 os.environ.update(
     {
@@ -12,3 +16,11 @@ os.environ.update(
         "REDOOST_S3_SECRET_ACCESS_KEY": "test-secret",
     }
 )
+
+
+@pytest.fixture
+def client() -> Iterator[TestClient]:
+    from src.main import app
+
+    with TestClient(app) as test_client:
+        yield test_client
