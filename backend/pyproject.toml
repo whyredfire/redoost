@@ -1,0 +1,35 @@
+[project]
+name = "redoost"
+version = "0.1.0"
+description = "Self-hosted alternative for Cloudflare/Vercel Drop"
+readme = "README.md"
+authors = [
+    { name = "Karan Parashar", email = "whyredfire@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "aioboto3>=15.5.0",
+    "aiosqlite>=0.22.1",
+    "fastapi>=0.141.1",
+    "greenlet>=3.5.6",
+    "pydantic-settings>=2.15.0",
+    "sqlmodel>=0.0.46",
+    "uvicorn>=0.53.0",
+]
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.40.1",
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+    "ruff>=0.16.8",
+]
+
+[tool.uv]
+package = false
+
+[tool.pyright]
+typeCheckingMode = "standard"
+# Pyright ReportCallIssue is incorrectly flagged on
+# pydantic models and settings on defaults
+reportCallIssue = false
