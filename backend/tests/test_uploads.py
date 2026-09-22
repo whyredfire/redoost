@@ -136,3 +136,21 @@ def test_rejects_expired_policies(
 
     assert upload(created, "index.html", content).status_code == 400
     assert stored(s3, f"{created['slug']}/index.html") is None
+
+
+def test_completes_once_every_file_is_uploaded(
+    client: TestClient, deployment: dict[str, Any]
+) -> None:
+    url = f"/api/deployments/{deployment['slug']}/complete"
+    headers = {"Authorization": f"Bearer {deployment['token']}"}
+
+    upload(deployment, "index.html", FILES["index.html"])
+    response = client.post(url, headers=headers)
+    assert response.status_code == 409
+    assert response.json()["detail"] == f"1 of {len(FILES)} files uploaded"
+
+    for path, content in FILES.items():
+        assert upload(deployment, path, content).status_code == 204
+    response = client.post(url, headers=headers)
+    assert response.status_code == 200
+    assert response.json()["state"] == "ready"

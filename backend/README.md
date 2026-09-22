@@ -39,6 +39,9 @@ The API is available at <http://localhost:8000>. Endpoints:
   per file.
 - `GET /api/deployments/{slug}`: deployment status. Requires
   `Authorization: Bearer <token>`.
+- `POST /api/deployments/{slug}/complete`: marks the deployment `ready` once
+  every file is uploaded. Returns 409 while files are missing and 410 after
+  the upload window. Requires the token.
 
 Manifests need a root `index.html`. Default limits are 10 MiB per file,
 50 MiB per deployment, and 500 files, set with `REDOOST_MAX_FILE_SIZE`,

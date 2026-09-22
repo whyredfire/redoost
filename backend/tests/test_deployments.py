@@ -2,11 +2,14 @@ import base64
 import hashlib
 import json
 import re
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
+from httpx import Response
 
+from src import deployments
 from src.config import settings
 from src.storage import content_type
 
@@ -36,6 +39,7 @@ def test_create_deployment(client: TestClient) -> None:
     assert re.fullmatch(r"[a-z]+(-[a-z]+)+-[0-9a-f]{4}", body["slug"])
     assert len(body["slug"]) <= 63
     assert body["state"] == "uploading"
+    assert datetime.fromisoformat(body["expires_at"]) > datetime.now(UTC)
     assert body["file_count"] == 4
     assert body["total_size"] == 35
     assert body["token"]
@@ -177,3 +181,58 @@ def test_enforces_limits(client: TestClient) -> None:
 )
 def test_content_type(path: str, expected: str) -> None:
     assert content_type(path) == expected
+
+
+def complete(client: TestClient, created: dict[str, str]) -> Response:
+    return client.post(
+        f"{URL}/{created['slug']}/complete", headers=bearer(created["token"])
+    )
+
+
+def uploaded(count: int) -> Callable[[str], Awaitable[int]]:
+    async def count_objects(slug: str) -> int:
+        return count
+
+    return count_objects
+
+
+def test_complete_marks_deployment_ready(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    created = client.post(URL, json=manifest("index.html", "app.js")).json()
+    monkeypatch.setattr(deployments, "count_objects", uploaded(2))
+
+    response = complete(client, created)
+    assert response.status_code == 200
+    assert response.json()["state"] == "ready"
+
+    # Completing again returns the ready deployment without listing objects
+    monkeypatch.setattr(deployments, "count_objects", uploaded(0))
+    assert complete(client, created).json()["state"] == "ready"
+
+
+def test_complete_rejects_missing_files(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    created = client.post(URL, json=manifest("index.html", "app.js")).json()
+    monkeypatch.setattr(deployments, "count_objects", uploaded(1))
+
+    response = complete(client, created)
+    assert response.status_code == 409
+    assert response.json()["detail"] == "1 of 2 files uploaded"
+
+
+def test_complete_rejects_closed_upload_window(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "upload_window", timedelta(seconds=-1))
+    created = client.post(URL, json=manifest("index.html")).json()
+    monkeypatch.setattr(deployments, "count_objects", uploaded(1))
+
+    assert complete(client, created).status_code == 410
+
+
+def test_complete_requires_its_token(client: TestClient) -> None:
+    created = client.post(URL, json=manifest("index.html")).json()
+
+    assert complete(client, {**created, "token": "wrong"}).status_code == 403

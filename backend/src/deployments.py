@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import secrets
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -8,8 +9,14 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from .database import get_session
-from .models import Deployment, DeploymentBase, DeploymentCreated, Manifest
-from .storage import sign_uploads
+from .models import (
+    Deployment,
+    DeploymentBase,
+    DeploymentCreated,
+    DeploymentState,
+    Manifest,
+)
+from .storage import count_objects, sign_uploads
 
 router = APIRouter(prefix="/api/deployments", tags=["deployments"])
 
@@ -34,6 +41,9 @@ async def get_deployment(
     return deployment
 
 
+OwnedDeployment = Annotated[Deployment, Depends(get_deployment)]
+
+
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_deployment(manifest: Manifest, session: Session) -> DeploymentCreated:
     token = secrets.token_urlsafe(32)
@@ -51,7 +61,28 @@ async def create_deployment(manifest: Manifest, session: Session) -> DeploymentC
 
 
 @router.get("/{slug}")
-async def read_deployment(
-    deployment: Annotated[Deployment, Depends(get_deployment)],
+async def read_deployment(deployment: OwnedDeployment) -> DeploymentBase:
+    return deployment
+
+
+@router.post("/{slug}/complete")
+async def complete_deployment(
+    deployment: OwnedDeployment, session: Session
 ) -> DeploymentBase:
+    if deployment.state == DeploymentState.ready:
+        return deployment
+    if deployment.expires_at < datetime.now(UTC):
+        raise HTTPException(status.HTTP_410_GONE, "Upload window has closed")
+
+    # Policies only allow the manifest's files with their exact content
+    uploaded = await count_objects(deployment.slug)
+    if uploaded != deployment.file_count:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"{uploaded} of {deployment.file_count} files uploaded",
+        )
+
+    deployment.state = DeploymentState.ready
+    session.add(deployment)
+    await session.commit()
     return deployment

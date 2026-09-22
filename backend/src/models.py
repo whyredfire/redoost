@@ -12,6 +12,7 @@ from .config import settings
 
 class DeploymentState(StrEnum):
     uploading = "uploading"
+    ready = "ready"
 
 
 class ManifestFile(SQLModel):
@@ -75,6 +76,10 @@ class DeploymentBase(SQLModel):
     total_size: int = Field(ge=0, description="Total manifest size in bytes")
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC), description="Creation time"
+    )
+    expires_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC) + settings.upload_window,
+        description="When the upload policies expire",
     )
 
 

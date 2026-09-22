@@ -34,6 +34,17 @@ async def check_storage() -> None:
         await s3.head_bucket(Bucket=settings.s3_bucket)
 
 
+async def count_objects(slug: str) -> int:
+    count = 0
+    async with client(settings.s3_endpoint) as s3:
+        pages = s3.get_paginator("list_objects_v2").paginate(
+            Bucket=settings.s3_bucket, Prefix=f"{slug}/"
+        )
+        async for page in pages:
+            count += page.get("KeyCount", 0)
+    return count
+
+
 async def sign_uploads(
     slug: str, files: list[ManifestFile]
 ) -> tuple[str, list[UploadPolicy]]:
