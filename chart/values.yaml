@@ -40,7 +40,7 @@ s3:
 api:
   image:
     repository: ghcr.io/whyredfire/redoost-api
-    tag: latest
+    tag: sha-8a7e8b9
     pullPolicy: Always
   replicas: 1
   logLevel: INFO
@@ -62,7 +62,7 @@ api:
 frontend:
   image:
     repository: ghcr.io/whyredfire/redoost-frontend
-    tag: latest
+    tag: sha-8a7e8b9
     pullPolicy: Always
   replicas: 1
   resources:
