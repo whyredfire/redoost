@@ -6,9 +6,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlmodel.ext.asyncio.session import AsyncSession
 
-from .database import get_session
+from .database import Session
 from .models import (
     Deployment,
     DeploymentBase,
@@ -20,7 +19,6 @@ from .storage import count_objects, sign_uploads
 
 router = APIRouter(prefix="/api/deployments", tags=["deployments"])
 
-Session = Annotated[AsyncSession, Depends(get_session)]
 Credentials = Annotated[HTTPAuthorizationCredentials, Depends(HTTPBearer())]
 
 
@@ -51,6 +49,7 @@ async def create_deployment(manifest: Manifest, session: Session) -> DeploymentC
         token_hash=hash_token(token),
         file_count=len(manifest.files),
         total_size=sum(file.size for file in manifest.files),
+        spa=all(file.path != "404.html" for file in manifest.files),
     )
     upload_url, uploads = await sign_uploads(deployment.slug, manifest.files)
     session.add(deployment)

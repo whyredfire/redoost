@@ -22,6 +22,13 @@ uvx --from awscli aws s3api put-bucket-cors \
   --cors-configuration '{"CORSRules": [{"AllowedOrigins": ["http://localhost:5173"], "AllowedMethods": ["POST"], "AllowedHeaders": ["*"]}]}'
 ```
 
+Published sites are served through Garage's website endpoint, so enable it for
+the bucket once:
+
+```sh
+docker compose exec garage /garage bucket website --allow redoost-sites
+```
+
 Then start the API:
 
 ```sh

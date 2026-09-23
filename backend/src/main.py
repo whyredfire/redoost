@@ -12,6 +12,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from .database import check_database, create_tables
 from .deployments import router as deployments_router
+from .sites import router as sites_router
 from .storage import check_storage
 
 
@@ -23,6 +24,7 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(deployments_router)
+app.include_router(sites_router)
 
 
 class HealthResponse(BaseModel):

@@ -236,3 +236,33 @@ def test_complete_requires_its_token(client: TestClient) -> None:
     created = client.post(URL, json=manifest("index.html")).json()
 
     assert complete(client, {**created, "token": "wrong"}).status_code == 403
+
+
+def resolve(client: TestClient, slug: str) -> Response:
+    return client.get(f"/internal/sites/{slug}")
+
+
+@pytest.mark.parametrize(
+    ("paths", "spa"),
+    [(("index.html", "app.js"), "1"), (("index.html", "404.html"), "0")],
+    ids=["no-404-page", "has-404-page"],
+)
+def test_resolve_site_once_ready(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    paths: tuple[str, ...],
+    spa: str,
+) -> None:
+    created = client.post(URL, json=manifest(*paths)).json()
+    assert created["spa"] == (spa == "1")
+    assert resolve(client, created["slug"]).status_code == 403
+
+    monkeypatch.setattr(deployments, "count_objects", uploaded(len(paths)))
+    complete(client, created)
+    response = resolve(client, created["slug"])
+    assert response.status_code == 204
+    assert response.headers["X-Site-Spa"] == spa
+
+
+def test_resolve_unknown_site(client: TestClient) -> None:
+    assert resolve(client, "missing-slug-0000").status_code == 403

@@ -74,6 +74,9 @@ class DeploymentBase(SQLModel):
     )
     file_count: int = Field(ge=1, description="Number of files in the manifest")
     total_size: int = Field(ge=0, description="Total manifest size in bytes")
+    spa: bool = Field(
+        default=False, description="Serve index.html for missing pages (no 404.html)"
+    )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC), description="Creation time"
     )
