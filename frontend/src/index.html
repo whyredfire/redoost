@@ -4,6 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>redoost</title>
+    <!-- Apply the theme before first paint to avoid a light flash -->
+    <script>
+      if (
+        localStorage.theme === "dark" ||
+        (!localStorage.theme && matchMedia("(prefers-color-scheme: dark)").matches)
+      ) {
+        document.documentElement.classList.add("dark");
+      }
+    </script>
     <script type="module" src="./frontend.tsx" async></script>
   </head>
   <body>

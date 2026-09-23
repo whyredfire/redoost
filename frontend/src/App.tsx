@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { FolderDrop } from "@/components/folder-drop";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -161,6 +162,9 @@ export function App() {
           r.
         </span>
         redoost
+        <div className="ml-auto">
+          <ThemeToggle />
+        </div>
       </header>
 
       <div className="space-y-3">
