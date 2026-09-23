@@ -9,6 +9,7 @@ import {
   ApiError,
   completeDeployment,
   createDeployment,
+  deleteDeployment,
   listDeployments,
   uploadFiles,
   type Deployment,
@@ -81,13 +82,24 @@ export function App() {
       setSites(deployments);
     } catch (error) {
       // The token is unknown to the API, so the next publish starts a new one
-      if (error instanceof ApiError && error.status === 403) clearToken();
+      if (error instanceof ApiError && error.status === 403) {
+        clearToken();
+        setSites([]);
+      }
     }
   }
 
   useEffect(() => {
     void refreshSites();
   }, []);
+
+  async function deleteSite(slug: string) {
+    const token = loadToken();
+    if (!token) return;
+    await deleteDeployment(slug, token);
+    if (session?.deployment.slug === slug) startOver();
+    await refreshSites();
+  }
 
   function selectFiles(selected: SiteFile[]) {
     if (!selected.length) {
@@ -320,7 +332,7 @@ export function App() {
         </>
       )}
 
-      {sites.length > 0 && <SiteList sites={sites} />}
+      {sites.length > 0 && <SiteList sites={sites} onDelete={deleteSite} />}
     </main>
   );
 }

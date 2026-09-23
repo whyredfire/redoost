@@ -155,3 +155,20 @@ def test_completes_once_every_file_is_uploaded(
     response = client.post(url, headers=headers)
     assert response.status_code == 200
     assert response.json()["state"] == "ready"
+
+
+def test_delete_removes_uploaded_files(
+    client: TestClient, deployment: dict[str, Any], s3: Any
+) -> None:
+    for path, content in FILES.items():
+        upload(deployment, path, content)
+
+    response = client.delete(
+        f"/api/deployments/{deployment['slug']}",
+        headers={"Authorization": f"Bearer {deployment['token']}"},
+    )
+    assert response.status_code == 204
+    objects = s3.list_objects_v2(
+        Bucket=settings.s3_bucket, Prefix=f"{deployment['slug']}/"
+    )
+    assert objects["KeyCount"] == 0

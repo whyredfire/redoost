@@ -16,7 +16,7 @@ from .models import (
     DeploymentState,
     Manifest,
 )
-from .storage import count_objects, sign_uploads
+from .storage import count_objects, delete_objects, sign_uploads
 
 router = APIRouter(prefix="/api/deployments", tags=["deployments"])
 
@@ -119,3 +119,11 @@ async def complete_deployment(
     session.add(deployment)
     await session.commit()
     return deployment
+
+
+@router.delete("/{slug}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_deployment(deployment: OwnedDeployment, session: Session) -> None:
+    # Files go first, so a failed delete leaves the deployment in place to retry
+    await delete_objects(deployment.slug)
+    await session.delete(deployment)
+    await session.commit()

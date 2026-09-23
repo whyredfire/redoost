@@ -40,7 +40,7 @@ class UploadError extends Error {
   }
 }
 
-async function readResponse<T>(response: Response): Promise<T> {
+async function checkResponse(response: Response) {
   if (!response.ok) {
     const body = await response.json().catch(() => null);
     const detail = body?.detail;
@@ -51,6 +51,10 @@ async function readResponse<T>(response: Response): Promise<T> {
         : `Request failed (${response.status}).`;
     throw new ApiError(response.status, message);
   }
+}
+
+async function readResponse<T>(response: Response): Promise<T> {
+  await checkResponse(response);
   return response.json() as Promise<T>;
 }
 
@@ -92,6 +96,14 @@ export async function listDeployments(token: string) {
     headers: authorization(token),
   });
   return readResponse<Deployment[]>(response);
+}
+
+export async function deleteDeployment(slug: string, token: string) {
+  const response = await fetch(`/api/deployments/${slug}`, {
+    method: "DELETE",
+    headers: authorization(token),
+  });
+  await checkResponse(response);
 }
 
 // XHR instead of fetch because fetch can't report upload progress

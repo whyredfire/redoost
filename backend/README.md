@@ -17,6 +17,8 @@ in Compose (see the root README).
 - `POST /api/deployments/{slug}/complete`: marks the deployment `ready` once
   every file is uploaded. Returns 409 while files are missing and 410 after
   the upload window. Requires the token.
+- `DELETE /api/deployments/{slug}`: deletes the deployment's files, then the
+  deployment. Requires the token. The site shows "Site not found" right away.
 - `GET /internal/sites/{slug}`: readiness check for Nginx. Not exposed publicly.
 
 Manifests need a root `index.html`. Default limits are 10 MiB per file,

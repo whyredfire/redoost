@@ -45,6 +45,24 @@ async def count_objects(slug: str) -> int:
     return count
 
 
+async def delete_objects(slug: str) -> None:
+    async with client(settings.s3_endpoint) as s3:
+        pages = s3.get_paginator("list_objects_v2").paginate(
+            Bucket=settings.s3_bucket, Prefix=f"{slug}/"
+        )
+        async for page in pages:
+            keys = [{"Key": item["Key"]} for item in page.get("Contents", [])]
+            if not keys:
+                continue
+            result = await s3.delete_objects(
+                Bucket=settings.s3_bucket, Delete={"Objects": keys, "Quiet": True}
+            )
+            # Failures for individual keys still come back as a 200
+            errors = result.get("Errors", [])
+            if errors:
+                raise RuntimeError(f"Could not delete {len(errors)} objects of {slug}")
+
+
 async def sign_uploads(
     slug: str, files: list[ManifestFile]
 ) -> tuple[str, list[UploadPolicy]]:

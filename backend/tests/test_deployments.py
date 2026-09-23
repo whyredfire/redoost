@@ -280,6 +280,34 @@ def test_list_deployments_requires_known_token(client: TestClient) -> None:
     assert client.get(URL, headers=bearer("x")).status_code == 403
 
 
+def test_delete_deployment(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    deleted: list[str] = []
+
+    async def delete_objects(slug: str) -> None:
+        deleted.append(slug)
+
+    monkeypatch.setattr(deployments, "delete_objects", delete_objects)
+    monkeypatch.setattr(deployments, "count_objects", uploaded(1))
+    created = client.post(URL, json=manifest("index.html")).json()
+    complete(client, created)
+    url = f"{URL}/{created['slug']}"
+
+    response = client.delete(url, headers=bearer(created["token"]))
+    assert response.status_code == 204
+    assert deleted == [created["slug"]]
+    assert client.get(url, headers=bearer(created["token"])).status_code == 404
+    assert resolve(client, created["slug"]).status_code == 403
+
+
+def test_delete_requires_its_token(client: TestClient) -> None:
+    created = client.post(URL, json=manifest("index.html")).json()
+    url = f"{URL}/{created['slug']}"
+
+    assert client.delete(url).status_code == 401
+    assert client.delete(url, headers=bearer("wrong")).status_code == 403
+    assert client.delete(f"{URL}/missing-slug", headers=bearer("x")).status_code == 404
+
+
 def resolve(client: TestClient, slug: str) -> Response:
     return client.get(f"/internal/sites/{slug}")
 

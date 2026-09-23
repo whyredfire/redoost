@@ -1,8 +1,52 @@
+import { Trash2 } from "lucide-react";
+import { useState, type MouseEvent } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Deployment } from "@/lib/deploy";
 import { formatBytes, siteUrl } from "@/lib/format";
 
-export function SiteList({ sites }: { sites: Deployment[] }) {
+type SiteListProps = {
+  sites: Deployment[];
+  onDelete: (slug: string) => Promise<void>;
+};
+
+export function SiteList({ sites, onDelete }: SiteListProps) {
+  const [target, setTarget] = useState<Deployment | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState("");
+
+  function closeDialog(open: boolean) {
+    if (open || deleting) return;
+    setTarget(null);
+    setError("");
+  }
+
+  async function confirmDelete(event: MouseEvent) {
+    // Keep the dialog open until the request finishes
+    event.preventDefault();
+    if (!target) return;
+    setDeleting(true);
+    setError("");
+    try {
+      await onDelete(target.slug);
+      setTarget(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -14,33 +58,75 @@ export function SiteList({ sites }: { sites: Deployment[] }) {
             const url = siteUrl(site.slug);
             return (
               <li
-                className="space-y-1 py-3 first:pt-0 last:pb-0"
+                className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
                 key={site.slug}
               >
-                {url ? (
-                  <a
-                    className="block break-all font-medium text-primary underline underline-offset-4"
-                    href={url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {url}
-                  </a>
-                ) : (
-                  <p className="font-medium">{site.slug}</p>
-                )}
-                <p className="text-sm text-muted-foreground">
-                  {new Date(site.created_at).toLocaleDateString(undefined, {
-                    dateStyle: "medium",
-                  })}{" "}
-                  · {site.file_count} {site.file_count === 1 ? "file" : "files"}{" "}
-                  · {formatBytes(site.total_size)}
-                </p>
+                <div className="min-w-0 flex-1 space-y-1">
+                  {url ? (
+                    <a
+                      className="block break-all font-medium text-primary underline underline-offset-4"
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {url}
+                    </a>
+                  ) : (
+                    <p className="font-medium">{site.slug}</p>
+                  )}
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(site.created_at).toLocaleDateString(undefined, {
+                      dateStyle: "medium",
+                    })}{" "}
+                    · {site.file_count}{" "}
+                    {site.file_count === 1 ? "file" : "files"} ·{" "}
+                    {formatBytes(site.total_size)}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Delete ${site.slug}`}
+                  onClick={() => setTarget(site)}
+                >
+                  <Trash2 />
+                </Button>
               </li>
             );
           })}
         </ul>
       </CardContent>
+
+      <AlertDialog open={target !== null} onOpenChange={closeDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this site?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <span className="font-medium text-foreground">
+                {target && (siteUrl(target.slug) ?? target.slug)}
+              </span>{" "}
+              will stop working and its files will be removed. This can't be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={deleting}
+              onClick={confirmDelete}
+            >
+              {deleting ? "Deleting…" : "Delete site"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
