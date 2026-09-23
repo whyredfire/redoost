@@ -174,6 +174,8 @@ async function uploadWithRetry(
   }
 }
 
+const parallelUploads = 32;
+
 export async function uploadFiles(
   deployment: CreatedDeployment,
   files: SiteFile[],
@@ -212,7 +214,9 @@ export async function uploadFiles(
   }
 
   await Promise.all(
-    Array.from({ length: Math.min(3, files.length) }, () => worker()),
+    Array.from({ length: Math.min(parallelUploads, files.length) }, () =>
+      worker(),
+    ),
   );
   if (error) throw error;
   if (signal.aborted) throw new DOMException("Upload cancelled", "AbortError");
