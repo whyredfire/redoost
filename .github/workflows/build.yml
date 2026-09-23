@@ -1,0 +1,43 @@
+name: build
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - image: redoost-api
+            context: backend
+          - image: redoost-frontend
+            context: frontend
+    uses: docker/github-builder/.github/workflows/build.yml@v1
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    with:
+      context: ${{ matrix.context }}
+      output: image
+      push: true
+      platforms: linux/amd64,linux/arm64
+      cache: true
+      cache-scope: ${{ matrix.image }}
+      # Links the packages to this repository on GHCR
+      set-meta-labels: true
+      set-meta-annotations: true
+      meta-images: ghcr.io/whyredfire/${{ matrix.image }}
+      meta-tags: |
+        type=sha
+        type=raw,value=latest
+    secrets:
+      registry-auths: |
+        - registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
