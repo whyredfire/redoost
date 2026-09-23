@@ -1,17 +1,16 @@
 # Redoost frontend
 
-Bun, React, Tailwind CSS, and shadcn/ui.
+Bun, React, Tailwind CSS, and shadcn/ui. It runs as the `frontend` service in
+Compose (see the root README) behind the gateway at <http://localhost:8081>,
+with hot reload. The gateway sends `/api/` to the API, so the frontend calls it
+on the same origin. `BUN_PUBLIC_SITES_ORIGIN` sets the
+base URL for published site links and is derived from `REDOOST_SITES_DOMAIN`.
+
+## Checks
 
 ```sh
-bun install
-cp .env.example .env
-bun run dev
+docker compose exec frontend bunx tsc --noEmit
+docker compose exec frontend bun run build
 ```
 
-The dev server runs at <http://localhost:5173> and forwards `/api/*` to
-FastAPI at `http://127.0.0.1:8000`.
-Garage needs a POST CORS rule for `http://localhost:5173` (see
-`backend/README.md`). `BUN_PUBLIC_SITES_ORIGIN` sets the base hostname for
-published site links; those links work once Nginx site routing is configured.
-
-Build static files for Nginx with `bun run build`. The output is in `dist/`.
+`bun run build` writes static files to `dist/` for Nginx.

@@ -1,43 +1,9 @@
 # Redoost backend
 
-## Development
+FastAPI, async SQLModel on SQLite, and async S3. It runs as the `api` service
+in Compose (see the root README).
 
-Create the environment file and start Garage from the repository root:
-
-```sh
-cp .env.example .env
-docker compose up -d garage
-```
-
-Browsers upload straight to Garage, so the bucket needs a CORS rule for the
-frontend origin. Apply it once from `backend/`:
-
-```sh
-set -a && source ../.env && set +a
-AWS_ACCESS_KEY_ID="$REDOOST_S3_ACCESS_KEY_ID" \
-AWS_SECRET_ACCESS_KEY="$REDOOST_S3_SECRET_ACCESS_KEY" \
-uvx --from awscli aws s3api put-bucket-cors \
-  --endpoint-url "$REDOOST_S3_ENDPOINT" --region "$REDOOST_S3_REGION" \
-  --bucket "$REDOOST_S3_BUCKET" \
-  --cors-configuration '{"CORSRules": [{"AllowedOrigins": ["http://localhost:5173"], "AllowedMethods": ["POST"], "AllowedHeaders": ["*"]}]}'
-```
-
-Published sites are served through Garage's website endpoint, so enable it for
-the bucket once:
-
-```sh
-docker compose exec garage /garage bucket website --allow redoost-sites
-```
-
-Then start the API:
-
-```sh
-cd backend
-uv sync --locked
-uv run --env-file ../.env python -m src.main
-```
-
-The API is available at <http://localhost:8000>. Endpoints:
+## API
 
 - `GET /health`
 - `POST /api/deployments`: create a deployment from a manifest of
@@ -49,6 +15,7 @@ The API is available at <http://localhost:8000>. Endpoints:
 - `POST /api/deployments/{slug}/complete`: marks the deployment `ready` once
   every file is uploaded. Returns 409 while files are missing and 410 after
   the upload window. Requires the token.
+- `GET /internal/sites/{slug}`: readiness check for Nginx. Not exposed publicly.
 
 Manifests need a root `index.html`. Default limits are 10 MiB per file,
 50 MiB per deployment, and 500 files, set with `REDOOST_MAX_FILE_SIZE`,
@@ -63,26 +30,13 @@ file's key, size, content type, and SHA-256, and expire after
 
 ## Checks
 
-Run tests with:
+Run from the repository root while the stack is up. Tests use an in-memory
+database; the public S3 endpoint is overridden so upload tests can reach Garage
+from inside the container:
 
 ```sh
-uv run python -m pytest
+docker compose exec -e REDOOST_S3_PUBLIC_ENDPOINT=http://garage:3900 api uv run --no-sync python -m pytest
+docker compose exec api uv run --no-sync ruff check .
+docker compose exec api uv run --no-sync ruff format --check .
+docker compose exec api uv run --no-sync basedpyright src scripts tests
 ```
-
-The upload tests are skipped unless Garage is reachable. To run them against
-the local Garage:
-
-```sh
-uv run --env-file ../.env python -m pytest
-```
-
-Format, lint, and type-check with:
-
-```sh
-uv run ruff format .
-uv run ruff check .
-uv run basedpyright src tests
-```
-
-Garage UI is available at <http://localhost:8080>. Log in with the
-`GARAGE_ADMIN_TOKEN` value from `.env`.

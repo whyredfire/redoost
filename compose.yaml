@@ -10,9 +10,6 @@ services:
       GARAGE_DEFAULT_ACCESS_KEY: ${GARAGE_DEFAULT_ACCESS_KEY}
       GARAGE_DEFAULT_SECRET_KEY: ${GARAGE_DEFAULT_SECRET_KEY}
       GARAGE_DEFAULT_BUCKET: ${GARAGE_DEFAULT_BUCKET}
-    ports:
-      - "3900:3900"
-      - "3902:3902"
     volumes:
       - ./garage.toml:/etc/garage.toml:ro
       - garage-meta:/var/lib/garage/meta
@@ -38,23 +35,86 @@ services:
     ports:
       - "8080:8080"
 
-  nginx:
+  init:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    command: ["uv", "run", "--no-sync", "python", "-m", "scripts.setup_bucket"]
+    env_file: .env
+    depends_on:
+      garage:
+        condition: service_healthy
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    env_file: .env
+    environment:
+      REDOOST_DATABASE_URL: sqlite+aiosqlite:///./data/redoost.db
+      REDOOST_RELOAD: "true"
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    volumes:
+      - api-data:/app/data
+    develop:
+      watch:
+        - action: sync
+          path: ./backend/src
+          target: /app/src
+        - action: sync
+          path: ./backend/tests
+          target: /app/tests
+        - action: rebuild
+          path: ./backend/uv.lock
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    environment:
+      BUN_PUBLIC_SITES_ORIGIN: http://${REDOOST_SITES_DOMAIN}:8081
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend/src
+          target: /app/src
+        - action: sync
+          path: ./frontend/styles
+          target: /app/styles
+        - action: rebuild
+          path: ./frontend/bun.lock
+
+  sites:
     image: nginx:1.31.6-alpine-slim@sha256:b54a1a3219e4b8b90fd4d5d383af7f8843a7b34a8079897cb83487a6a3e1aff3
     depends_on:
       garage:
         condition: service_healthy
+      api:
+        condition: service_started
     environment:
       REDOOST_S3_BUCKET: ${REDOOST_S3_BUCKET}
       REDOOST_SITES_DOMAIN: ${REDOOST_SITES_DOMAIN}
       REDOOST_API_UPSTREAM: ${REDOOST_API_UPSTREAM}
       REDOOST_S3_WEBSITE_UPSTREAM: ${REDOOST_S3_WEBSITE_UPSTREAM}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./sites.conf:/etc/nginx/templates/default.conf.template:ro
+
+  gateway:
+    image: nginx:1.31.6-alpine-slim@sha256:b54a1a3219e4b8b90fd4d5d383af7f8843a7b34a8079897cb83487a6a3e1aff3
+    depends_on:
+      - api
+      - frontend
+      - sites
+    environment:
+      REDOOST_SITES_DOMAIN: ${REDOOST_SITES_DOMAIN}
     ports:
       - "8081:80"
     volumes:
-      - ./nginx.conf:/etc/nginx/templates/default.conf.template:ro
+      - ./gateway.conf:/etc/nginx/templates/default.conf.template:ro
 
 volumes:
   garage-meta:
   garage-data:
+  api-data:

@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="REDOOST_", extra="ignore")
 
     log_level: Literal["INFO", "VERBOSE"] = Field(description="Log verbosity")
+    app_origin: str = Field(description="Frontend origin allowed to upload to S3")
+    reload: bool = Field(default=False, description="Reload the API on code changes")
     database_url: str = Field(
         default="sqlite+aiosqlite:///./redoost.db",
         description="Async SQLAlchemy database URL",

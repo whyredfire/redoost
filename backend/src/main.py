@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import SQLAlchemyError
 
+from .config import settings
 from .database import check_database, create_tables
 from .deployments import router as deployments_router
 from .sites import router as sites_router
@@ -43,4 +44,4 @@ async def health() -> HealthResponse | JSONResponse:
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("src.main:app", host="0.0.0.0", port=8000, reload=settings.reload)

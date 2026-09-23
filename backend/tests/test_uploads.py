@@ -26,7 +26,8 @@ def digest(content: bytes) -> str:
     return base64.b64encode(hashlib.sha256(content).digest()).decode()
 
 
-@pytest.fixture
+# Checked once, so the tests skip quickly when Garage is unreachable
+@pytest.fixture(scope="session")
 def s3() -> Any:
     try:
         asyncio.run(check_storage())

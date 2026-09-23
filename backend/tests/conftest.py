@@ -4,10 +4,13 @@ from collections.abc import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
-# Real values from --env-file take precedence, which enables the Garage tests
+# Tests never touch the real database
+os.environ["REDOOST_DATABASE_URL"] = "sqlite+aiosqlite://"
+
+# Real values from the environment take precedence, which enables the Garage tests
 for name, value in {
     "REDOOST_LOG_LEVEL": "INFO",
-    "REDOOST_DATABASE_URL": "sqlite+aiosqlite://",
+    "REDOOST_APP_ORIGIN": "http://localhost:5173",
     "REDOOST_S3_ENDPOINT": "http://127.0.0.1:3900",
     "REDOOST_S3_PUBLIC_ENDPOINT": "http://127.0.0.1:3900",
     "REDOOST_S3_REGION": "garage",
