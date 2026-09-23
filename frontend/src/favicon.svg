@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    rect { fill: #171717; }
+    text { fill: #fafafa; }
+    @media (prefers-color-scheme: dark) {
+      rect { fill: #ebebeb; }
+      text { fill: #171717; }
+    }
+  </style>
+  <rect width="32" height="32" rx="8" />
+  <text x="16" y="23" font-family="ui-sans-serif, system-ui, sans-serif" font-size="23" font-weight="600" text-anchor="middle">r.</text>
+</svg>
