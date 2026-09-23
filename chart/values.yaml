@@ -40,8 +40,8 @@ s3:
 api:
   image:
     repository: ghcr.io/whyredfire/redoost-api
-    tag: ""
-    pullPolicy: IfNotPresent
+    tag: latest
+    pullPolicy: Always
   replicas: 1
   logLevel: INFO
   maxFileSize: 10MiB
@@ -62,8 +62,8 @@ api:
 frontend:
   image:
     repository: ghcr.io/whyredfire/redoost-frontend
-    tag: ""
-    pullPolicy: IfNotPresent
+    tag: latest
+    pullPolicy: Always
   replicas: 1
   resources:
     requests:
