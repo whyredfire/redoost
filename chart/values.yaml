@@ -14,6 +14,9 @@ httpRoute:
     parentRefs:
       - name: gateway
         sectionName: https
+    # Services to route to instead of the API and frontend, e.g. proxies ({name, port})
+    apiBackendRef: {}
+    frontendBackendRef: {}
   sites:
     parentRefs:
       - name: gateway
