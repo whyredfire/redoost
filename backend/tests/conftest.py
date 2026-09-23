@@ -1,8 +1,10 @@
+import asyncio
 import os
 from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlmodel import SQLModel
 
 # Tests never touch the real database
 os.environ["REDOOST_DATABASE_URL"] = "sqlite+aiosqlite://"
@@ -21,9 +23,18 @@ for name, value in {
     os.environ.setdefault(name, value)
 
 
+async def create_tables() -> None:
+    from src.database import engine
+
+    async with engine.begin() as connection:
+        await connection.run_sync(SQLModel.metadata.create_all)
+
+
 @pytest.fixture
 def client() -> Iterator[TestClient]:
     from src.main import app
 
+    # Migrations are checked in test_migrations.py; here the models are enough
+    asyncio.run(create_tables())
     with TestClient(app) as test_client:
         yield test_client

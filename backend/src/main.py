@@ -1,6 +1,4 @@
 import asyncio
-from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
 from typing import Literal
 
 import uvicorn
@@ -11,19 +9,12 @@ from pydantic import BaseModel, Field
 from sqlalchemy.exc import SQLAlchemyError
 
 from .config import settings
-from .database import check_database, create_tables
+from .database import check_database
 from .deployments import router as deployments_router
 from .sites import router as sites_router
 from .storage import check_storage
 
-
-@asynccontextmanager
-async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
-    await create_tables()
-    yield
-
-
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 app.include_router(deployments_router)
 app.include_router(sites_router)
 

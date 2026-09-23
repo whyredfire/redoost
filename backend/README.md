@@ -30,6 +30,23 @@ policy's `fields` first and the file last as `file`. Policies are bound to the
 file's key, size, content type, and SHA-256, and expire after
 `REDOOST_UPLOAD_WINDOW` (default 1 hour, at most 24 hours).
 
+## Migrations
+
+Alembic manages the schema, configured under `[tool.alembic]` in
+`pyproject.toml`. The one-off `migrate` service runs `alembic upgrade head`
+before `api` starts, like an init container on the API pod would. Watch mode
+reruns it when `migrations/` changes.
+
+After changing a model, generate a migration from the repository root. Mounting
+`migrations/` writes the new file back to your checkout:
+
+```sh
+docker compose run --rm --no-deps -v ./backend/migrations:/app/migrations migrate uv run --no-sync alembic revision --autogenerate -m "Describe the change"
+```
+
+Review the generated file before committing. `tests/test_migrations.py` fails
+if a model changes without a migration.
+
 ## Checks
 
 Run from the repository root while the stack is up. Tests use an in-memory
@@ -40,5 +57,5 @@ from inside the container:
 docker compose exec -e REDOOST_S3_PUBLIC_ENDPOINT=http://garage:3900 api uv run --no-sync python -m pytest
 docker compose exec api uv run --no-sync ruff check .
 docker compose exec api uv run --no-sync ruff format --check .
-docker compose exec api uv run --no-sync basedpyright src scripts tests
+docker compose exec api uv run --no-sync basedpyright src scripts tests migrations
 ```

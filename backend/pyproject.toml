@@ -10,6 +10,7 @@ requires-python = ">=3.14"
 dependencies = [
     "aioboto3>=15.5.0",
     "aiosqlite>=0.22.1",
+    "alembic>=1.20.0",
     "coolname>=5.0.0",
     "fastapi>=0.141.1",
     "greenlet>=3.5.6",
@@ -31,3 +32,19 @@ package = false
 
 [tool.pyright]
 typeCheckingMode = "standard"
+
+[tool.alembic]
+script_location = "%(here)s/migrations"
+prepend_sys_path = ["."]
+
+[[tool.alembic.post_write_hooks]]
+name = "ruff_format"
+type = "module"
+module = "ruff"
+options = "format REVISION_SCRIPT_FILENAME"
+
+[[tool.alembic.post_write_hooks]]
+name = "ruff_check"
+type = "module"
+module = "ruff"
+options = "check --fix REVISION_SCRIPT_FILENAME"

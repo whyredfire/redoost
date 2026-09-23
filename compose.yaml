@@ -45,6 +45,22 @@ services:
       garage:
         condition: service_healthy
 
+  # Stands in for an init container on the API pod
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    command: ["uv", "run", "--no-sync", "alembic", "upgrade", "head"]
+    env_file: .env
+    environment:
+      REDOOST_DATABASE_URL: sqlite+aiosqlite:///./data/redoost.db
+    volumes:
+      - api-data:/app/data
+    develop:
+      watch:
+        - action: rebuild
+          path: ./backend/migrations
+
   api:
     build:
       context: ./backend
@@ -55,6 +71,8 @@ services:
       REDOOST_RELOAD: "true"
     depends_on:
       init:
+        condition: service_completed_successfully
+      migrate:
         condition: service_completed_successfully
     volumes:
       - api-data:/app/data
