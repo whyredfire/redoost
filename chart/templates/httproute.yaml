@@ -12,7 +12,7 @@ metadata:
   {{- end }}
 spec:
   parentRefs:
-    {{- toYaml .Values.httpRoute.parentRefs | nindent 4 }}
+    {{- toYaml .Values.httpRoute.app.parentRefs | nindent 4 }}
   hostnames:
     - {{ (urlParse .Values.appOrigin).hostname }}
   rules:
@@ -44,7 +44,7 @@ metadata:
   {{- end }}
 spec:
   parentRefs:
-    {{- toYaml .Values.httpRoute.parentRefs | nindent 4 }}
+    {{- toYaml .Values.httpRoute.sites.parentRefs | nindent 4 }}
   hostnames:
     - "*.{{ (urlParse .Values.sitesOrigin).hostname }}"
   rules:

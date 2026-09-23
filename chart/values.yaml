@@ -6,11 +6,18 @@ fullnameOverride: ""
 appOrigin: https://redoost.example.com
 sitesOrigin: https://sites.example.com
 
+# The two routes can attach to different listeners, since sites usually have
+# their own domain and certificate
 httpRoute:
   annotations: {}
-  parentRefs:
-    - name: gateway
-      sectionName: https
+  app:
+    parentRefs:
+      - name: gateway
+        sectionName: https
+  sites:
+    parentRefs:
+      - name: gateway
+        sectionName: https
 
 # An existing Garage bucket; the setup Job enables its website endpoint and CORS
 s3:
