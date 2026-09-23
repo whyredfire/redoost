@@ -38,5 +38,25 @@ deployments that are `ready`; anything else gets a "Site not found" page. Sites
 without a top-level `404.html` are treated as single-page apps: missing page
 paths return `index.html`, while missing assets still return 404.
 
+## Kubernetes
+
+The Helm chart in [`chart/`](chart) runs the API, the frontend, and the sites
+Nginx, routed with Gateway API HTTPRoutes. Garage isn't part of the chart; it
+expects:
+
+- a bucket and a key with owner permission on it (the setup Job enables the
+  bucket's website endpoint and CORS),
+- Garage's website endpoint (`[s3_web]`, port 3902) for `s3.websiteUpstream`,
+- a public route to Garage's S3 API for `s3.publicEndpoint`, since browsers
+  upload to it directly,
+- a Gateway listener and wildcard certificate covering `*.<sites host>`.
+
+```sh
+helm install redoost ./chart -f values.yaml
+```
+
+See [`chart/values.yaml`](chart/values.yaml) for the settings. The API runs as a
+single replica with the `Recreate` strategy, since SQLite lives on one volume.
+
 See [`backend/README.md`](backend/README.md) and
 [`frontend/README.md`](frontend/README.md) for the API and checks.

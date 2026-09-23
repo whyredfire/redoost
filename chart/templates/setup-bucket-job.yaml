@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "redoost.fullname" . }}-setup-bucket
+  labels:
+    {{- include "redoost.labels" . | nindent 4 }}
+    app.kubernetes.io/component: setup-bucket
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "redoost.labels" . | nindent 8 }}
+        app.kubernetes.io/component: setup-bucket
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        {{- include "redoost.podSecurityContext" . | nindent 8 }}
+      containers:
+        - name: setup-bucket
+          image: {{ include "redoost.image" (dict "image" .Values.api.image "context" $) }}
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          command: ["python", "-m", "scripts.setup_bucket"]
+          envFrom:
+            {{- include "redoost.apiEnvFrom" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+          securityContext:
+            {{- include "redoost.securityContext" . | nindent 12 }}

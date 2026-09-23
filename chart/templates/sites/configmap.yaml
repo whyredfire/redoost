@@ -1,0 +1,113 @@
+{{- $sitesDomain := (urlParse .Values.sitesOrigin).hostname -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "redoost.fullname" . }}-sites
+  labels:
+    {{- include "redoost.labels" . | nindent 4 }}
+    app.kubernetes.io/component: sites
+data:
+  # A copy of sites.conf at the repository root, which Compose uses
+  default.conf: |
+    upstream api {
+        server {{ include "redoost.fullname" . }}-api:8000;
+    }
+
+    upstream garage {
+        server {{ .Values.s3.websiteUpstream }};
+    }
+
+    proxy_cache_path /var/cache/nginx/sites keys_zone=sites:10m inactive=10m;
+
+    # The slug is the first label of the host, e.g. brave-otter-1a2b.sites.localhost
+    map $host $slug {
+        "~^(?<name>[a-z]+(-[a-z]+)+-[0-9a-f]{4})\.{{ $sitesDomain }}$" $name;
+    }
+
+    # On SPA sites, missing pages (no extension) fall back to index.html
+    map "$spa:$uri" $missing {
+        "~^1:.*/[^/.]*$" spa;
+        default page;
+    }
+
+    server {
+        listen 8080 default_server;
+        error_page 403 404 =404 @notfound;
+        # Lets @missing hand non-SPA 404s on to @page404
+        recursive_error_pages on;
+        # Keep redirects relative so they work behind any host port
+        absolute_redirect off;
+
+        if ($slug = "") {
+            return 404;
+        }
+
+        location / {
+            auth_request /_redoost/site;
+            auth_request_set $spa $upstream_http_x_site_spa;
+            error_page 403 =404 @notfound;
+            error_page 404 = @missing;
+
+            rewrite ^ /$slug$uri break;
+            proxy_pass http://garage;
+            proxy_set_header Host {{ .Values.s3.bucket }};
+            proxy_intercept_errors on;
+            # Garage redirects /docs to /<slug>/docs/, drop the slug again
+            proxy_redirect ~^(?:https?://[^/]+)?/[^/]+(/.*)$ $1;
+        }
+
+        location = /_redoost/site {
+            internal;
+            proxy_pass http://api/internal/sites/$slug;
+            proxy_pass_request_body off;
+            proxy_set_header Content-Length "";
+            proxy_cache sites;
+            proxy_cache_key $slug;
+            # Short enough that deleted sites stop being served within a minute
+            proxy_cache_valid 204 1m;
+            proxy_cache_valid 403 5s;
+        }
+
+        location @missing {
+            error_page 404 @page404;
+            if ($missing = page) {
+                return 404;
+            }
+            rewrite ^ /$slug/index.html break;
+            proxy_pass http://garage;
+            proxy_set_header Host {{ .Values.s3.bucket }};
+            proxy_intercept_errors on;
+        }
+
+        location @page404 {
+            rewrite ^ /$slug/404.html break;
+            proxy_pass http://garage;
+            proxy_set_header Host {{ .Values.s3.bucket }};
+            # Only fails once a site's files are gone, e.g. just after deleting it
+            proxy_intercept_errors on;
+        }
+
+        location @notfound {
+            default_type text/html;
+            return 404 '<!doctype html>
+    <html lang="en">
+    <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Site not found · redoost</title>
+    <style>
+      :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+      body { min-height: 100vh; margin: 0; display: grid; place-items: center; text-align: center; }
+      p { color: GrayText; }
+    </style>
+    </head>
+    <body>
+    <main>
+      <h1>Site not found</h1>
+      <p>There is no redoost site at this address. Check the link for typos.</p>
+    </main>
+    </body>
+    </html>
+    ';
+        }
+    }

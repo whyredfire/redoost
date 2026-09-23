@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "redoost.fullname" . }}-sites
+  labels:
+    {{- include "redoost.labels" . | nindent 4 }}
+    app.kubernetes.io/component: sites
+spec:
+  replicas: {{ .Values.sites.replicas }}
+  selector:
+    matchLabels:
+      {{- include "redoost.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: sites
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/sites/configmap.yaml") . | sha256sum }}
+      labels:
+        {{- include "redoost.labels" . | nindent 8 }}
+        app.kubernetes.io/component: sites
+    spec:
+      securityContext:
+        {{- include "redoost.podSecurityContext" . | nindent 8 }}
+      containers:
+        - name: sites
+          image: {{ include "redoost.image" (dict "image" .Values.sites.image "context" $) }}
+          imagePullPolicy: {{ .Values.sites.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            tcpSocket:
+              port: http
+          livenessProbe:
+            tcpSocket:
+              port: http
+          resources:
+            {{- toYaml .Values.sites.resources | nindent 12 }}
+          securityContext:
+            {{- include "redoost.securityContext" . | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/nginx/conf.d
+            # Nginx keeps its pid and temporary files here
+            - name: tmp
+              mountPath: /tmp
+            # Readiness cache
+            - name: cache
+              mountPath: /var/cache/nginx
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "redoost.fullname" . }}-sites
+        - name: tmp
+          emptyDir: {}
+        - name: cache
+          emptyDir: {}
