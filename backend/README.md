@@ -9,7 +9,9 @@ in Compose (see the root README).
 - `POST /api/deployments`: create a deployment from a manifest of
   `{"path", "size", "sha256"}` files, where `sha256` is the base64-encoded
   digest. Returns the slug, a management token, and one signed upload policy
-  per file.
+  per file. Send a token from an earlier deployment to reuse it; unknown
+  tokens get 403.
+- `GET /api/deployments`: ready deployments for the token, newest first.
 - `GET /api/deployments/{slug}`: deployment status. Requires
   `Authorization: Bearer <token>`.
 - `POST /api/deployments/{slug}/complete`: marks the deployment `ready` once

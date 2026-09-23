@@ -87,7 +87,9 @@ class DeploymentBase(SQLModel):
 
 
 class Deployment(DeploymentBase, table=True):
-    token_hash: str = Field(description="SHA-256 hash of the management token")
+    token_hash: str = Field(
+        index=True, description="SHA-256 hash of the management token"
+    )
 
 
 class UploadPolicy(SQLModel):
@@ -96,6 +98,6 @@ class UploadPolicy(SQLModel):
 
 
 class DeploymentCreated(DeploymentBase):
-    token: str = Field(description="Management token, only returned once")
+    token: str = Field(description="Management token, reusable for later deployments")
     upload_url: str = Field(description="URL to POST each file to")
     uploads: list[UploadPolicy] = Field(description="Signed upload policy per file")

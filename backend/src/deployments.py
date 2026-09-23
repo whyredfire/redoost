@@ -6,6 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlmodel import col, select
 
 from .database import Session
 from .models import (
@@ -20,10 +21,21 @@ from .storage import count_objects, sign_uploads
 router = APIRouter(prefix="/api/deployments", tags=["deployments"])
 
 Credentials = Annotated[HTTPAuthorizationCredentials, Depends(HTTPBearer())]
+OptionalCredentials = Annotated[
+    HTTPAuthorizationCredentials | None, Depends(HTTPBearer(auto_error=False))
+]
 
 
 def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+async def check_token(session: Session, token_hash: str) -> None:
+    # Only tokens issued with an earlier deployment are valid
+    query = select(Deployment.slug).where(Deployment.token_hash == token_hash)
+    result = await session.exec(query.limit(1))
+    if result.first() is None:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Invalid token")
 
 
 async def get_deployment(
@@ -43,8 +55,14 @@ OwnedDeployment = Annotated[Deployment, Depends(get_deployment)]
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-async def create_deployment(manifest: Manifest, session: Session) -> DeploymentCreated:
-    token = secrets.token_urlsafe(32)
+async def create_deployment(
+    manifest: Manifest, session: Session, credentials: OptionalCredentials
+) -> DeploymentCreated:
+    if credentials:
+        token = credentials.credentials
+        await check_token(session, hash_token(token))
+    else:
+        token = secrets.token_urlsafe(32)
     deployment = Deployment(
         token_hash=hash_token(token),
         file_count=len(manifest.files),
@@ -57,6 +75,22 @@ async def create_deployment(manifest: Manifest, session: Session) -> DeploymentC
     return DeploymentCreated(
         **deployment.model_dump(), token=token, upload_url=upload_url, uploads=uploads
     )
+
+
+@router.get("")
+async def list_deployments(
+    session: Session, credentials: Credentials
+) -> list[DeploymentBase]:
+    token_hash = hash_token(credentials.credentials)
+    await check_token(session, token_hash)
+    query = (
+        select(Deployment)
+        .where(Deployment.token_hash == token_hash)
+        .where(Deployment.state == DeploymentState.ready)
+        .order_by(col(Deployment.created_at).desc())
+    )
+    result = await session.exec(query)
+    return list(result.all())
 
 
 @router.get("/{slug}")

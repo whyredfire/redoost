@@ -1,6 +1,7 @@
 import type { UploadSession } from "./deploy";
 
 const storageKey = "redoost.upload";
+const tokenKey = "redoost.token";
 
 export function loadSession(): UploadSession | null {
   try {
@@ -25,4 +26,17 @@ export function saveSession(session: UploadSession) {
 
 export function clearSession() {
   sessionStorage.removeItem(storageKey);
+}
+
+// Kept across tabs so every site published from this browser shares it
+export function loadToken() {
+  return localStorage.getItem(tokenKey);
+}
+
+export function saveToken(token: string) {
+  localStorage.setItem(tokenKey, token);
+}
+
+export function clearToken() {
+  localStorage.removeItem(tokenKey);
 }

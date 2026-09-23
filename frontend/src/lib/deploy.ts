@@ -7,6 +7,7 @@ export type Deployment = {
   state: "uploading" | "ready";
   file_count: number;
   total_size: number;
+  created_at: string;
   expires_at: string;
 };
 
@@ -20,6 +21,15 @@ export type UploadSession = {
   deployment: CreatedDeployment;
   manifest: ManifestFile[];
 };
+
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
 
 class UploadError extends Error {
   constructor(
@@ -39,18 +49,26 @@ async function readResponse<T>(response: Response): Promise<T> {
       : typeof detail === "string"
         ? detail
         : `Request failed (${response.status}).`;
-    throw new Error(message);
+    throw new ApiError(response.status, message);
   }
   return response.json() as Promise<T>;
 }
 
+function authorization(token: string) {
+  return { Authorization: `Bearer ${token}` };
+}
+
 export async function createDeployment(
   files: ManifestFile[],
+  token: string | null,
   signal: AbortSignal,
 ) {
   const response = await fetch("/api/deployments", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token && authorization(token)),
+    },
     body: JSON.stringify({ files }),
     signal,
   });
@@ -63,10 +81,17 @@ export async function completeDeployment(
 ) {
   const response = await fetch(`/api/deployments/${deployment.slug}/complete`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${deployment.token}` },
+    headers: authorization(deployment.token),
     signal,
   });
   return readResponse<Deployment>(response);
+}
+
+export async function listDeployments(token: string) {
+  const response = await fetch("/api/deployments", {
+    headers: authorization(token),
+  });
+  return readResponse<Deployment[]>(response);
 }
 
 // XHR instead of fetch because fetch can't report upload progress

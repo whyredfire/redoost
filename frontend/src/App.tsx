@@ -1,17 +1,29 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FolderDrop } from "@/components/folder-drop";
+import { SiteList } from "@/components/site-list";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import {
+  ApiError,
   completeDeployment,
   createDeployment,
+  listDeployments,
   uploadFiles,
+  type Deployment,
   type ManifestFile,
   type UploadSession,
 } from "@/lib/deploy";
-import { clearSession, loadSession, saveSession } from "@/lib/session";
+import { formatBytes, siteUrl } from "@/lib/format";
+import {
+  clearSession,
+  clearToken,
+  loadSession,
+  loadToken,
+  saveSession,
+  saveToken,
+} from "@/lib/session";
 import { fileManifest, type SiteFile } from "@/lib/site-files";
 
 type Stage =
@@ -28,20 +40,6 @@ const statusText: Partial<Record<Stage, string>> = {
   creating: "Preparing upload…",
   completing: "Publishing site…",
 };
-
-function siteUrl(slug: string) {
-  const origin = process.env.BUN_PUBLIC_SITES_ORIGIN;
-  if (!origin) return null;
-  const url = new URL(origin);
-  url.hostname = `${slug}.${url.hostname}`;
-  return url.origin;
-}
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KiB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
-}
 
 function sameManifest(a: ManifestFile[], b: ManifestFile[]) {
   return (
@@ -64,6 +62,7 @@ export function App() {
   const [message, setMessage] = useState("");
   const [progress, setProgress] = useState<Record<string, number>>({});
   const [uploaded, setUploaded] = useState(0);
+  const [sites, setSites] = useState<Deployment[]>([]);
   const controller = useRef<AbortController | null>(null);
 
   const busy = ["hashing", "creating", "uploading", "completing"].includes(
@@ -73,6 +72,22 @@ export function App() {
   const loaded = Object.values(progress).reduce((sum, bytes) => sum + bytes, 0);
   const percentage = totalSize ? Math.round((loaded / totalSize) * 100) : 0;
   const publishedUrl = session ? siteUrl(session.deployment.slug) : null;
+
+  async function refreshSites() {
+    const token = loadToken();
+    if (!token) return;
+    try {
+      const deployments = await listDeployments(token);
+      setSites(deployments);
+    } catch (error) {
+      // The token is unknown to the API, so the next publish starts a new one
+      if (error instanceof ApiError && error.status === 403) clearToken();
+    }
+  }
+
+  useEffect(() => {
+    void refreshSites();
+  }, []);
 
   function selectFiles(selected: SiteFile[]) {
     if (!selected.length) {
@@ -109,10 +124,13 @@ export function App() {
       let active = session;
       if (!active) {
         setStage("creating");
-        active = {
-          deployment: await createDeployment(manifest, abort.signal),
+        const deployment = await createDeployment(
           manifest,
-        };
+          loadToken(),
+          abort.signal,
+        );
+        active = { deployment, manifest };
+        saveToken(active.deployment.token);
         saveSession(active);
         setSession(active);
       } else if (Date.now() >= Date.parse(active.deployment.expires_at)) {
@@ -143,6 +161,7 @@ export function App() {
       saveSession(finished);
       setSession(finished);
       setStage("ready");
+      void refreshSites();
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
         setMessage("Upload cancelled.");
@@ -300,6 +319,8 @@ export function App() {
           </div>
         </>
       )}
+
+      {sites.length > 0 && <SiteList sites={sites} />}
     </main>
   );
 }

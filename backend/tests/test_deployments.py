@@ -238,6 +238,48 @@ def test_complete_requires_its_token(client: TestClient) -> None:
     assert complete(client, {**created, "token": "wrong"}).status_code == 403
 
 
+def test_create_deployment_reuses_token(client: TestClient) -> None:
+    first = client.post(URL, json=manifest("index.html")).json()
+    second = client.post(
+        URL, json=manifest("index.html"), headers=bearer(first["token"])
+    ).json()
+
+    assert second["token"] == first["token"]
+    assert second["slug"] != first["slug"]
+
+
+def test_create_deployment_rejects_unknown_token(client: TestClient) -> None:
+    response = client.post(URL, json=manifest("index.html"), headers=bearer("x"))
+
+    assert response.status_code == 403
+
+
+def test_list_ready_deployments_for_token(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(deployments, "count_objects", uploaded(1))
+    first = client.post(URL, json=manifest("index.html")).json()
+    headers = bearer(first["token"])
+    second = client.post(URL, json=manifest("index.html"), headers=headers).json()
+    unfinished = client.post(URL, json=manifest("index.html"), headers=headers).json()
+    other = client.post(URL, json=manifest("index.html")).json()
+    for created in (first, second, other):
+        complete(client, created)
+
+    response = client.get(URL, headers=headers)
+    assert response.status_code == 200
+    assert [site["slug"] for site in response.json()] == [
+        second["slug"],
+        first["slug"],
+    ]
+    assert unfinished["slug"] not in response.text
+
+
+def test_list_deployments_requires_known_token(client: TestClient) -> None:
+    assert client.get(URL).status_code == 401
+    assert client.get(URL, headers=bearer("x")).status_code == 403
+
+
 def resolve(client: TestClient, slug: str) -> Response:
     return client.get(f"/internal/sites/{slug}")
 

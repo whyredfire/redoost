@@ -29,7 +29,8 @@ async function readDirectory(
     );
     if (entries.length === 0) break;
     for (const child of entries) {
-      files.push(...(await readEntry(child, prefix)));
+      const childFiles = await readEntry(child, prefix);
+      files.push(...childFiles);
     }
   }
   return files;
@@ -52,17 +53,16 @@ export async function droppedFiles(
     throw new Error("Drop one folder, or use the folder picker.");
   }
 
-  return (await readDirectory(entries[0] as FileSystemDirectoryEntry, "")).sort(
-    (a, b) => a.path.localeCompare(b.path),
-  );
+  const files = await readDirectory(entries[0] as FileSystemDirectoryEntry, "");
+  return files.sort((a, b) => a.path.localeCompare(b.path));
 }
 
 export async function fileManifest(files: SiteFile[]) {
   const manifest = [];
   for (const { path, file } of files) {
-    const digest = new Uint8Array(
-      await crypto.subtle.digest("SHA-256", await file.arrayBuffer()),
-    );
+    const contents = await file.arrayBuffer();
+    const hash = await crypto.subtle.digest("SHA-256", contents);
+    const digest = new Uint8Array(hash);
     manifest.push({
       path,
       size: file.size,

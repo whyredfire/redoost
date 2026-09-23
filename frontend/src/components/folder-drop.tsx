@@ -25,7 +25,8 @@ export function FolderDrop({ disabled, onFiles, onError }: Props) {
         setDragging(false);
         if (disabled) return;
         try {
-          onFiles(await droppedFiles(event.dataTransfer.items));
+          const files = await droppedFiles(event.dataTransfer.items);
+          onFiles(files);
         } catch (error) {
           onError(error instanceof Error ? error.message : String(error));
         }
