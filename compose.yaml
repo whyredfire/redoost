@@ -12,8 +12,7 @@ services:
       GARAGE_DEFAULT_BUCKET: ${GARAGE_DEFAULT_BUCKET}
     volumes:
       - ./garage.toml:/etc/garage.toml:ro
-      - garage-meta:/var/lib/garage/meta
-      - garage-data:/var/lib/garage/data
+      - garage-data:/var/lib/garage
     healthcheck:
       test: ["CMD", "/garage", "status"]
       interval: 5s
@@ -92,7 +91,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.dev
     environment:
-      BUN_PUBLIC_SITES_ORIGIN: http://${REDOOST_SITES_DOMAIN}:8081
+      REDOOST_SITES_ORIGIN: http://${REDOOST_SITES_DOMAIN}:8081
     develop:
       watch:
         - action: sync
@@ -133,6 +132,5 @@ services:
       - ./gateway.conf:/etc/nginx/templates/default.conf.template:ro
 
 volumes:
-  garage-meta:
   garage-data:
   api-data:

@@ -14,7 +14,9 @@ docker compose watch
 
 `docker compose watch` syncs source changes into the containers, where the API
 and frontend reload in place. Lockfile changes rebuild the image. The
-`Dockerfile.dev` images are for development only.
+`Dockerfile.dev` images are for development only; `backend/Dockerfile`
+(distroless, non-root) and `frontend/Dockerfile` (unprivileged Nginx serving the
+build) are the production images.
 
 Only two ports are published. The `gateway` service stands in for the
 cluster's ingress and routes by host; everything else stays on the Compose

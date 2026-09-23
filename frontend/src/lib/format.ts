@@ -1,7 +1,8 @@
+import { config } from "./config";
+
 export function siteUrl(slug: string) {
-  const origin = process.env.BUN_PUBLIC_SITES_ORIGIN;
-  if (!origin) return null;
-  const url = new URL(origin);
+  if (!config.sitesOrigin) return null;
+  const url = new URL(config.sitesOrigin);
   url.hostname = `${slug}.${url.hostname}`;
   return url.origin;
 }
