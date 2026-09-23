@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { FolderDrop } from "@/components/folder-drop";
 import { SiteList } from "@/components/site-list";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { TokenDialog } from "@/components/token-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -92,6 +93,13 @@ export function App() {
   useEffect(() => {
     void refreshSites();
   }, []);
+
+  async function importToken(token: string) {
+    // Listing checks the token before it replaces the current one
+    const deployments = await listDeployments(token);
+    saveToken(token);
+    setSites(deployments);
+  }
 
   async function deleteSite(slug: string) {
     const token = loadToken();
@@ -193,7 +201,8 @@ export function App() {
           r.
         </span>
         redoost
-        <div className="ml-auto">
+        <div className="ml-auto flex gap-1">
+          <TokenDialog onImport={importToken} />
           <ThemeToggle />
         </div>
       </header>
