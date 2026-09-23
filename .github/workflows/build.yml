@@ -47,3 +47,23 @@ jobs:
         - registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+  update-chart:
+    needs: build
+    runs-on: ubuntu-slim
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Point the chart at the new images
+        run: |
+          export TAG="sha-${GITHUB_SHA::7}"
+          # yq drops blank lines, so only its changes are applied, as a patch
+          # https://stackoverflow.com/questions/57627243/how-to-prevent-yq-removing-comments-and-empty-lines#comment115811480_57938189
+          yq '.api.image.tag = strenv(TAG) | .frontend.image.tag = strenv(TAG)' chart/values.yaml |
+            diff -B chart/values.yaml - | patch chart/values.yaml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore(chart): Update image tags to ${TAG}"
+          git pull --rebase
+          git push
