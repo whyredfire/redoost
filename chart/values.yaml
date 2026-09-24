@@ -1,6 +1,9 @@
 nameOverride: ""
 fullnameOverride: ""
 
+# Old ReplicaSets kept per deployment, for rollbacks
+revisionHistoryLimit: 3
+
 # Where browsers reach the dashboard and the published sites. Sites are served
 # at <slug>.<sites host>, which needs a wildcard DNS record and certificate.
 appOrigin: https://redoost.example.com
