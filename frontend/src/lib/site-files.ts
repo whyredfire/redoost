@@ -36,11 +36,32 @@ async function readDirectory(
   return files;
 }
 
+// Without index.html, a lone root HTML file becomes the home page
+function toSite(files: SiteFile[]): SiteFile[] {
+  const sorted = files.sort((a, b) => a.path.localeCompare(b.path));
+  if (!sorted.length || sorted.some(({ path }) => path === "index.html")) {
+    return sorted;
+  }
+
+  const pages = sorted.filter(({ path }) => /^[^/]+\.html?$/i.test(path));
+  if (pages.length === 1) {
+    const renamed = sorted.map((file) =>
+      file === pages[0] ? { ...file, path: "index.html" } : file,
+    );
+    return renamed.sort((a, b) => a.path.localeCompare(b.path));
+  }
+  if (sorted.length === 1) throw new Error("Choose an HTML file or a folder.");
+  throw new Error("Add index.html at the root, or choose a single HTML page.");
+}
+
 export function pickedFiles(files: FileList): SiteFile[] {
-  return Array.from(files, (file) => ({
-    file,
-    path: file.webkitRelativePath.split("/").slice(1).join("/"),
-  })).sort((a, b) => a.path.localeCompare(b.path));
+  // Folder picks include the folder's name; single file picks have no path
+  return toSite(
+    Array.from(files, (file) => ({
+      file,
+      path: file.webkitRelativePath.split("/").slice(1).join("/") || file.name,
+    })),
+  );
 }
 
 export async function droppedFiles(
@@ -49,12 +70,16 @@ export async function droppedFiles(
   const entries = Array.from(items, (item) => item.webkitGetAsEntry()).filter(
     (entry): entry is FileSystemEntry => entry !== null,
   );
-  if (entries.length !== 1 || !entries[0]!.isDirectory) {
-    throw new Error("Drop one folder, or use the folder picker.");
+  if (entries.length === 1 && entries[0]!.isDirectory) {
+    const files = await readDirectory(
+      entries[0] as FileSystemDirectoryEntry,
+      "",
+    );
+    return toSite(files);
   }
 
-  const files = await readDirectory(entries[0] as FileSystemDirectoryEntry, "");
-  return files.sort((a, b) => a.path.localeCompare(b.path));
+  const files = await Promise.all(entries.map((entry) => readEntry(entry, "")));
+  return toSite(files.flat());
 }
 
 export async function fileManifest(files: SiteFile[]) {

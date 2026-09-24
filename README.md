@@ -1,8 +1,8 @@
 # redoost
 
 A self-hosted alternative to Vercel Drop and Cloudflare Pages direct uploads.
-Drop a folder with a built static site and get a shareable address, with no
-account and no build step.
+Drop a folder with a built static site, or a single HTML file, and get a
+shareable address, with no account and no build step.
 
 **[Try it at redoost.whyredfire.dev](https://redoost.whyredfire.dev)**
 
