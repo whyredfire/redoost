@@ -45,7 +45,7 @@ export function FolderDrop({ disabled, onFiles, onError }: Props) {
       }}
     >
       <p className="mb-4 text-sm text-muted-foreground">
-        Drop a folder or files here, or choose them from your device.
+        Drop a folder, a zip, or files here, or choose them from your device.
       </p>
       <div className="flex justify-center gap-3">
         <Button

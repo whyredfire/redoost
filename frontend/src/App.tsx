@@ -209,8 +209,8 @@ export function App() {
           A home for your static site.
         </h1>
         <p className="max-w-xl text-muted-foreground">
-          Drop a built site folder or an HTML file and get a shareable address.
-          No account or build step required.
+          Drop a built site folder, a zip, or an HTML file and get a shareable
+          address. No account or build step required.
         </p>
       </div>
 

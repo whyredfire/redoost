@@ -1,3 +1,5 @@
+import { unzip } from "fflate";
+
 export type SiteFile = { path: string; file: File };
 
 async function readEntry(
@@ -36,8 +38,46 @@ async function readDirectory(
   return files;
 }
 
+async function unzipped(archive: File): Promise<SiteFile[]> {
+  const buffer = await archive.arrayBuffer();
+  // fflate always allocates plain ArrayBuffers, which File accepts
+  const entries = await new Promise<Record<string, Uint8Array<ArrayBuffer>>>(
+    (resolve, reject) =>
+      unzip(new Uint8Array(buffer), (error, result) =>
+        error
+          ? reject(new Error("This zip file can't be read."))
+          : resolve(result as Record<string, Uint8Array<ArrayBuffer>>),
+      ),
+  );
+  const files = Object.entries(entries)
+    .filter(([path]) => !path.endsWith("/") && !path.startsWith("__MACOSX/"))
+    .map(([path, contents]) => ({
+      path,
+      file: new File([contents], path.split("/").pop()!),
+    }));
+
+  // Zips often wrap the site in one folder, like my-site/index.html
+  const top = files[0]?.path.split("/")[0];
+  if (files.every(({ path }) => path.startsWith(`${top}/`))) {
+    return files.map((file) => ({
+      ...file,
+      path: file.path.slice(top!.length + 1),
+    }));
+  }
+  return files;
+}
+
+// A lone zip is unpacked and treated like the folder it contains
+async function toSite(files: SiteFile[]): Promise<SiteFile[]> {
+  if (files.length === 1 && /\.zip$/i.test(files[0]!.path)) {
+    const contents = await unzipped(files[0]!.file);
+    return toPages(contents);
+  }
+  return toPages(files);
+}
+
 // Without index.html, a lone root HTML file becomes the home page
-function toSite(files: SiteFile[]): SiteFile[] {
+function toPages(files: SiteFile[]): SiteFile[] {
   const sorted = files.sort((a, b) => a.path.localeCompare(b.path));
   if (!sorted.length || sorted.some(({ path }) => path === "index.html")) {
     return sorted;
@@ -50,11 +90,13 @@ function toSite(files: SiteFile[]): SiteFile[] {
     );
     return renamed.sort((a, b) => a.path.localeCompare(b.path));
   }
-  if (sorted.length === 1) throw new Error("Choose an HTML file or a folder.");
+  if (sorted.length === 1) {
+    throw new Error("Choose an HTML file, a zip, or a folder.");
+  }
   throw new Error("Add index.html at the root, or choose a single HTML page.");
 }
 
-export function pickedFiles(files: FileList): SiteFile[] {
+export function pickedFiles(files: FileList): Promise<SiteFile[]> {
   // Folder picks include the folder's name; single file picks have no path
   return toSite(
     Array.from(files, (file) => ({
