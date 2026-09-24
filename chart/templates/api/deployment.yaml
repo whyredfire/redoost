@@ -28,6 +28,8 @@ spec:
         {{- include "redoost.podSecurityContext" . | nindent 8 }}
         # Lets the image's non-root user write to the SQLite volume
         fsGroup: 65532
+      affinity:
+        {{- include "redoost.apiAffinity" . | nindent 8 }}
       initContainers:
         - name: migrate
           image: {{ include "redoost.image" (dict "image" .Values.api.image "context" $) }}

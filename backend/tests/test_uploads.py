@@ -1,7 +1,7 @@
 import asyncio
 import base64
 import hashlib
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import timedelta
 from typing import Any
 
@@ -172,3 +172,16 @@ def test_delete_removes_uploaded_files(
         Bucket=settings.s3_bucket, Prefix=f"{deployment['slug']}/"
     )
     assert objects["KeyCount"] == 0
+
+
+def test_cleanup_removes_orphaned_files(
+    deployment: dict[str, Any], s3: Any, run_cleanup: Callable[[], tuple[int, int]]
+) -> None:
+    upload(deployment, "index.html", FILES["index.html"])
+    s3.put_object(
+        Bucket=settings.s3_bucket, Key="orphan-test-0000/index.html", Body=b""
+    )
+
+    run_cleanup()
+    assert stored(s3, "orphan-test-0000/index.html") is None
+    assert stored(s3, f"{deployment['slug']}/index.html") is not None

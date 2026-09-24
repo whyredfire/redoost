@@ -64,3 +64,16 @@ Settings shared by the API, its migrations, and the bucket setup Job
 - secretRef:
     name: {{ include "redoost.secretName" . }}
 {{- end }}
+
+{{/*
+Keeps pods that use the SQLite volume on the same node as the API
+*/}}
+{{- define "redoost.apiAffinity" -}}
+podAffinity:
+  requiredDuringSchedulingIgnoredDuringExecution:
+    - labelSelector:
+        matchLabels:
+          {{- include "redoost.selectorLabels" . | nindent 10 }}
+          app.kubernetes.io/component: api
+      topologyKey: kubernetes.io/hostname
+{{- end }}

@@ -1,10 +1,11 @@
 import asyncio
 import os
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import SQLModel
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 # Tests never touch the real database
 os.environ["REDOOST_DATABASE_URL"] = "sqlite+aiosqlite://"
@@ -38,3 +39,15 @@ def client() -> Iterator[TestClient]:
     asyncio.run(create_tables())
     with TestClient(app) as test_client:
         yield test_client
+
+
+@pytest.fixture
+def run_cleanup() -> Callable[[], tuple[int, int]]:
+    from scripts.cleanup import cleanup
+    from src.database import engine
+
+    async def run() -> tuple[int, int]:
+        async with AsyncSession(engine) as session:
+            return await cleanup(session)
+
+    return lambda: asyncio.run(run())

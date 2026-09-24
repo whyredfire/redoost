@@ -49,6 +49,13 @@ docker compose run --rm --no-deps -v ./backend/migrations:/app/migrations migrat
 Review the generated file before committing. `tests/test_migrations.py` fails
 if a model changes without a migration.
 
+## Cleanup
+
+`python -m scripts.cleanup` removes deployments still uploading after their
+upload window, and bucket folders without a deployment, up to 100 of each per
+run. The chart runs it as a CronJob (`cleanup.schedule`, hourly by default);
+in Compose, run it with `docker compose exec api uv run --no-sync python -m scripts.cleanup`.
+
 ## Checks
 
 Run from the repository root while the stack is up. Tests use an in-memory

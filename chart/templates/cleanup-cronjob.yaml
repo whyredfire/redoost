@@ -1,0 +1,43 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "redoost.fullname" . }}-cleanup
+  labels:
+    {{- include "redoost.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cleanup
+spec:
+  schedule: {{ .Values.cleanup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            {{- include "redoost.labels" . | nindent 12 }}
+            app.kubernetes.io/component: cleanup
+        spec:
+          restartPolicy: Never
+          securityContext:
+            {{- include "redoost.podSecurityContext" . | nindent 12 }}
+            fsGroup: 65532
+          affinity:
+            {{- include "redoost.apiAffinity" . | nindent 12 }}
+          containers:
+            - name: cleanup
+              image: {{ include "redoost.image" (dict "image" .Values.api.image "context" $) }}
+              imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+              command: ["python", "-m", "scripts.cleanup"]
+              envFrom:
+                {{- include "redoost.apiEnvFrom" . | nindent 16 }}
+              resources:
+                {{- toYaml .Values.api.resources | nindent 16 }}
+              securityContext:
+                {{- include "redoost.securityContext" . | nindent 16 }}
+              volumeMounts:
+                - name: data
+                  mountPath: /app/data
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: {{ include "redoost.fullname" . }}-api-data

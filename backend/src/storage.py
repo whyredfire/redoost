@@ -45,6 +45,18 @@ async def count_objects(slug: str) -> int:
     return count
 
 
+async def list_slugs() -> list[str]:
+    slugs: list[str] = []
+    async with client(settings.s3_endpoint) as s3:
+        pages = s3.get_paginator("list_objects_v2").paginate(
+            Bucket=settings.s3_bucket, Delimiter="/"
+        )
+        async for page in pages:
+            prefixes = page.get("CommonPrefixes", [])
+            slugs.extend(prefix["Prefix"].removesuffix("/") for prefix in prefixes)
+    return slugs
+
+
 async def delete_objects(slug: str) -> None:
     async with client(settings.s3_endpoint) as s3:
         pages = s3.get_paginator("list_objects_v2").paginate(

@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 from httpx import Response
 
+from scripts import cleanup
 from src import deployments
 from src.config import settings
 from src.storage import content_type
@@ -336,3 +337,36 @@ def test_resolve_site_once_ready(
 
 def test_resolve_unknown_site(client: TestClient) -> None:
     assert resolve(client, "missing-slug-0000").status_code == 403
+
+
+def test_cleanup_removes_expired_uploads_and_orphans(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    run_cleanup: Callable[[], tuple[int, int]],
+) -> None:
+    deleted: list[str] = []
+
+    async def delete_objects(slug: str) -> None:
+        deleted.append(slug)
+
+    monkeypatch.setattr(cleanup, "delete_objects", delete_objects)
+    monkeypatch.setattr(deployments, "count_objects", uploaded(1))
+    ready = client.post(URL, json=manifest("index.html")).json()
+    complete(client, ready)
+    pending = client.post(URL, json=manifest("index.html")).json()
+    monkeypatch.setattr(settings, "upload_window", timedelta(seconds=-1))
+    expired = client.post(URL, json=manifest("index.html")).json()
+
+    async def list_slugs() -> list[str]:
+        return [ready["slug"], pending["slug"], "orphan-slug-0000"]
+
+    monkeypatch.setattr(cleanup, "list_slugs", list_slugs)
+    _, orphaned = run_cleanup()
+
+    assert orphaned == 1
+    assert "orphan-slug-0000" in deleted
+    assert expired["slug"] in deleted
+    assert ready["slug"] not in deleted and pending["slug"] not in deleted
+    for created, code in ((expired, 404), (ready, 200), (pending, 200)):
+        url = f"{URL}/{created['slug']}"
+        assert client.get(url, headers=bearer(created["token"])).status_code == code

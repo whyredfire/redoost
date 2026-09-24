@@ -89,3 +89,7 @@ sites:
     limits:
       cpu: 500m
       memory: 128Mi
+
+# Removes unfinished uploads past their window, and files left without a site
+cleanup:
+  schedule: "0 * * * *"
