@@ -1,7 +1,7 @@
 [project]
 name = "redoost"
 version = "0.1.0"
-description = "Self-hosted alternative for Cloudflare/Vercel Drop"
+description = "Self-hosted static-site publishing with FastAPI, React, Garage, and Nginx"
 readme = "README.md"
 authors = [
     { name = "Karan Parashar", email = "whyredfire@gmail.com" }
