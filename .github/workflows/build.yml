@@ -15,7 +15,39 @@ permissions:
   contents: read
 
 jobs:
+  backend:
+    runs-on: ubuntu-slim
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - run: uv sync --locked
+      - run: uv run ruff format --check .
+      - run: uv run ruff check .
+      - run: uv run basedpyright src scripts tests migrations
+      - run: uv run python -m pytest
+
+  frontend:
+    runs-on: ubuntu-slim
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - run: bun install --frozen-lockfile
+      - run: bunx tsc --noEmit
+      - run: bun run build
+
   build:
+    needs: [backend, frontend]
     strategy:
       matrix:
         include:
