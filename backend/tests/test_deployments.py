@@ -95,6 +95,17 @@ def test_read_deployment_requires_its_token(client: TestClient) -> None:
     assert "token" not in response.json()
 
 
+def test_read_limits(client: TestClient) -> None:
+    response = client.get(f"{URL}/limits")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "max_file_size": settings.max_file_size,
+        "max_deployment_size": settings.max_deployment_size,
+        "max_deployment_files": settings.max_deployment_files,
+    }
+
+
 def test_read_unknown_deployment(client: TestClient) -> None:
     response = client.get(f"{URL}/missing-slug", headers=bearer("token"))
 

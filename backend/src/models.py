@@ -63,6 +63,12 @@ class Manifest(SQLModel):
         return self
 
 
+class Limits(SQLModel):
+    max_file_size: int = Field(ge=0, description="Largest allowed file in bytes")
+    max_deployment_size: int = Field(ge=0, description="Largest allowed site in bytes")
+    max_deployment_files: int = Field(ge=1, description="Most files allowed in a site")
+
+
 class DeploymentBase(SQLModel):
     slug: str = Field(
         default_factory=lambda: f"{generate_slug(2)}-{secrets.token_hex(2)}",

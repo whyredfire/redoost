@@ -9,7 +9,9 @@ import { Progress } from "@/components/ui/progress";
 import {
   completeDeployment,
   createDeployment,
+  readLimits,
   uploadFiles,
+  type Limits,
   type ManifestFile,
   type UploadSession,
 } from "@/lib/deploy";
@@ -21,7 +23,12 @@ import {
   saveSession,
   saveToken,
 } from "@/lib/session";
-import { droppedFiles, fileManifest, type SiteFile } from "@/lib/site-files";
+import {
+  droppedFiles,
+  fileManifest,
+  limitError,
+  type SiteFile,
+} from "@/lib/site-files";
 
 type Stage =
   | "idle"
@@ -69,6 +76,7 @@ export function PublishCard({ onPublished }: { onPublished: () => void }) {
   const [progress, setProgress] = useState<Record<string, number>>({});
   const [uploaded, setUploaded] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const [limits, setLimits] = useState<Limits | null>(null);
   const controller = useRef<AbortController | null>(null);
 
   const busy = ["hashing", "creating", "uploading", "completing"].includes(
@@ -78,9 +86,21 @@ export function PublishCard({ onPublished }: { onPublished: () => void }) {
   const loaded = Object.values(progress).reduce((sum, bytes) => sum + bytes, 0);
   const percentage = totalSize ? Math.round((loaded / totalSize) * 100) : 0;
 
+  useEffect(() => {
+    // Without limits, the API still rejects oversized sites when publishing
+    readLimits()
+      .then(setLimits)
+      .catch(() => {});
+  }, []);
+
   function selectFiles(selected: SiteFile[]) {
     if (!selected.length) {
       setMessage("This folder has no files.");
+      return;
+    }
+    const error = limits && limitError(selected, limits);
+    if (error) {
+      setMessage(error);
       return;
     }
     setFiles(selected);
@@ -206,7 +226,7 @@ export function PublishCard({ onPublished }: { onPublished: () => void }) {
       removeEventListener("dragleave", leave);
       removeEventListener("drop", drop);
     };
-  }, [acceptsDrop]);
+  }, [acceptsDrop, limits]);
 
   if (stage === "ready" && session) {
     const url = siteUrl(session.deployment.slug);

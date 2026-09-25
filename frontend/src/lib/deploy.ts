@@ -11,6 +11,12 @@ export type Deployment = {
   expires_at: string;
 };
 
+export type Limits = {
+  max_file_size: number;
+  max_deployment_size: number;
+  max_deployment_files: number;
+};
+
 export type CreatedDeployment = Deployment & {
   token: string;
   upload_url: string;
@@ -220,4 +226,9 @@ export async function uploadFiles(
   );
   if (error) throw error;
   if (signal.aborted) throw new DOMException("Upload cancelled", "AbortError");
+}
+
+export async function readLimits() {
+  const response = await fetch("/api/deployments/limits");
+  return readResponse<Limits>(response);
 }

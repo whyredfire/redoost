@@ -10,5 +10,6 @@ export function siteUrl(slug: string) {
 export function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KiB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
+  // Number() drops a trailing .0, so 10 MiB isn't shown as 10.0 MiB
+  return `${Number((bytes / (1024 * 1024)).toFixed(1))} MiB`;
 }

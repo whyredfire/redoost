@@ -1,4 +1,6 @@
 import { unzip } from "fflate";
+import type { Limits } from "./deploy";
+import { formatBytes } from "./format";
 
 export type SiteFile = { path: string; file: File };
 
@@ -137,4 +139,20 @@ export async function fileManifest(files: SiteFile[]) {
     });
   }
   return manifest;
+}
+
+// Mirrors the API's checks, so oversized sites are rejected before hashing
+export function limitError(files: SiteFile[], limits: Limits) {
+  if (files.length > limits.max_deployment_files) {
+    return `This site has ${files.length} files; the limit is ${limits.max_deployment_files}.`;
+  }
+  const large = files.find(({ file }) => file.size > limits.max_file_size);
+  if (large) {
+    return `${large.path} is ${formatBytes(large.file.size)}; files can be at most ${formatBytes(limits.max_file_size)}.`;
+  }
+  const total = files.reduce((sum, { file }) => sum + file.size, 0);
+  if (total > limits.max_deployment_size) {
+    return `This site is ${formatBytes(total)}; sites can be at most ${formatBytes(limits.max_deployment_size)}.`;
+  }
+  return null;
 }

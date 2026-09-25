@@ -8,12 +8,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlmodel import col, select
 
+from .config import settings
 from .database import Session
 from .models import (
     Deployment,
     DeploymentBase,
     DeploymentCreated,
     DeploymentState,
+    Limits,
     Manifest,
 )
 from .storage import count_objects, delete_objects, sign_uploads
@@ -91,6 +93,16 @@ async def list_deployments(
     )
     result = await session.exec(query)
     return list(result.all())
+
+
+# Lets the frontend reject oversized sites before hashing them
+@router.get("/limits")
+async def read_limits() -> Limits:
+    return Limits(
+        max_file_size=settings.max_file_size,
+        max_deployment_size=settings.max_deployment_size,
+        max_deployment_files=settings.max_deployment_files,
+    )
 
 
 @router.get("/{slug}")
