@@ -11,6 +11,13 @@ data:
         listen 8080;
         root /usr/share/nginx/html;
 
+        # Inline scripts stay allowed for the theme script, which must run before
+        # first paint; blob: workers are how fflate unzips in the background
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' {{ (urlParse .Values.s3.publicEndpoint).scheme }}://{{ (urlParse .Values.s3.publicEndpoint).host }}; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header X-Frame-Options "DENY" always;
+
         location = /config.json {
             default_type application/json;
             return 200 '{{ dict "sitesOrigin" .Values.sitesOrigin | toJson }}';
@@ -18,6 +25,7 @@ data:
 
         # Assets have hashed names, but the page pointing at them must stay fresh
         location = /index.html {
+            add_header_inherit merge;
             add_header Cache-Control "no-cache";
         }
 
