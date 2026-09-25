@@ -2,6 +2,7 @@ import { Globe } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, Route, Switch } from "wouter";
 import { PublishCard } from "@/components/publish-card";
+import { RotatingWord } from "@/components/rotating-word";
 import { SiteList } from "@/components/site-list";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TokenDialog } from "@/components/token-dialog";
@@ -119,8 +120,22 @@ export function App() {
             {/* The card fills what's left of the first screen */}
             <div className="[--publish-height:max(26rem,calc(100svh-21rem))]">
               <div className="mb-8 text-center">
-                <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-                  A home for your static site
+                <h1
+                  className="text-3xl font-semibold tracking-tight sm:text-4xl"
+                  aria-label="A home for your static site"
+                >
+                  <span aria-hidden>
+                    A home for your{" "}
+                    <RotatingWord
+                      words={[
+                        "static site",
+                        "portfolio",
+                        "landing page",
+                        "docs",
+                        "side project",
+                      ]}
+                    />
+                  </span>
                 </h1>
                 <p className="mt-3 text-muted-foreground">
                   Drop a built site and get a shareable address. No account or
