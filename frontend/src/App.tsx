@@ -1,79 +1,31 @@
-import { useEffect, useRef, useState } from "react";
-import { FolderDrop } from "@/components/folder-drop";
+import { Globe } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, Route, Switch } from "wouter";
+import { PublishCard } from "@/components/publish-card";
 import { SiteList } from "@/components/site-list";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TokenDialog } from "@/components/token-dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import {
   ApiError,
-  completeDeployment,
-  createDeployment,
   deleteDeployment,
   listDeployments,
-  uploadFiles,
   type Deployment,
-  type ManifestFile,
-  type UploadSession,
 } from "@/lib/deploy";
-import { formatBytes, siteUrl } from "@/lib/format";
 import {
   clearSession,
   clearToken,
   loadSession,
   loadToken,
-  saveSession,
   saveToken,
 } from "@/lib/session";
-import { fileManifest, type SiteFile } from "@/lib/site-files";
 
-type Stage =
-  | "idle"
-  | "hashing"
-  | "creating"
-  | "uploading"
-  | "completing"
-  | "ready"
-  | "error";
-
-const statusText: Partial<Record<Stage, string>> = {
-  hashing: "Checking files…",
-  creating: "Preparing upload…",
-  completing: "Publishing site…",
-};
-
-function sameManifest(a: ManifestFile[], b: ManifestFile[]) {
-  return (
-    a.length === b.length &&
-    a.every(
-      (file, i) =>
-        file.path === b[i]?.path &&
-        file.size === b[i]?.size &&
-        file.sha256 === b[i]?.sha256,
-    )
-  );
+function navClass(active: boolean) {
+  return `text-sm transition-colors hover:text-foreground ${active ? "font-medium text-foreground" : "text-muted-foreground"}`;
 }
 
 export function App() {
-  const [files, setFiles] = useState<SiteFile[]>([]);
-  const [session, setSession] = useState<UploadSession | null>(loadSession);
-  const [stage, setStage] = useState<Stage>(
-    session?.deployment.state === "ready" ? "ready" : "idle",
-  );
-  const [message, setMessage] = useState("");
-  const [progress, setProgress] = useState<Record<string, number>>({});
-  const [uploaded, setUploaded] = useState(0);
   const [sites, setSites] = useState<Deployment[]>([]);
-  const controller = useRef<AbortController | null>(null);
-
-  const busy = ["hashing", "creating", "uploading", "completing"].includes(
-    stage,
-  );
-  const totalSize = files.reduce((sum, { file }) => sum + file.size, 0);
-  const loaded = Object.values(progress).reduce((sum, bytes) => sum + bytes, 0);
-  const percentage = totalSize ? Math.round((loaded / totalSize) * 100) : 0;
-  const publishedUrl = session ? siteUrl(session.deployment.slug) : null;
 
   async function refreshSites() {
     const token = loadToken();
@@ -105,240 +57,94 @@ export function App() {
     const token = loadToken();
     if (!token) return;
     await deleteDeployment(slug, token);
-    if (session?.deployment.slug === slug) startOver();
+    // The publish page would otherwise still show the deleted site as live
+    if (loadSession()?.deployment.slug === slug) clearSession();
     await refreshSites();
   }
 
-  function selectFiles(selected: SiteFile[]) {
-    if (!selected.length) {
-      setMessage("This folder has no files.");
-      return;
-    }
-    setFiles(selected);
-    setMessage("");
-    setStage("idle");
-  }
-
-  function startOver() {
-    controller.current?.abort();
-    clearSession();
-    setSession(null);
-    setFiles([]);
-    setMessage("");
-    setStage("idle");
-  }
-
-  async function publish() {
-    const abort = new AbortController();
-    controller.current = abort;
-    setMessage("");
-    setStage("hashing");
-
-    try {
-      const manifest = await fileManifest(files);
-      abort.signal.throwIfAborted();
-
-      let active = session;
-      if (!active) {
-        setStage("creating");
-        const deployment = await createDeployment(
-          manifest,
-          loadToken(),
-          abort.signal,
-        );
-        active = { deployment, manifest };
-        saveToken(active.deployment.token);
-        saveSession(active);
-        setSession(active);
-      } else if (Date.now() >= Date.parse(active.deployment.expires_at)) {
-        throw new Error("The upload window has closed. Start over.");
-      } else if (!sameManifest(manifest, active.manifest)) {
-        throw new Error("Select the same folder to resume, or start over.");
-      }
-
-      setProgress({});
-      setUploaded(0);
-      setStage("uploading");
-      await uploadFiles(
-        active.deployment,
-        files,
-        abort.signal,
-        (path, bytes, done) => {
-          setProgress((current) => ({ ...current, [path]: bytes }));
-          if (done) setUploaded((count) => count + 1);
-        },
-      );
-
-      setStage("completing");
-      const result = await completeDeployment(active.deployment, abort.signal);
-      const finished = {
-        ...active,
-        deployment: { ...active.deployment, state: result.state },
-      };
-      saveSession(finished);
-      setSession(finished);
-      setStage("ready");
-      void refreshSites();
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        setMessage("Upload cancelled.");
-      } else {
-        setMessage(error instanceof Error ? error.message : String(error));
-      }
-      setStage("error");
-    } finally {
-      controller.current = null;
-    }
-  }
-
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-8 px-5 py-12 sm:py-20">
-      <header className="flex items-center gap-3 text-sm font-semibold tracking-tight">
-        <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          r.
-        </span>
-        redoost
-        <div className="ml-auto flex gap-1">
-          <TokenDialog onImport={importToken} />
-          <ThemeToggle />
+    <div className="flex min-h-screen flex-col">
+      <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur">
+        <div className="mx-auto flex h-14 max-w-3xl items-center gap-6 px-5">
+          <Link href="/" className="flex items-center gap-2 font-semibold">
+            <span className="flex size-7 items-center justify-center rounded-lg bg-primary text-xs text-primary-foreground">
+              r.
+            </span>
+            redoost
+          </Link>
+          <nav className="flex gap-5">
+            <Link href="/" className={navClass}>
+              Publish
+            </Link>
+            <Link href="/sites" className={navClass}>
+              Sites
+            </Link>
+          </nav>
+          <div className="ml-auto flex gap-1">
+            <TokenDialog onImport={importToken} />
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
-      <div className="space-y-3">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          A home for your static site.
-        </h1>
-        <p className="max-w-xl text-muted-foreground">
-          Drop a built site folder, a zip, or an HTML file and get a shareable
-          address. No account or build step required.
-        </p>
-      </div>
-
-      {stage === "ready" && session ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Site published</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            {publishedUrl ? (
-              <a
-                className="block break-all font-medium text-primary underline underline-offset-4"
-                href={publishedUrl}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {publishedUrl}
-              </a>
-            ) : (
-              <p className="font-medium">{session.deployment.slug}</p>
-            )}
-            <Button type="button" variant="outline" onClick={startOver}>
-              Publish another site
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          {session && (
-            <p className="rounded-lg border bg-muted/40 p-4 text-sm">
-              Resume{" "}
-              <span className="font-medium">{session.deployment.slug}</span> by
-              selecting the same folder.
-              <Button
-                type="button"
-                variant="link"
-                className="ml-1 h-auto p-0"
-                onClick={startOver}
-                disabled={busy}
-              >
-                Start over
-              </Button>
-            </p>
-          )}
-
-          <FolderDrop
-            disabled={busy}
-            onFiles={selectFiles}
-            onError={setMessage}
-          />
-
-          {files.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  {files.length} files · {formatBytes(totalSize)}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  {files.slice(0, 6).map(({ path, file }) => (
-                    <li className="flex justify-between gap-4" key={path}>
-                      <span className="truncate" title={path}>
-                        {path}
-                      </span>
-                      <span className="shrink-0">{formatBytes(file.size)}</span>
-                    </li>
-                  ))}
-                </ul>
-                {files.length > 6 && (
-                  <p className="mt-3 text-sm text-muted-foreground">
-                    + {files.length - 6} more files
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {stage === "uploading" && (
-            <div className="space-y-2 text-sm" aria-live="polite">
-              <div className="flex justify-between">
-                <span>
-                  Uploading {uploaded} of {files.length} files
-                </span>
-                <span>{percentage}%</span>
-              </div>
-              <Progress value={percentage} aria-label="Upload progress" />
+      <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-12 sm:py-16">
+        <Switch>
+          <Route path="/sites">
+            <div className="mb-8">
+              <h1 className="text-2xl font-semibold tracking-tight">
+                Your sites
+              </h1>
+              <p className="mt-1 text-muted-foreground">
+                Sites published from this browser, or from the token you
+                imported.
+              </p>
             </div>
-          )}
-
-          {statusText[stage] && (
-            <p className="text-sm text-muted-foreground" aria-live="polite">
-              {statusText[stage]}
-            </p>
-          )}
-
-          {message && (
-            <p role="alert" className="text-sm text-destructive">
-              {message}
-            </p>
-          )}
-
-          <div className="flex gap-3">
-            <Button
-              type="button"
-              disabled={!files.length || busy}
-              onClick={publish}
-            >
-              {!session
-                ? "Publish site"
-                : stage === "error"
-                  ? "Retry upload"
-                  : "Resume upload"}
-            </Button>
-            {busy && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => controller.current?.abort()}
-              >
-                Cancel
-              </Button>
+            {sites.length > 0 ? (
+              <SiteList sites={sites} onDelete={deleteSite} />
+            ) : (
+              <div className="rounded-xl border border-dashed px-6 py-14 text-center">
+                <Globe className="mx-auto size-8 text-muted-foreground" />
+                <p className="mt-4 font-medium">No sites yet</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Publish your first site, or import a token from another
+                  device.
+                </p>
+                <Button className="mt-6" asChild>
+                  <Link href="/">Publish a site</Link>
+                </Button>
+              </div>
             )}
-          </div>
-        </>
-      )}
+          </Route>
+          <Route>
+            <div className="mx-auto max-w-xl">
+              <div className="mb-10 text-center">
+                <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+                  A home for your static site
+                </h1>
+                <p className="mt-3 text-muted-foreground">
+                  Drop a built site and get a shareable address. No account or
+                  build step required.
+                </p>
+              </div>
+              <PublishCard onPublished={refreshSites} />
+            </div>
+          </Route>
+        </Switch>
+      </main>
 
-      {sites.length > 0 && <SiteList sites={sites} onDelete={deleteSite} />}
-    </main>
+      <footer className="border-t">
+        <div className="mx-auto max-w-3xl px-5 py-6 text-sm text-muted-foreground">
+          Open source under the MIT license ·{" "}
+          <a
+            className="underline-offset-4 hover:text-foreground hover:underline"
+            href="https://github.com/whyredfire/redoost"
+            target="_blank"
+            rel="noreferrer"
+          >
+            GitHub
+          </a>
+        </div>
+      </footer>
+    </div>
   );
 }

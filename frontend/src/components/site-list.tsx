@@ -1,4 +1,4 @@
-import { Trash2 } from "lucide-react";
+import { ExternalLink, Trash2 } from "lucide-react";
 import { useState, type MouseEvent } from "react";
 import {
   AlertDialog,
@@ -10,8 +10,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { CopyButton } from "@/components/copy-button";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import type { Deployment } from "@/lib/deploy";
 import { formatBytes, siteUrl } from "@/lib/format";
 
@@ -48,41 +49,41 @@ export function SiteList({ sites, onDelete }: SiteListProps) {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Your sites</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ul className="divide-y">
-          {sites.map((site) => {
-            const url = siteUrl(site.slug);
-            return (
-              <li
-                className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
-                key={site.slug}
-              >
-                <div className="min-w-0 flex-1 space-y-1">
-                  {url ? (
-                    <a
-                      className="block break-all font-medium text-primary underline underline-offset-4"
-                      href={url}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {url}
-                    </a>
-                  ) : (
-                    <p className="font-medium">{site.slug}</p>
-                  )}
-                  <p className="text-sm text-muted-foreground">
-                    {new Date(site.created_at).toLocaleDateString(undefined, {
-                      dateStyle: "medium",
-                    })}{" "}
-                    · {site.file_count}{" "}
-                    {site.file_count === 1 ? "file" : "files"} ·{" "}
-                    {formatBytes(site.total_size)}
-                  </p>
-                </div>
+    <Card className="py-0">
+      <ul className="divide-y">
+        {sites.map((site) => {
+          const url = siteUrl(site.slug);
+          return (
+            <li className="flex items-center gap-4 px-5 py-4" key={site.slug}>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium">{site.slug}</p>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  {site.file_count} {site.file_count === 1 ? "file" : "files"} ·{" "}
+                  {formatBytes(site.total_size)} ·{" "}
+                  {new Date(site.created_at).toLocaleDateString(undefined, {
+                    dateStyle: "medium",
+                  })}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center">
+                {url && (
+                  <>
+                    <CopyButton
+                      text={url}
+                      label={`Copy ${site.slug} address`}
+                    />
+                    <Button variant="ghost" size="icon" asChild>
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label={`Open ${site.slug}`}
+                      >
+                        <ExternalLink />
+                      </a>
+                    </Button>
+                  </>
+                )}
                 <Button
                   type="button"
                   variant="ghost"
@@ -92,11 +93,11 @@ export function SiteList({ sites, onDelete }: SiteListProps) {
                 >
                   <Trash2 />
                 </Button>
-              </li>
-            );
-          })}
-        </ul>
-      </CardContent>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
 
       <AlertDialog open={target !== null} onOpenChange={closeDialog}>
         <AlertDialogContent>

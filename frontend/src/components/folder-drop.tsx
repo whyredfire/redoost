@@ -1,3 +1,4 @@
+import { Upload } from "lucide-react";
 import { useRef, useState, type ChangeEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { droppedFiles, pickedFiles, type SiteFile } from "@/lib/site-files";
@@ -30,7 +31,7 @@ export function FolderDrop({ disabled, onFiles, onError }: Props) {
 
   return (
     <div
-      className={`rounded-xl border-2 border-dashed p-8 text-center transition-colors ${dragging ? "border-primary bg-primary/5" : "border-border"}`}
+      className={`rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors ${dragging ? "border-primary bg-muted" : "border-border"}`}
       onDragOver={(event) => {
         event.preventDefault();
         setDragging(!disabled);
@@ -44,8 +45,12 @@ export function FolderDrop({ disabled, onFiles, onError }: Props) {
         void select(() => droppedFiles(items));
       }}
     >
-      <p className="mb-4 text-sm text-muted-foreground">
-        Drop a folder, a zip, or files here, or choose them from your device.
+      <div className="mx-auto mb-4 flex size-10 items-center justify-center rounded-full bg-muted">
+        <Upload className="size-5 text-muted-foreground" />
+      </div>
+      <p className="font-medium">Drop your site here</p>
+      <p className="mt-1 mb-5 text-sm text-muted-foreground">
+        A folder, a zip, or an HTML file
       </p>
       <div className="flex justify-center gap-3">
         <Button
