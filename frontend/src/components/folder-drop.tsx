@@ -1,55 +1,45 @@
 import { Upload } from "lucide-react";
-import { useRef, useState, type ChangeEvent } from "react";
+import { useRef, type ChangeEvent } from "react";
 import { Button } from "@/components/ui/button";
-import { droppedFiles, pickedFiles, type SiteFile } from "@/lib/site-files";
+import { pickedFiles, type SiteFile } from "@/lib/site-files";
 
 type Props = {
+  dragging: boolean;
   disabled: boolean;
   onFiles: (files: SiteFile[]) => void;
   onError: (message: string) => void;
 };
 
-export function FolderDrop({ disabled, onFiles, onError }: Props) {
-  const [dragging, setDragging] = useState(false);
+// Drops are handled page-wide by the publish card; this is the visible target
+export function FolderDrop({ dragging, disabled, onFiles, onError }: Props) {
   const folderInput = useRef<HTMLInputElement>(null);
   const filesInput = useRef<HTMLInputElement>(null);
 
-  async function select(read: () => SiteFile[] | Promise<SiteFile[]>) {
+  async function pick(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    if (!input.files) return;
     try {
-      const files = await read();
-      onFiles(files);
+      const selected = await pickedFiles(input.files);
+      onFiles(selected);
     } catch (error) {
       onError(error instanceof Error ? error.message : String(error));
+    } finally {
+      // Clearing it empties input.files, so only once they've been read
+      input.value = "";
     }
-  }
-
-  function pick(event: ChangeEvent<HTMLInputElement>) {
-    const { files } = event.currentTarget;
-    if (files) void select(() => pickedFiles(files));
-    event.currentTarget.value = "";
   }
 
   return (
     <div
-      className={`rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors ${dragging ? "border-primary bg-muted" : "border-border"}`}
-      onDragOver={(event) => {
-        event.preventDefault();
-        setDragging(!disabled);
-      }}
-      onDragLeave={() => setDragging(false)}
-      onDrop={(event) => {
-        event.preventDefault();
-        setDragging(false);
-        if (disabled) return;
-        const { items } = event.dataTransfer;
-        void select(() => droppedFiles(items));
-      }}
+      className={`flex flex-1 flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-12 text-center transition-colors ${dragging ? "border-primary bg-muted" : "border-border"}`}
     >
-      <div className="mx-auto mb-4 flex size-10 items-center justify-center rounded-full bg-muted">
+      <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-muted">
         <Upload className="size-5 text-muted-foreground" />
       </div>
-      <p className="font-medium">Drop your site here</p>
-      <p className="mt-1 mb-5 text-sm text-muted-foreground">
+      <p className="text-lg font-medium">
+        {dragging ? "Drop to upload" : "Drop your site anywhere on this page"}
+      </p>
+      <p className="mt-1 mb-6 text-sm text-muted-foreground">
         A folder, a zip, or an HTML file
       </p>
       <div className="flex justify-center gap-3">

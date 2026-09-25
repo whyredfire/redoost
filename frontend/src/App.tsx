@@ -65,7 +65,7 @@ export function App() {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-3xl items-center gap-6 px-5">
+        <div className="mx-auto flex h-14 max-w-7xl items-center gap-6 px-5">
           <Link href="/" className="flex items-center gap-2 font-semibold">
             <span className="flex size-7 items-center justify-center rounded-lg bg-primary text-xs text-primary-foreground">
               r.
@@ -87,7 +87,7 @@ export function App() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-12 sm:py-16">
+      <main className="mx-auto w-full max-w-7xl flex-1 px-5 py-10 sm:py-12">
         <Switch>
           <Route path="/sites">
             <div className="mb-8">
@@ -116,8 +116,9 @@ export function App() {
             )}
           </Route>
           <Route>
-            <div className="mx-auto max-w-xl">
-              <div className="mb-10 text-center">
+            {/* The card fills what's left of the first screen */}
+            <div className="[--publish-height:max(26rem,calc(100svh-21rem))]">
+              <div className="mb-8 text-center">
                 <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
                   A home for your static site
                 </h1>
@@ -133,7 +134,7 @@ export function App() {
       </main>
 
       <footer className="border-t">
-        <div className="mx-auto max-w-3xl px-5 py-6 text-sm text-muted-foreground">
+        <div className="mx-auto max-w-7xl px-5 py-6 text-sm text-muted-foreground">
           Open source under the MIT license ·{" "}
           <a
             className="underline-offset-4 hover:text-foreground hover:underline"

@@ -55,9 +55,9 @@ export function SiteList({ sites, onDelete }: SiteListProps) {
           const url = siteUrl(site.slug);
           return (
             <li className="flex items-center gap-4 px-5 py-4" key={site.slug}>
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 md:flex md:items-center md:justify-between md:gap-6">
                 <p className="truncate font-medium">{site.slug}</p>
-                <p className="mt-0.5 text-sm text-muted-foreground">
+                <p className="mt-0.5 shrink-0 text-sm text-muted-foreground md:mt-0">
                   {site.file_count} {site.file_count === 1 ? "file" : "files"} ·{" "}
                   {formatBytes(site.total_size)} ·{" "}
                   {new Date(site.created_at).toLocaleDateString(undefined, {
