@@ -6,11 +6,15 @@ and get a shareable address, with no account and no build step.
 
 **[Try it at redoost.whyredfire.dev](https://redoost.whyredfire.dev)**
 
-![The redoost dashboard](docs/screenshot.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png">
+  <img alt="The redoost dashboard" src="docs/screenshot-light.png">
+</picture>
 
 ## Features
 
-- **Drop a folder, get a URL.** Each site is published at
+- **Drop a folder, get a URL.** Drop a folder, a zip, or a single HTML file
+  anywhere on the page. Each site is published at
   `https://<slug>.<sites domain>`, for example `brave-otter-1a2b`.
 - **Uploads go straight to storage.** The browser uploads each file to S3
   (Garage) with its own signed policy, bound to the file's path, size, content
@@ -23,7 +27,7 @@ and get a shareable address, with no account and no build step.
   size and date, and can be deleted. Copy your token to manage them from
   another device.
 - **Sensible limits.** 10 MiB per file, 50 MiB and 500 files per site, all
-  configurable.
+  configurable. The dashboard checks them as soon as files are selected.
 
 ## How it works
 
