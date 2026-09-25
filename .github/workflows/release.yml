@@ -20,6 +20,8 @@ jobs:
       VERSION: ${{ inputs.version }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v10.2.0
 
       - name: Set the version
@@ -50,6 +52,18 @@ jobs:
             docker buildx imagetools create -t "ghcr.io/whyredfire/${image}:${VERSION}" "ghcr.io/whyredfire/${image}:${sha}"
           done
 
+      # Commit subjects since the previous release, without automated commits
+      - name: Write the changelog
+        run: |
+          previous=$(git describe --tags --abbrev=0 2>/dev/null || true)
+          {
+            echo "## Changes"
+            echo
+            git log --no-merges --pretty='- %s (%h)' ${previous:+"$previous..HEAD"} |
+              grep -vE '^- chore(\(chart\))?: (Update image tags|Release v)' || true
+          } > "$RUNNER_TEMP/notes.md"
+          cat "$RUNNER_TEMP/notes.md"
+
       - name: Commit, tag, and release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -59,4 +73,4 @@ jobs:
           git commit -am "chore: Release v${VERSION}"
           git tag "v${VERSION}"
           git push origin HEAD "v${VERSION}"
-          gh release create "v${VERSION}" --title "v${VERSION}" --generate-notes
+          gh release create "v${VERSION}" --title "v${VERSION}" --notes-file "$RUNNER_TEMP/notes.md" --generate-notes
