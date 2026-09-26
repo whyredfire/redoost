@@ -75,6 +75,7 @@ jobs:
       platforms: linux/amd64,linux/arm64
       cache: true
       cache-scope: ${{ matrix.image }}
+      sbom: true
       # Links the packages to this repository on GHCR
       set-meta-labels: true
       set-meta-annotations: true
