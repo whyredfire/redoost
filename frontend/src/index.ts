@@ -15,6 +15,7 @@ serve({
     "/*": index,
     "/llms.txt": publicFile("llms.txt"),
     "/robots.txt": publicFile("robots.txt"),
+    "/og.png": () => new Response(Bun.file("public/og.png")),
     // Served by the frontend's Nginx in production
     "/config.json": Response.json({
       sitesOrigin: process.env.REDOOST_SITES_ORIGIN ?? null,
