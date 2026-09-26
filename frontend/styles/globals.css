@@ -3,6 +3,14 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("/fonts/InterVariable.woff2") format("woff2");
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -39,6 +47,7 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: "Inter Variable", sans-serif;
 }
 
 :root {
@@ -122,6 +131,16 @@
   }
   button {
     @apply hover:cursor-pointer;
+  }
+  /*Inter font ligatures*/
+  body {
+    /* prettier-ignore */
+    font-feature-settings:
+          "calt" 1, /* Dynamic arrows & vertical colon alignments */
+          "ss07" 1, /* Tech-focused square punctuation */
+          "cv11" 1, /* Sleek geometric single-story 'a' */
+          "cv06" 1; /* Clean, simplified 'u' */
+    @apply font-sans;
   }
 }
 
