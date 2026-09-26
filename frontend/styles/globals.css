@@ -118,3 +118,16 @@
     @apply bg-background text-foreground;
   }
 }
+
+@theme {
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+
+  @keyframes shimmer {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(100%);
+    }
+  }
+}
