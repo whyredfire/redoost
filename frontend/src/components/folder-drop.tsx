@@ -7,7 +7,6 @@ import { pickedFiles, type SiteCheck, type SiteFile } from "@/lib/site-files";
 
 type Props = {
   dragging: boolean;
-  disabled: boolean;
   onFiles: (files: SiteFile[]) => void;
   error: string;
   checks: SiteCheck[];
@@ -20,10 +19,9 @@ const layer = {
   hidden: { opacity: 0, filter: "blur(8px)" },
 };
 
-// Drops are handled page-wide by the publish card; this is the visible target
+// Drops are handled page-wide by usePageDrop; this is the visible target
 export function FolderDrop({
   dragging,
-  disabled,
   error,
   checks,
   onFiles,
@@ -91,7 +89,6 @@ export function FolderDrop({
                     type="button"
                     variant="outline"
                     onClick={() => folderInput.current?.click()}
-                    disabled={disabled}
                   >
                     Choose folder
                   </Button>
@@ -99,7 +96,6 @@ export function FolderDrop({
                     type="button"
                     variant="outline"
                     onClick={() => filesInput.current?.click()}
-                    disabled={disabled}
                   >
                     Choose files
                   </Button>
