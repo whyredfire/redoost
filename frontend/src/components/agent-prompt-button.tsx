@@ -16,7 +16,6 @@ export function AgentPromptButton() {
     <Button
       type="button"
       variant="ghost"
-      size="sm"
       className="text-muted-foreground"
       aria-label={copied ? "Copied" : "Copy AI agent prompt to clipboard"}
       onClick={copy}
