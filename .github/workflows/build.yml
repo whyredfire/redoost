@@ -10,6 +10,13 @@ on:
       - .github/workflows/build.yml
       - "!**/*.md"
       - "!backend/tests/**"
+  # Only the checks run on pull requests; images are built from main
+  pull_request:
+    paths:
+      - backend/**
+      - frontend/**
+      - .github/workflows/build.yml
+      - "!**/*.md"
 
 permissions:
   contents: read
@@ -48,6 +55,7 @@ jobs:
 
   build:
     needs: [backend, frontend]
+    if: github.event_name == 'push'
     strategy:
       matrix:
         include:

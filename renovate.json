@@ -1,0 +1,55 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "schedule:weekly"],
+  "rangeStrategy": "bump",
+  "minimumReleaseAge": "3 days",
+  "lockFileMaintenance": {
+    "enabled": true
+  },
+  "packageRules": [
+    {
+      "description": "Tagged by the build workflow on every push",
+      "matchPackageNames": [
+        "ghcr.io/whyredfire/redoost-api",
+        "ghcr.io/whyredfire/redoost-frontend"
+      ],
+      "enabled": false
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions"
+    },
+    {
+      "matchDatasources": ["docker"],
+      "groupName": "Docker images"
+    },
+    {
+      "matchManagers": ["pep621"],
+      "groupName": "Python packages"
+    },
+    {
+      "matchManagers": ["npm", "bun"],
+      "groupName": "JavaScript packages"
+    },
+    {
+      "description": "Keep Bun in the Dockerfiles and CI on one version",
+      "matchPackageNames": ["oven/bun", "bun"],
+      "groupName": "Bun"
+    },
+    {
+      "description": "Keep the Python version, base images, and requires-python together",
+      "matchPackageNames": ["python", "registry.access.redhat.com/hi/python"],
+      "groupName": "Python"
+    },
+    {
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest",
+        "pin",
+        "lockFileMaintenance"
+      ],
+      "automerge": true
+    }
+  ]
+}

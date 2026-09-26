@@ -7,6 +7,10 @@ on:
     paths:
       - chart/**
       - .github/workflows/chart.yml
+  pull_request:
+    paths:
+      - chart/**
+      - .github/workflows/chart.yml
 
 permissions:
   contents: read
