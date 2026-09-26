@@ -1,0 +1,24 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "redoost.fullname" . }}-jobs
+  labels:
+    {{- include "redoost.labels" . | nindent 4 }}
+spec:
+  # The bucket setup Job and the cleanup CronJob only talk to S3
+  podSelector:
+    matchLabels:
+      {{- include "redoost.selectorLabels" . | nindent 6 }}
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values: [setup-bucket, cleanup]
+  policyTypes: [Ingress, Egress]
+  egress:
+    {{- include "redoost.dnsEgress" . | nindent 4 }}
+    - to:
+        {{- toYaml .Values.networkPolicy.s3 | nindent 8 }}
+      ports:
+        - port: {{ include "redoost.s3Port" . }}
+{{- end }}

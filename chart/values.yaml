@@ -93,3 +93,18 @@ sites:
 # Removes unfinished uploads past their window, and files left without a site
 cleanup:
   schedule: "0 * * * *"
+
+# Limits pod traffic to what the chart needs; off by default because the
+# gateway and S3 selectors depend on the cluster
+networkPolicy:
+  enabled: false
+  # NetworkPolicy peers allowed to reach the dashboard, API, and sites
+  gateway:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: gateway
+  # NetworkPolicy peers running S3 (Garage); ports come from the s3 values
+  s3:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: garage

@@ -1,0 +1,32 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "redoost.fullname" . }}-sites
+  labels:
+    {{- include "redoost.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "redoost.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: sites
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        {{- toYaml .Values.networkPolicy.gateway | nindent 8 }}
+      ports:
+        - port: 8080
+  egress:
+    {{- include "redoost.dnsEgress" . | nindent 4 }}
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "redoost.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: api
+      ports:
+        - port: 8000
+    - to:
+        {{- toYaml .Values.networkPolicy.s3 | nindent 8 }}
+      ports:
+        - port: {{ include "redoost.websitePort" . }}
+{{- end }}

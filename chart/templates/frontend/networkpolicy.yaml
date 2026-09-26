@@ -1,0 +1,20 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "redoost.fullname" . }}-frontend
+  labels:
+    {{- include "redoost.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "redoost.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: frontend
+  # Serves static files only, so it makes no connections of its own
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        {{- toYaml .Values.networkPolicy.gateway | nindent 8 }}
+      ports:
+        - port: 8080
+{{- end }}

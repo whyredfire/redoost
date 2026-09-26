@@ -77,3 +77,38 @@ podAffinity:
           app.kubernetes.io/component: api
       topologyKey: kubernetes.io/hostname
 {{- end }}
+
+{{/*
+Port of a host:port string, or the given default when there is none
+*/}}
+{{- define "redoost.port" -}}
+{{- $port := regexFind "[0-9]+$" (regexFind ":[0-9]+$" .host) }}
+{{- $port | default .default }}
+{{- end }}
+
+{{/*
+Egress rule for cluster DNS
+*/}}
+{{- define "redoost.dnsEgress" -}}
+- to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+  ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+{{- end }}
+
+{{- define "redoost.s3Port" -}}
+{{- $s3 := urlParse .Values.s3.endpoint }}
+{{- include "redoost.port" (dict "host" $s3.host "default" (ternary "443" "80" (eq $s3.scheme "https"))) }}
+{{- end }}
+
+{{- define "redoost.websitePort" -}}
+{{- include "redoost.port" (dict "host" .Values.s3.websiteUpstream "default" "80") }}
+{{- end }}
