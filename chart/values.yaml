@@ -92,7 +92,7 @@ sites:
 
 # Removes unfinished uploads past their window, and files left without a site
 cleanup:
-  schedule: "0 * * * *"
+  schedule: "@daily"
 
 # Limits pod traffic to what the chart needs; off by default because the
 # gateway and S3 selectors depend on the cluster

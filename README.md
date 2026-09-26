@@ -100,7 +100,7 @@ chart from `main` rolls out the new images.
 
 See [`chart/values.yaml`](chart/values.yaml) for all settings. The API runs as a
 single replica with the `Recreate` strategy, since SQLite lives on one volume;
-an hourly CronJob on the same node removes abandoned uploads and leftover files.
+a daily CronJob on the same node removes abandoned uploads and leftover files.
 
 ## Local development
 
