@@ -71,17 +71,12 @@ function Working({ children }: { children: ReactNode }) {
 }
 
 type PublishCardProps = {
-  onPublished: () => void;
   onEmptyChange: (empty: boolean) => void;
   // Increases when the user asks to start over from the header
   resetSignal: number;
 };
 
-export function PublishCard({
-  onPublished,
-  onEmptyChange,
-  resetSignal,
-}: PublishCardProps) {
+export function PublishCard({ onEmptyChange, resetSignal }: PublishCardProps) {
   const [files, setFiles] = useState<SiteFile[]>([]);
   const [compressed, setCompressed] = useState<Record<string, UploadFile>>({});
   const [session, setSession] = useState<UploadSession | null>(loadSession);
@@ -220,7 +215,6 @@ export function PublishCard({
       saveSession(finished);
       setSession(finished);
       setStage("ready");
-      onPublished();
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
         setMessage("Upload cancelled.");

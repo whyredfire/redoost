@@ -49,8 +49,8 @@ flowchart LR
 4. Nginx serves `<slug>.<sites domain>` from Garage's website endpoint, after
    checking with the API (cached briefly) that the site exists.
 
-Built with FastAPI, SQLModel, and Alembic on SQLite; React, Tailwind, and
-shadcn/ui on Bun; [Garage](https://garagehq.deuxfleurs.fr) for storage; and
+Built with FastAPI, SQLModel, and Alembic on SQLite; React, TanStack Router,
+Tailwind, and shadcn/ui, built with Vite and Bun; [Garage](https://garagehq.deuxfleurs.fr) for storage; and
 Nginx for serving sites.
 
 ## Self-hosting on Kubernetes
