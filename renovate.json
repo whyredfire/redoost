@@ -37,9 +37,23 @@
       "groupName": "Bun"
     },
     {
-      "description": "Keep the Python version, base images, and requires-python together",
-      "matchPackageNames": ["python", "registry.access.redhat.com/hi/python"],
-      "groupName": "Python"
+      "description": "Python stays on 3.14 until upgraded by hand",
+      "matchDepTypes": ["requires-python"],
+      "enabled": false
+    },
+    {
+      "matchManagers": ["pyenv"],
+      "enabled": false
+    },
+    {
+      "description": "New 3.14 builds of the base images, but never a new Python version",
+      "matchPackageNames": ["registry.access.redhat.com/hi/python"],
+      "matchUpdateTypes": ["major", "minor", "patch"],
+      "enabled": false
+    },
+    {
+      "matchPackageNames": ["registry.access.redhat.com/hi/python"],
+      "groupName": "Python base images"
     },
     {
       "matchUpdateTypes": [
