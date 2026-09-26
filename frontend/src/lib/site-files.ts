@@ -4,6 +4,7 @@ import { formatBytes } from "./format";
 
 export type SiteFile = { path: string; file: File };
 export type UploadFile = SiteFile & { gzip: boolean };
+export type SiteCheck = { label: string; passed: boolean };
 
 const compressible =
   /\.(html?|css|[cm]?js|json|map|svg|txt|xml|wasm|webmanifest)$/i;
@@ -82,7 +83,7 @@ async function toSite(files: SiteFile[]): Promise<SiteFile[]> {
   return toPages(files);
 }
 
-// Without index.html, a lone root HTML file becomes the home page
+// Without index.html, a lone root HTML file becomes the home page; otherwise siteChecks flags it
 function toPages(files: SiteFile[]): SiteFile[] {
   const sorted = files.sort((a, b) => a.path.localeCompare(b.path));
   if (!sorted.length || sorted.some(({ path }) => path === "index.html")) {
@@ -99,7 +100,7 @@ function toPages(files: SiteFile[]): SiteFile[] {
   if (sorted.length === 1) {
     throw new Error("Choose an HTML file, a zip, or a folder.");
   }
-  throw new Error("Add index.html at the root, or choose a single HTML page.");
+  return sorted;
 }
 
 export function pickedFiles(files: FileList): Promise<SiteFile[]> {
@@ -173,18 +174,33 @@ export async function fileManifest(files: UploadFile[]) {
   return manifest;
 }
 
-// Mirrors the API's checks, so oversized sites are rejected before hashing
-export function limitError(files: SiteFile[], limits: Limits) {
-  if (files.length > limits.max_deployment_files) {
-    return `This site has ${files.length} files; the limit is ${limits.max_deployment_files}.`;
-  }
-  const large = files.find(({ file }) => file.size > limits.max_file_size);
-  if (large) {
-    return `${large.path} is ${formatBytes(large.file.size)}; files can be at most ${formatBytes(limits.max_file_size)}.`;
-  }
+// Mirrors the API's checks, so a site that would be rejected never reaches it
+export function siteChecks(
+  files: SiteFile[],
+  limits: Limits | null,
+): SiteCheck[] {
+  const checks = [
+    {
+      label: "index.html at the root",
+      passed: files.some(({ path }) => path === "index.html"),
+    },
+  ];
+  if (!limits) return checks;
+
   const total = files.reduce((sum, { file }) => sum + file.size, 0);
-  if (total > limits.max_deployment_size) {
-    return `This site is ${formatBytes(total)}; sites can be at most ${formatBytes(limits.max_deployment_size)}.`;
-  }
-  return null;
+  return [
+    ...checks,
+    {
+      label: `Each file up to ${formatBytes(limits.max_file_size)}`,
+      passed: files.every(({ file }) => file.size <= limits.max_file_size),
+    },
+    {
+      label: `At most ${limits.max_deployment_files} files`,
+      passed: files.length <= limits.max_deployment_files,
+    },
+    {
+      label: `Up to ${formatBytes(limits.max_deployment_size)} in total`,
+      passed: total <= limits.max_deployment_size,
+    },
+  ];
 }

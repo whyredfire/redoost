@@ -29,7 +29,8 @@ import {
   compressFiles,
   droppedFiles,
   fileManifest,
-  limitError,
+  siteChecks,
+  type SiteCheck,
   type SiteFile,
   type UploadFile,
 } from "@/lib/site-files";
@@ -84,6 +85,7 @@ export function PublishCard({ onEmptyChange, resetSignal }: PublishCardProps) {
     session?.deployment.state === "ready" ? "ready" : "idle",
   );
   const [message, setMessage] = useState("");
+  const [checks, setChecks] = useState<SiteCheck[]>([]);
   const [progress, setProgress] = useState<Record<string, number>>({});
   const [uploaded, setUploaded] = useState(0);
   const [uploadSize, setUploadSize] = useState(0);
@@ -116,17 +118,36 @@ export function PublishCard({ onEmptyChange, resetSignal }: PublishCardProps) {
     compression.current = null;
     setFiles([]);
     setCompressed({});
+    setMessage("");
+    setChecks([]);
+  }
+
+  // Errors outside publishing replace the files and show in the drop box
+  function showError(message: string) {
+    clearFiles();
+    setMessage(message);
+  }
+
+  // Sends the user back to the drop box with a checklist if anything fails
+  function rejected(uploads: SiteFile[]) {
+    const results = siteChecks(uploads, limits);
+    if (results.every(({ passed }) => passed)) return false;
+    clearFiles();
+    setChecks(results);
+    return true;
   }
 
   async function selectFiles(selected: SiteFile[]) {
     if (!selected.length) {
-      setMessage("This folder has no files.");
+      showError("This folder has no files.");
       return;
     }
-    setFiles(selected);
-    setCompressed({});
-    setMessage("");
+    clearFiles();
     setStage("idle");
+    // Without index.html the files are only checked, never listed
+    if (selected.some(({ path }) => path === "index.html")) {
+      setFiles(selected);
+    }
 
     const run = compressFiles(selected, (file) => {
       if (compression.current === run) {
@@ -136,15 +157,10 @@ export function PublishCard({ onEmptyChange, resetSignal }: PublishCardProps) {
     compression.current = run;
     try {
       const uploads = await run;
-      const error = limits && limitError(uploads, limits);
-      if (error && compression.current === run) {
-        clearFiles();
-        setMessage(error);
-      }
+      if (compression.current === run) rejected(uploads);
     } catch (error) {
       if (compression.current !== run) return;
-      clearFiles();
-      setMessage(error instanceof Error ? error.message : String(error));
+      showError(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -153,7 +169,6 @@ export function PublishCard({ onEmptyChange, resetSignal }: PublishCardProps) {
     clearSession();
     setSession(null);
     clearFiles();
-    setMessage("");
     setStage("idle");
   }
 
@@ -165,8 +180,10 @@ export function PublishCard({ onEmptyChange, resetSignal }: PublishCardProps) {
 
     try {
       const uploads = await compression.current!;
-      const error = limits && limitError(uploads, limits);
-      if (error) throw new Error(error);
+      if (rejected(uploads)) {
+        setStage("idle");
+        return;
+      }
       const manifest = await fileManifest(uploads);
       abort.signal.throwIfAborted();
 
@@ -245,13 +262,14 @@ export function PublishCard({ onEmptyChange, resetSignal }: PublishCardProps) {
 
   // The whole page is the drop target, so a stray drop never opens the file
   useEffect(() => {
-    let depth = 0;
+    // Elements the drag is over; a count breaks when one is removed mid-drag
+    const entered = new Set<Node>();
     const hasFiles = (event: DragEvent) =>
       event.dataTransfer?.types.includes("Files") ?? false;
 
     function enter(event: DragEvent) {
       if (!hasFiles(event)) return;
-      depth += 1;
+      entered.add(event.target as Node);
       setDragging(acceptsDrop);
     }
     function over(event: DragEvent) {
@@ -259,13 +277,17 @@ export function PublishCard({ onEmptyChange, resetSignal }: PublishCardProps) {
     }
     function leave(event: DragEvent) {
       if (!hasFiles(event)) return;
-      depth = Math.max(0, depth - 1);
-      if (depth === 0) setDragging(false);
+      entered.delete(event.target as Node);
+      // Removed elements never fire dragleave
+      for (const node of entered) {
+        if (!node.isConnected) entered.delete(node);
+      }
+      if (entered.size === 0) setDragging(false);
     }
     async function drop(event: DragEvent) {
       if (!hasFiles(event)) return;
       event.preventDefault();
-      depth = 0;
+      entered.clear();
       setDragging(false);
       const items = event.dataTransfer?.items;
       if (!acceptsDrop || !items) return;
@@ -273,7 +295,7 @@ export function PublishCard({ onEmptyChange, resetSignal }: PublishCardProps) {
         const selected = await droppedFiles(items);
         selectFiles(selected);
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : String(error));
+        showError(error instanceof Error ? error.message : String(error));
       }
     }
 
@@ -344,7 +366,7 @@ export function PublishCard({ onEmptyChange, resetSignal }: PublishCardProps) {
 
   return (
     <Card
-      className={`min-h-(--publish-height) transition-colors duration-300 motion-safe:transition-[min-height,color,background-color,border-color,box-shadow] ${files.length === 0 ? "border-0 bg-transparent py-0 shadow-none" : dragging ? "border-primary" : ""}`}
+      className={`min-h-(--publish-height) transition-colors duration-300 motion-safe:transition-[min-height,color,background-color,border-color,box-shadow] ${files.length === 0 ? "border-0 bg-transparent py-0 shadow-none" : dragging ? "border-foreground/20" : ""}`}
     >
       {/* Empty, the dashed drop area is the only frame */}
       <CardContent
@@ -370,8 +392,11 @@ export function PublishCard({ onEmptyChange, resetSignal }: PublishCardProps) {
           <FolderDrop
             dragging={dragging}
             disabled={busy}
+            error={message}
+            checks={checks}
             onFiles={selectFiles}
-            onError={setMessage}
+            onError={showError}
+            onDismiss={clearFiles}
           />
         ) : (
           <div className="grid flex-1 gap-6 duration-300 motion-safe:animate-in motion-safe:fade-in md:grid-cols-[16rem_1fr]">
@@ -465,12 +490,6 @@ export function PublishCard({ onEmptyChange, resetSignal }: PublishCardProps) {
               </ul>
             </div>
           </div>
-        )}
-
-        {files.length === 0 && message && (
-          <p role="alert" className="text-center text-sm text-destructive">
-            {message}
-          </p>
         )}
       </CardContent>
     </Card>

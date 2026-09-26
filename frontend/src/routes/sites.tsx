@@ -60,7 +60,7 @@ function SitesPage() {
       {sites.length > 0 ? (
         <SiteList sites={sites} onDelete={deleteSite} />
       ) : (
-        <div className="rounded-xl border border-dashed px-6 py-14 text-center">
+        <div className="rounded-xl border px-6 py-14 text-center">
           <Globe className="mx-auto size-8 text-muted-foreground" />
           <p className="mt-4 font-medium">No sites yet</p>
           <p className="mt-1 text-sm text-muted-foreground">
