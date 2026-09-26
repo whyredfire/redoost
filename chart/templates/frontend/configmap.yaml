@@ -13,7 +13,7 @@ data:
 
         # Inline scripts stay allowed for the theme script, which must run before
         # first paint; blob: workers are how fflate unzips in the background
-        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' {{ (urlParse .Values.s3.publicEndpoint).scheme }}://{{ (urlParse .Values.s3.publicEndpoint).host }}; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' {{ (urlParse .Values.s3.publicEndpoint).scheme }}://{{ (urlParse .Values.s3.publicEndpoint).host }}; worker-src 'self' blob:; frame-src {{ (urlParse .Values.sitesOrigin).scheme }}://*.{{ (urlParse .Values.sitesOrigin).host }}; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
         add_header X-Content-Type-Options "nosniff" always;
         add_header Referrer-Policy "strict-origin-when-cross-origin" always;
         add_header X-Frame-Options "DENY" always;

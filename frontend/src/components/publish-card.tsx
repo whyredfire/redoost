@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ThinkingOrb } from "thinking-orbs";
 import { CopyButton } from "@/components/copy-button";
 import { FolderDrop } from "@/components/folder-drop";
+import { SitePreview } from "@/components/site-preview";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -232,10 +233,13 @@ export function PublishCard({ onPublished }: { onPublished: () => void }) {
     const url = siteUrl(session.deployment.slug);
     return (
       <Card className="min-h-(--publish-height) justify-center">
-        <CardContent className="mx-auto w-full max-w-lg space-y-6 text-center">
-          <CircleCheck className="mx-auto size-10 text-emerald-600 dark:text-emerald-500" />
+        <CardContent className="mx-auto w-full max-w-xl space-y-6 text-center">
+          {url && <SitePreview url={url} />}
           <div>
-            <p className="text-xl font-semibold">Your site is live</p>
+            <p className="flex items-center justify-center gap-2 text-xl font-semibold">
+              <CircleCheck className="size-5 text-emerald-600 dark:text-emerald-500" />
+              Your site is live
+            </p>
             <p className="mt-1 text-muted-foreground">
               Share this address with anyone.
             </p>
