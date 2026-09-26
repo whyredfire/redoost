@@ -67,7 +67,12 @@ function Working({ children }: { children: ReactNode }) {
   );
 }
 
-export function PublishCard({ onPublished }: { onPublished: () => void }) {
+type PublishCardProps = {
+  onPublished: () => void;
+  onLiveChange: (live: boolean) => void;
+};
+
+export function PublishCard({ onPublished, onLiveChange }: PublishCardProps) {
   const [files, setFiles] = useState<SiteFile[]>([]);
   const [session, setSession] = useState<UploadSession | null>(loadSession);
   const [stage, setStage] = useState<Stage>(
@@ -182,6 +187,11 @@ export function PublishCard({ onPublished }: { onPublished: () => void }) {
   }
 
   const acceptsDrop = !busy && stage !== "ready";
+  const live = stage === "ready" && session !== null;
+
+  useEffect(() => {
+    onLiveChange(live);
+  }, [live, onLiveChange]);
 
   // The whole page is the drop target, so a stray drop never opens the file
   useEffect(() => {
