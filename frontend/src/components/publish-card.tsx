@@ -70,9 +70,15 @@ function Working({ children }: { children: ReactNode }) {
 type PublishCardProps = {
   onPublished: () => void;
   onEmptyChange: (empty: boolean) => void;
+  // Increases when the user asks to start over from the header
+  resetSignal: number;
 };
 
-export function PublishCard({ onPublished, onEmptyChange }: PublishCardProps) {
+export function PublishCard({
+  onPublished,
+  onEmptyChange,
+  resetSignal,
+}: PublishCardProps) {
   const [files, setFiles] = useState<SiteFile[]>([]);
   const [session, setSession] = useState<UploadSession | null>(loadSession);
   const [stage, setStage] = useState<Stage>(
@@ -193,6 +199,14 @@ export function PublishCard({ onPublished, onEmptyChange }: PublishCardProps) {
   useEffect(() => {
     onEmptyChange(empty);
   }, [empty, onEmptyChange]);
+
+  // Only changes after mounting count, and a running upload is never dropped
+  const seenReset = useRef(resetSignal);
+  useEffect(() => {
+    if (resetSignal === seenReset.current) return;
+    seenReset.current = resetSignal;
+    if (!busy) startOver();
+  }, [resetSignal, busy]);
 
   // The whole page is the drop target, so a stray drop never opens the file
   useEffect(() => {

@@ -1,6 +1,6 @@
 import { Globe } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, Route, Switch } from "wouter";
+import { Link, Route, Switch, useLocation } from "wouter";
 import { AgentPromptButton } from "@/components/agent-prompt-button";
 import { PublishCard } from "@/components/publish-card";
 import { RotatingWord } from "@/components/rotating-word";
@@ -29,6 +29,15 @@ function navClass(active: boolean) {
 export function App() {
   const [sites, setSites] = useState<Deployment[]>([]);
   const [empty, setEmpty] = useState(true);
+  const [resets, setResets] = useState(0);
+  const [location] = useLocation();
+
+  // The header's links to / start a fresh publish. The card resets itself
+  // when it's on screen; otherwise its saved result is cleared here.
+  function startFresh() {
+    if (location === "/") setResets((count) => count + 1);
+    else clearSession();
+  }
 
   async function refreshSites() {
     const token = loadToken();
@@ -69,14 +78,18 @@ export function App() {
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-6 px-5">
-          <Link href="/" className="flex items-center gap-2 font-semibold">
+          <Link
+            href="/"
+            className="flex items-center gap-2 font-semibold"
+            onClick={startFresh}
+          >
             <span className="flex size-7 items-center justify-center rounded-lg bg-primary text-xs text-primary-foreground">
               r.
             </span>
             redoost
           </Link>
           <nav className="flex gap-5">
-            <Link href="/" className={navClass}>
+            <Link href="/" className={navClass} onClick={startFresh}>
               Publish
             </Link>
             <Link href="/sites" className={navClass}>
@@ -162,6 +175,7 @@ export function App() {
               <PublishCard
                 onPublished={refreshSites}
                 onEmptyChange={setEmpty}
+                resetSignal={resets}
               />
             </div>
           </Route>
