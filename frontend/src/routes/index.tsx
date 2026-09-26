@@ -33,7 +33,11 @@ function LandingPage() {
         >
           <span aria-hidden>
             A home for your{" "}
+            {/* Phones would wrap only the longer words, so the height would jump;
+                on its own line, the word is centered */}
+            <br className="sm:hidden" />
             <RotatingWord
+              className="text-center sm:text-left"
               words={[
                 "static site",
                 "portfolio",

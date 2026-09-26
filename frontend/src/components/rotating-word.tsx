@@ -4,6 +4,7 @@ import {
   stagger,
   useReducedMotion,
 } from "motion/react";
+import { cn } from "cn";
 import { useEffect, useState } from "react";
 
 const letter = {
@@ -11,7 +12,9 @@ const letter = {
   visible: { opacity: 1, y: 0, filter: "blur(0px)" },
 };
 
-export function RotatingWord({ words }: { words: string[] }) {
+type Props = { words: string[]; className?: string };
+
+export function RotatingWord({ words, className }: Props) {
   const [index, setIndex] = useState(0);
   const reduceMotion = useReducedMotion();
 
@@ -27,29 +30,37 @@ export function RotatingWord({ words }: { words: string[] }) {
   if (reduceMotion) return <span>{words[0]}</span>;
 
   return (
-    // Animating the width keeps the centered heading from jumping
-    <motion.span layout className="inline-block whitespace-pre">
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.span
-          key={words[index]}
-          className="inline-block"
-          initial="hidden"
-          animate="visible"
-          exit="hidden"
-          transition={{ delayChildren: stagger(0.03) }}
-        >
-          {[...words[index]!].map((char, i) => (
-            <motion.span
-              key={i}
-              className="inline-block"
-              variants={letter}
-              transition={{ duration: 0.25 }}
-            >
-              {char}
-            </motion.span>
-          ))}
-        </motion.span>
-      </AnimatePresence>
-    </motion.span>
+    // Every word sits invisibly in one cell, so the slot is as wide as the
+    // longest and the centered heading never moves
+    <span className={cn("inline-grid text-left whitespace-pre", className)}>
+      {words.map((word) => (
+        <span key={word} className="invisible col-start-1 row-start-1">
+          {word}
+        </span>
+      ))}
+      <span className="col-start-1 row-start-1">
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.span
+            key={words[index]}
+            className="inline-block"
+            initial="hidden"
+            animate="visible"
+            exit="hidden"
+            transition={{ delayChildren: stagger(0.03) }}
+          >
+            {[...words[index]!].map((char, i) => (
+              <motion.span
+                key={i}
+                className="inline-block"
+                variants={letter}
+                transition={{ duration: 0.25 }}
+              >
+                {char}
+              </motion.span>
+            ))}
+          </motion.span>
+        </AnimatePresence>
+      </span>
+    </span>
   );
 }
