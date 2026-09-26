@@ -21,6 +21,8 @@ export const Route = createRootRoute({
 const navClass =
   "text-sm text-muted-foreground transition-colors hover:text-foreground data-[status=active]:font-medium data-[status=active]:text-foreground";
 
+const footerLink = "underline-offset-4 hover:text-foreground hover:underline";
+
 function Layout() {
   const { busy, startOver } = useUpload();
   const pathname = useLocation({ select: (location) => location.pathname });
@@ -78,16 +80,29 @@ function Layout() {
       </main>
 
       <footer className="border-t">
-        <div className="mx-auto max-w-7xl px-5 py-6 text-sm text-muted-foreground">
-          Open source under the MIT license ·{" "}
-          <a
-            className="underline-offset-4 hover:text-foreground hover:underline"
-            href="https://github.com/whyredfire/redoost"
-            target="_blank"
-            rel="noreferrer"
-          >
-            GitHub
-          </a>
+        <div className="mx-auto flex max-w-7xl flex-wrap justify-between gap-x-4 gap-y-1 px-5 py-6 text-sm text-muted-foreground">
+          <p>
+            Open source under the MIT license ·{" "}
+            <a
+              className={footerLink}
+              href="https://github.com/whyredfire/redoost"
+              target="_blank"
+              rel="noreferrer"
+            >
+              GitHub
+            </a>
+          </p>
+          <p className="whitespace-nowrap">
+            Made by{" "}
+            <a
+              className={footerLink}
+              href="https://github.com/whyredfire"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Karan Parashar
+            </a>
+          </p>
         </div>
       </footer>
     </div>
