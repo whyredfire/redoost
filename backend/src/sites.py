@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, HTTPException, Response, status
 
 from .database import Session
@@ -11,6 +13,13 @@ router = APIRouter(prefix="/internal/sites", include_in_schema=False)
 async def resolve_site(slug: str, session: Session, response: Response) -> None:
     deployment = await session.get(Deployment, slug)
     # Nginx's auth_request only understands 2xx, 401 and 403
-    if deployment is None or deployment.state != DeploymentState.ready:
+    if (
+        deployment is None
+        or deployment.state != DeploymentState.ready
+        or (
+            deployment.available_until
+            and deployment.available_until < datetime.now(UTC)
+        )
+    ):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Site not available")
     response.headers["X-Site-Spa"] = "1" if deployment.spa else "0"

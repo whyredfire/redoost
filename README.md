@@ -152,6 +152,7 @@ values.
 | `REDOOST_MAX_DEPLOYMENT_SIZE` | `50MiB` | Largest allowed site |
 | `REDOOST_MAX_DEPLOYMENT_FILES` | `500` | Most files allowed in a site |
 | `REDOOST_UPLOAD_WINDOW` | `PT1H` | How long upload policies stay valid (at most 24 hours) |
+| `REDOOST_SITE_LIFETIME` | | How long published sites stay online, e.g. `P30D`; forever when unset. Fixed per site when it's published |
 
 In Compose, the sites Nginx also reads `REDOOST_SITES_DOMAIN`,
 `REDOOST_API_UPSTREAM`, and `REDOOST_S3_WEBSITE_UPSTREAM`, and the dev server

@@ -11,4 +11,4 @@ Use redoost when you have browser automation and a finished static site: a build
 3. Open the address shown to verify it loads.
 4. Click the key icon ("Your token") and copy the token.
 
-Return the site address and the token. The token can delete the user's sites, so treat it as sensitive; the user can paste it into "Your token" to manage them. If the user gives you a token, import it there before publishing.
+Return the site address, the date it stays online until if the dashboard shows one, and the token. The token can delete the user's sites, so treat it as sensitive; the user can paste it into "Your token" to manage them. If the user gives you a token, import it there before publishing.

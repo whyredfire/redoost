@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlmodel import col, select
+from sqlmodel import col, or_, select
 
 from .config import settings
 from .database import Session
@@ -89,6 +89,12 @@ async def list_deployments(
         select(Deployment)
         .where(Deployment.token_hash == token_hash)
         .where(Deployment.state == DeploymentState.ready)
+        .where(
+            or_(
+                col(Deployment.available_until).is_(None),
+                col(Deployment.available_until) > datetime.now(UTC),
+            )
+        )
         .order_by(col(Deployment.created_at).desc())
     )
     result = await session.exec(query)
@@ -128,6 +134,9 @@ async def complete_deployment(
         )
 
     deployment.state = DeploymentState.ready
+    # Fixed at publish time, so changing the setting never moves existing dates
+    if settings.site_lifetime:
+        deployment.available_until = datetime.now(UTC) + settings.site_lifetime
     session.add(deployment)
     await session.commit()
     return deployment

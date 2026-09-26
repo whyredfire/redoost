@@ -16,7 +16,7 @@ import {
   type ManifestFile,
   type UploadSession,
 } from "@/lib/deploy";
-import { formatBytes, siteUrl } from "@/lib/format";
+import { formatBytes, formatDate, siteUrl } from "@/lib/format";
 import {
   clearSession,
   loadSession,
@@ -174,7 +174,11 @@ export function PublishCard({
       const result = await completeDeployment(active.deployment, abort.signal);
       const finished = {
         ...active,
-        deployment: { ...active.deployment, state: result.state },
+        deployment: {
+          ...active.deployment,
+          state: result.state,
+          available_until: result.available_until,
+        },
       };
       saveSession(finished);
       setSession(finished);
@@ -267,6 +271,8 @@ export function PublishCard({
             </p>
             <p className="mt-1 text-muted-foreground">
               Share this address with anyone.
+              {session.deployment.available_until &&
+                ` It stays online until ${formatDate(session.deployment.available_until)}.`}
             </p>
           </div>
           <div className="flex items-center gap-1 rounded-xl border bg-muted/40 py-1 pr-1 pl-4 text-left">

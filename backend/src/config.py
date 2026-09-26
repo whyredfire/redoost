@@ -43,6 +43,10 @@ class Settings(BaseSettings):
         le=timedelta(hours=24),
         description="How long upload policies stay valid",
     )
+    site_lifetime: timedelta | None = Field(
+        default=None,
+        description="How long published sites stay online; forever when unset",
+    )
 
 
 settings = Settings()  # pyright: ignore[reportCallIssue]

@@ -90,6 +90,10 @@ class DeploymentBase(SQLModel):
         default_factory=lambda: datetime.now(UTC) + settings.upload_window,
         description="When the upload policies expire",
     )
+    available_until: datetime | None = Field(
+        default=None,
+        description="When the published site is removed; never when unset",
+    )
 
 
 class Deployment(DeploymentBase, table=True):

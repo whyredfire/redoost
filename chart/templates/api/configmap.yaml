@@ -17,3 +17,6 @@ data:
   REDOOST_MAX_DEPLOYMENT_SIZE: {{ .Values.api.maxDeploymentSize | quote }}
   REDOOST_MAX_DEPLOYMENT_FILES: {{ .Values.api.maxDeploymentFiles | quote }}
   REDOOST_UPLOAD_WINDOW: {{ .Values.api.uploadWindow | quote }}
+  {{- with .Values.api.siteLifetime }}
+  REDOOST_SITE_LIFETIME: {{ . | quote }}
+  {{- end }}

@@ -381,3 +381,62 @@ def test_cleanup_removes_expired_uploads_and_orphans(
     for created, code in ((expired, 404), (ready, 200), (pending, 200)):
         url = f"{URL}/{created['slug']}"
         assert client.get(url, headers=bearer(created["token"])).status_code == code
+
+
+def test_sites_live_forever_without_a_lifetime(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(deployments, "count_objects", uploaded(1))
+    created = client.post(URL, json=manifest("index.html")).json()
+
+    assert complete(client, created).json()["available_until"] is None
+
+
+def test_site_lifetime_is_fixed_at_publish(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(deployments, "count_objects", uploaded(1))
+    monkeypatch.setattr(settings, "site_lifetime", timedelta(days=30))
+    created = client.post(URL, json=manifest("index.html")).json()
+    until = datetime.fromisoformat(complete(client, created).json()["available_until"])
+    assert timedelta(days=29) < until - datetime.now(UTC) <= timedelta(days=30)
+
+    # Later changes to the setting don't move the date
+    monkeypatch.setattr(settings, "site_lifetime", timedelta(days=1))
+    url = f"{URL}/{created['slug']}"
+    response = client.get(url, headers=bearer(created["token"]))
+    assert datetime.fromisoformat(response.json()["available_until"]) == until
+
+
+def test_expired_sites_are_hidden_and_cleaned_up(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    run_cleanup: Callable[[], tuple[int, int]],
+) -> None:
+    monkeypatch.setattr(deployments, "count_objects", uploaded(1))
+    monkeypatch.setattr(settings, "site_lifetime", timedelta(seconds=-1))
+    expired = client.post(URL, json=manifest("index.html")).json()
+    complete(client, expired)
+    monkeypatch.setattr(settings, "site_lifetime", None)
+    kept = client.post(
+        URL, json=manifest("index.html"), headers=bearer(expired["token"])
+    ).json()
+    complete(client, kept)
+
+    assert resolve(client, expired["slug"]).status_code == 403
+    assert resolve(client, kept["slug"]).status_code == 204
+    listed = client.get(URL, headers=bearer(expired["token"])).json()
+    assert [site["slug"] for site in listed] == [kept["slug"]]
+
+    deleted: list[str] = []
+
+    async def delete_objects(slug: str) -> None:
+        deleted.append(slug)
+
+    async def list_slugs() -> list[str]:
+        return [expired["slug"], kept["slug"]]
+
+    monkeypatch.setattr(cleanup, "delete_objects", delete_objects)
+    monkeypatch.setattr(cleanup, "list_slugs", list_slugs)
+    run_cleanup()
+    assert expired["slug"] in deleted and kept["slug"] not in deleted

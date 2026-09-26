@@ -14,7 +14,7 @@ import { CopyButton } from "@/components/copy-button";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type { Deployment } from "@/lib/deploy";
-import { formatBytes, siteUrl } from "@/lib/format";
+import { formatBytes, formatDate, siteUrl } from "@/lib/format";
 
 type SiteListProps = {
   sites: Deployment[];
@@ -59,10 +59,9 @@ export function SiteList({ sites, onDelete }: SiteListProps) {
                 <p className="truncate font-medium">{site.slug}</p>
                 <p className="mt-0.5 shrink-0 text-sm text-muted-foreground md:mt-0">
                   {site.file_count} {site.file_count === 1 ? "file" : "files"} ·{" "}
-                  {formatBytes(site.total_size)} ·{" "}
-                  {new Date(site.created_at).toLocaleDateString(undefined, {
-                    dateStyle: "medium",
-                  })}
+                  {formatBytes(site.total_size)} · {formatDate(site.created_at)}
+                  {site.available_until &&
+                    ` · until ${formatDate(site.available_until)}`}
                 </p>
               </div>
               <div className="flex shrink-0 items-center">

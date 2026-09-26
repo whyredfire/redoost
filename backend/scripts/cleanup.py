@@ -2,7 +2,7 @@ import asyncio
 import logging
 from datetime import UTC, datetime
 
-from sqlmodel import col, select
+from sqlmodel import col, or_, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.database import engine
@@ -14,11 +14,18 @@ batch_size = 100
 
 
 async def cleanup(session: AsyncSession) -> tuple[int, int]:
-    # Their upload policies have expired, so nothing can still arrive
+    now = datetime.now(UTC)
+    # Unfinished uploads past their window, whose policies can no longer be
+    # used, and published sites past their lifetime
     expired_query = (
         select(Deployment)
-        .where(Deployment.state == DeploymentState.uploading)
-        .where(Deployment.expires_at < datetime.now(UTC))
+        .where(
+            or_(
+                (col(Deployment.state) == DeploymentState.uploading)
+                & (col(Deployment.expires_at) < now),
+                col(Deployment.available_until) < now,
+            )
+        )
         .limit(batch_size)
     )
     slugs, result = await asyncio.gather(list_slugs(), session.exec(expired_query))

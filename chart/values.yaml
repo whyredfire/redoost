@@ -51,6 +51,8 @@ api:
   maxDeploymentSize: 50MiB
   maxDeploymentFiles: 500
   uploadWindow: PT1H
+  # How long published sites stay online, e.g. P30D; forever when empty
+  siteLifetime: ""
   persistence:
     size: 100Mi
     storageClass: ""
