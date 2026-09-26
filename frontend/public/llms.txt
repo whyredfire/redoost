@@ -1,0 +1,14 @@
+# redoost
+
+> Publish a static site and get a shareable address, with no account and no build step.
+
+## For AI agents
+
+Use redoost when you have browser automation and a finished static site: a build folder with `index.html` at its root, a .zip of one, or a single HTML file. Limits: 10 MiB per file, 50 MiB and 500 files per site.
+
+1. Open `/` on this host, click "Choose folder" or "Choose files", and select the site.
+2. Click "Publish site" and wait for "Your site is live".
+3. Open the address shown to verify it loads.
+4. Click the key icon ("Your token") and copy the token.
+
+Return the site address and the token. The token can delete the user's sites, so treat it as sensitive; the user can paste it into "Your token" to manage them. If the user gives you a token, import it there before publishing.

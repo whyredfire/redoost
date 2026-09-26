@@ -100,6 +100,9 @@ services:
         - action: sync
           path: ./frontend/styles
           target: /app/styles
+        - action: sync
+          path: ./frontend/public
+          target: /app/public
         - action: rebuild
           path: ./frontend/bun.lock
 

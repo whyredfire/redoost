@@ -1,6 +1,7 @@
 import { Globe } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, Route, Switch } from "wouter";
+import { AgentPromptButton } from "@/components/agent-prompt-button";
 import { PublishCard } from "@/components/publish-card";
 import { RotatingWord } from "@/components/rotating-word";
 import { SiteList } from "@/components/site-list";
@@ -82,7 +83,8 @@ export function App() {
               Sites
             </Link>
           </nav>
-          <div className="ml-auto flex gap-1">
+          <div className="ml-auto flex items-center gap-1">
+            <AgentPromptButton />
             <TokenDialog onImport={importToken} />
             <ThemeToggle />
           </div>
