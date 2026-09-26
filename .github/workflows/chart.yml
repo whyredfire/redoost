@@ -1,0 +1,24 @@
+name: chart
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - chart/**
+      - .github/workflows/chart.yml
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-slim
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v5
+        with:
+          version: v4.3.0
+      # s3.existingSecret is the only required value; the policies are optional
+      - run: helm lint --strict chart --set s3.existingSecret=redoost-s3
+      - run: helm lint --strict chart --set s3.existingSecret=redoost-s3 --set networkPolicy.enabled=true
