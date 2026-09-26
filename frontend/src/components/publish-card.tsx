@@ -69,10 +69,10 @@ function Working({ children }: { children: ReactNode }) {
 
 type PublishCardProps = {
   onPublished: () => void;
-  onLiveChange: (live: boolean) => void;
+  onEmptyChange: (empty: boolean) => void;
 };
 
-export function PublishCard({ onPublished, onLiveChange }: PublishCardProps) {
+export function PublishCard({ onPublished, onEmptyChange }: PublishCardProps) {
   const [files, setFiles] = useState<SiteFile[]>([]);
   const [session, setSession] = useState<UploadSession | null>(loadSession);
   const [stage, setStage] = useState<Stage>(
@@ -188,10 +188,11 @@ export function PublishCard({ onPublished, onLiveChange }: PublishCardProps) {
 
   const acceptsDrop = !busy && stage !== "ready";
   const live = stage === "ready" && session !== null;
+  const empty = files.length === 0 && !live;
 
   useEffect(() => {
-    onLiveChange(live);
-  }, [live, onLiveChange]);
+    onEmptyChange(empty);
+  }, [empty, onEmptyChange]);
 
   // The whole page is the drop target, so a stray drop never opens the file
   useEffect(() => {
@@ -242,8 +243,8 @@ export function PublishCard({ onPublished, onLiveChange }: PublishCardProps) {
   if (stage === "ready" && session) {
     const url = siteUrl(session.deployment.slug);
     return (
-      <Card className="min-h-(--publish-height) justify-center">
-        <CardContent className="mx-auto w-full max-w-xl space-y-6 text-center">
+      <Card className="min-h-(--publish-height) justify-center duration-300 motion-safe:transition-[min-height]">
+        <CardContent className="mx-auto w-full max-w-xl space-y-6 text-center duration-300 motion-safe:animate-in motion-safe:fade-in">
           {url && <SitePreview url={url} />}
           <div>
             <p className="flex items-center justify-center gap-2 text-xl font-semibold">
@@ -284,7 +285,7 @@ export function PublishCard({ onPublished, onLiveChange }: PublishCardProps) {
 
   return (
     <Card
-      className={`min-h-(--publish-height) transition-colors ${files.length === 0 ? "border-0 bg-transparent py-0 shadow-none" : dragging ? "border-primary" : ""}`}
+      className={`min-h-(--publish-height) transition-colors duration-300 motion-safe:transition-[min-height,color,background-color,border-color,box-shadow] ${files.length === 0 ? "border-0 bg-transparent py-0 shadow-none" : dragging ? "border-primary" : ""}`}
     >
       {/* Empty, the dashed drop area is the only frame */}
       <CardContent
@@ -314,7 +315,7 @@ export function PublishCard({ onPublished, onLiveChange }: PublishCardProps) {
             onError={setMessage}
           />
         ) : (
-          <div className="grid flex-1 gap-6 md:grid-cols-[16rem_1fr]">
+          <div className="grid flex-1 gap-6 duration-300 motion-safe:animate-in motion-safe:fade-in md:grid-cols-[16rem_1fr]">
             <div className="flex flex-col gap-5">
               <div>
                 <FolderOpen className="size-6 text-muted-foreground" />

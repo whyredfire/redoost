@@ -31,7 +31,7 @@ export function FolderDrop({ dragging, disabled, onFiles, onError }: Props) {
 
   return (
     <div
-      className={`flex flex-1 flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-12 text-center transition-colors ${dragging ? "border-primary bg-muted" : "border-border"}`}
+      className={`flex flex-1 flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-12 text-center transition-colors duration-300 motion-safe:animate-in motion-safe:fade-in ${dragging ? "border-primary bg-muted" : "border-border"}`}
     >
       <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-muted">
         <Upload className="size-5 text-muted-foreground" />

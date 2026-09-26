@@ -28,7 +28,7 @@ function navClass(active: boolean) {
 
 export function App() {
   const [sites, setSites] = useState<Deployment[]>([]);
-  const [live, setLive] = useState(false);
+  const [empty, setEmpty] = useState(true);
 
   async function refreshSites() {
     const token = loadToken();
@@ -120,41 +120,49 @@ export function App() {
             )}
           </Route>
           <Route>
-            {/* The card fills what's left of the first screen; the hero is only
-                shown until a site is live */}
+            {/* The card fills what's left of the first screen; the hero only
+                shows on the empty drop area, and both animate as it collapses */}
             <div
               className={
-                live
-                  ? "[--publish-height:max(26rem,calc(100svh-14rem))]"
-                  : "[--publish-height:max(26rem,calc(100svh-21rem))]"
+                empty
+                  ? "[--publish-height:max(26rem,calc(100svh-21rem))]"
+                  : "[--publish-height:max(26rem,calc(100svh-14rem))]"
               }
             >
-              {!live && (
-                <div className="mb-8 text-center">
-                  <h1
-                    className="text-3xl font-semibold tracking-tight sm:text-4xl"
-                    aria-label="A home for your static site"
-                  >
-                    <span aria-hidden>
-                      A home for your{" "}
-                      <RotatingWord
-                        words={[
-                          "static site",
-                          "portfolio",
-                          "landing page",
-                          "docs",
-                          "side project",
-                        ]}
-                      />
-                    </span>
-                  </h1>
-                  <p className="mt-3 text-muted-foreground">
-                    Drop a built site and get a shareable address. No account or
-                    build step required.
-                  </p>
+              <div
+                inert={!empty}
+                className={`grid duration-300 motion-safe:transition-[grid-template-rows,opacity] ${empty ? "grid-rows-[1fr]" : "grid-rows-[0fr] opacity-0"}`}
+              >
+                <div className="min-h-0 overflow-hidden">
+                  <div className="pb-8 text-center">
+                    <h1
+                      className="text-3xl font-semibold tracking-tight sm:text-4xl"
+                      aria-label="A home for your static site"
+                    >
+                      <span aria-hidden>
+                        A home for your{" "}
+                        <RotatingWord
+                          words={[
+                            "static site",
+                            "portfolio",
+                            "landing page",
+                            "docs",
+                            "side project",
+                          ]}
+                        />
+                      </span>
+                    </h1>
+                    <p className="mt-3 text-muted-foreground">
+                      Drop a built site and get a shareable address. No account
+                      or build step required.
+                    </p>
+                  </div>
                 </div>
-              )}
-              <PublishCard onPublished={refreshSites} onLiveChange={setLive} />
+              </div>
+              <PublishCard
+                onPublished={refreshSites}
+                onEmptyChange={setEmpty}
+              />
             </div>
           </Route>
         </Switch>
