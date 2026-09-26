@@ -22,6 +22,10 @@ class ManifestFile(SQLModel):
         schema_extra={"pattern": r"^[A-Za-z0-9+/]{43}=$"},
         description="Base64-encoded SHA-256 digest",
     )
+    gzip: bool = Field(
+        default=False,
+        description="Uploaded gzip-compressed, so it's served with Content-Encoding: gzip",
+    )
 
     @field_validator("path")
     @classmethod

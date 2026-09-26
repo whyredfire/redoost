@@ -74,6 +74,20 @@ def test_create_deployment_signs_one_policy_per_file(client: TestClient) -> None
     assert timedelta(minutes=59) < expires_in <= settings.upload_window
 
 
+def test_signs_content_encoding_for_gzipped_files(client: TestClient) -> None:
+    files = [
+        {"path": "index.html", "size": 5, "sha256": SHA256, "gzip": True},
+        {"path": "logo.png", "size": 5, "sha256": SHA256},
+    ]
+    uploads = client.post(URL, json={"files": files}).json()["uploads"]
+
+    gzipped, plain = (upload["fields"] for upload in uploads)
+    assert gzipped["Content-Encoding"] == "gzip"
+    policy = json.loads(base64.b64decode(gzipped["policy"]))
+    assert {"Content-Encoding": "gzip"} in policy["conditions"]
+    assert "Content-Encoding" not in plain
+
+
 def test_slugs_are_unique(client: TestClient) -> None:
     slugs = {
         client.post(URL, json=manifest("index.html")).json()["slug"] for _ in range(20)

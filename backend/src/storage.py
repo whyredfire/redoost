@@ -88,6 +88,8 @@ async def sign_uploads(
                 "x-amz-checksum-algorithm": "SHA256",
                 "x-amz-checksum-sha256": file.sha256,
             }
+            if file.gzip:
+                fields["Content-Encoding"] = "gzip"
             post = await s3.generate_presigned_post(
                 Bucket=settings.s3_bucket,
                 Key=f"{slug}/{file.path}",

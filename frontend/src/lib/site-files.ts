@@ -3,6 +3,10 @@ import type { Limits } from "./deploy";
 import { formatBytes } from "./format";
 
 export type SiteFile = { path: string; file: File };
+export type UploadFile = SiteFile & { gzip: boolean };
+
+const compressible =
+  /\.(html?|css|[cm]?js|json|map|svg|txt|xml|wasm|webmanifest)$/i;
 
 async function readEntry(
   entry: FileSystemEntry,
@@ -126,9 +130,36 @@ export async function droppedFiles(
   return toSite(files.flat());
 }
 
-export async function fileManifest(files: SiteFile[]) {
+// Text files are uploaded gzipped; CompressionStream gives the same bytes every time, so resumes still match
+async function compress(site: SiteFile): Promise<UploadFile> {
+  if (!compressible.test(site.path)) return { ...site, gzip: false };
+  const stream = site.file.stream().pipeThrough(new CompressionStream("gzip"));
+  const packed = await new Response(stream).blob();
+  // Tiny files can grow when compressed
+  if (packed.size >= site.file.size) return { ...site, gzip: false };
+  return {
+    path: site.path,
+    file: new File([packed], site.file.name),
+    gzip: true,
+  };
+}
+
+export async function compressFiles(
+  files: SiteFile[],
+  onFile: (file: UploadFile) => void,
+) {
+  const compressed = [];
+  for (const file of files) {
+    const result = await compress(file);
+    compressed.push(result);
+    onFile(result);
+  }
+  return compressed;
+}
+
+export async function fileManifest(files: UploadFile[]) {
   const manifest = [];
-  for (const { path, file } of files) {
+  for (const { path, file, gzip } of files) {
     const contents = await file.arrayBuffer();
     const hash = await crypto.subtle.digest("SHA-256", contents);
     const digest = new Uint8Array(hash);
@@ -136,6 +167,7 @@ export async function fileManifest(files: SiteFile[]) {
       path,
       size: file.size,
       sha256: btoa(String.fromCharCode(...digest)),
+      gzip,
     });
   }
   return manifest;

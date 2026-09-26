@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import gzip
 import hashlib
 from collections.abc import Callable, Iterator
 from datetime import timedelta
@@ -87,6 +88,27 @@ def test_uploads_matching_files(deployment: dict[str, Any], s3: Any) -> None:
         assert head["ContentLength"] == len(content)
         assert head["ContentType"] == content_type(path)
         assert head["ChecksumSHA256"] == digest(content)
+
+
+def test_uploads_gzipped_files(client: TestClient, s3: Any) -> None:
+    content = gzip.compress(FILES["index.html"])
+    file = {"path": "index.html", "size": len(content), "sha256": digest(content)}
+    created = client.post("/api/deployments", json={"files": [{**file, "gzip": True}]})
+    deployment = created.json()
+    try:
+        # The signed policy requires the header, so it can't be left out
+        without = upload(deployment, "index.html", content, **{"Content-Encoding": ""})
+        assert without.status_code == 400
+        assert upload(deployment, "index.html", content).status_code == 204
+
+        head = stored(s3, f"{deployment['slug']}/index.html")
+        assert head is not None
+        assert head["ContentEncoding"] == "gzip"
+        assert head["ContentLength"] == len(content)
+    finally:
+        s3.delete_object(
+            Bucket=settings.s3_bucket, Key=f"{deployment['slug']}/index.html"
+        )
 
 
 def test_replaying_a_policy_is_harmless(deployment: dict[str, Any]) -> None:

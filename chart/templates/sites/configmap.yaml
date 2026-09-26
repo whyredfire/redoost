@@ -39,6 +39,8 @@ data:
         recursive_error_pages on;
         # Keep redirects relative so they work behind any host port
         absolute_redirect off;
+        # Text files are stored gzipped, so unpack them for clients without gzip
+        gunzip on;
 
         if ($slug = "") {
             return 404;

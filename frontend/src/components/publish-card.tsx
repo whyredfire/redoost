@@ -1,6 +1,7 @@
 import { CircleCheck, ExternalLink, FolderOpen } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ThinkingOrb } from "thinking-orbs";
+import { CompressionSaving, Sizes } from "@/components/compression-saving";
 import { CopyButton } from "@/components/copy-button";
 import { FolderDrop } from "@/components/folder-drop";
 import { SitePreview } from "@/components/site-preview";
@@ -25,10 +26,12 @@ import {
   saveToken,
 } from "@/lib/session";
 import {
+  compressFiles,
   droppedFiles,
   fileManifest,
   limitError,
   type SiteFile,
+  type UploadFile,
 } from "@/lib/site-files";
 
 type Stage =
@@ -80,6 +83,7 @@ export function PublishCard({
   resetSignal,
 }: PublishCardProps) {
   const [files, setFiles] = useState<SiteFile[]>([]);
+  const [compressed, setCompressed] = useState<Record<string, UploadFile>>({});
   const [session, setSession] = useState<UploadSession | null>(loadSession);
   const [stage, setStage] = useState<Stage>(
     session?.deployment.state === "ready" ? "ready" : "idle",
@@ -87,16 +91,24 @@ export function PublishCard({
   const [message, setMessage] = useState("");
   const [progress, setProgress] = useState<Record<string, number>>({});
   const [uploaded, setUploaded] = useState(0);
+  const [uploadSize, setUploadSize] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [limits, setLimits] = useState<Limits | null>(null);
   const controller = useRef<AbortController | null>(null);
+  // Files are compressed as soon as they're selected, and Publish reuses it
+  const compression = useRef<Promise<UploadFile[]> | null>(null);
 
   const busy = ["hashing", "creating", "uploading", "completing"].includes(
     stage,
   );
   const totalSize = files.reduce((sum, { file }) => sum + file.size, 0);
+  const compressedFiles = Object.values(compressed);
+  const compressedSize =
+    compressedFiles.length === files.length
+      ? compressedFiles.reduce((sum, { file }) => sum + file.size, 0)
+      : null;
   const loaded = Object.values(progress).reduce((sum, bytes) => sum + bytes, 0);
-  const percentage = totalSize ? Math.round((loaded / totalSize) * 100) : 0;
+  const percentage = uploadSize ? Math.round((loaded / uploadSize) * 100) : 0;
 
   useEffect(() => {
     // Without limits, the API still rejects oversized sites when publishing
@@ -105,26 +117,47 @@ export function PublishCard({
       .catch(() => {});
   }, []);
 
-  function selectFiles(selected: SiteFile[]) {
+  function clearFiles() {
+    compression.current = null;
+    setFiles([]);
+    setCompressed({});
+  }
+
+  async function selectFiles(selected: SiteFile[]) {
     if (!selected.length) {
       setMessage("This folder has no files.");
       return;
     }
-    const error = limits && limitError(selected, limits);
-    if (error) {
-      setMessage(error);
-      return;
-    }
     setFiles(selected);
+    setCompressed({});
     setMessage("");
     setStage("idle");
+
+    const run = compressFiles(selected, (file) => {
+      if (compression.current === run) {
+        setCompressed((current) => ({ ...current, [file.path]: file }));
+      }
+    });
+    compression.current = run;
+    try {
+      const uploads = await run;
+      const error = limits && limitError(uploads, limits);
+      if (error && compression.current === run) {
+        clearFiles();
+        setMessage(error);
+      }
+    } catch (error) {
+      if (compression.current !== run) return;
+      clearFiles();
+      setMessage(error instanceof Error ? error.message : String(error));
+    }
   }
 
   function startOver() {
     controller.current?.abort();
     clearSession();
     setSession(null);
-    setFiles([]);
+    clearFiles();
     setMessage("");
     setStage("idle");
   }
@@ -136,7 +169,10 @@ export function PublishCard({
     setStage("hashing");
 
     try {
-      const manifest = await fileManifest(files);
+      const uploads = await compression.current!;
+      const error = limits && limitError(uploads, limits);
+      if (error) throw new Error(error);
+      const manifest = await fileManifest(uploads);
       abort.signal.throwIfAborted();
 
       let active = session;
@@ -147,7 +183,7 @@ export function PublishCard({
           loadToken(),
           abort.signal,
         );
-        active = { deployment, manifest };
+        active = { deployment, manifest, originalSize: totalSize };
         saveToken(active.deployment.token);
         saveSession(active);
         setSession(active);
@@ -159,10 +195,11 @@ export function PublishCard({
 
       setProgress({});
       setUploaded(0);
+      setUploadSize(uploads.reduce((sum, { file }) => sum + file.size, 0));
       setStage("uploading");
       await uploadFiles(
         active.deployment,
-        files,
+        uploads,
         abort.signal,
         (path, bytes, done) => {
           setProgress((current) => ({ ...current, [path]: bytes }));
@@ -274,6 +311,14 @@ export function PublishCard({
               {session.deployment.available_until &&
                 ` It stays online until ${formatDate(session.deployment.available_until)}.`}
             </p>
+            {session.originalSize !== undefined && (
+              <div className="mt-2">
+                <CompressionSaving
+                  original={session.originalSize}
+                  uploaded={session.deployment.total_size}
+                />
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-1 rounded-xl border bg-muted/40 py-1 pr-1 pl-4 text-left">
             <span className="min-w-0 flex-1 truncate font-mono text-sm">
@@ -343,7 +388,7 @@ export function PublishCard({
                   {files.length} {files.length === 1 ? "file" : "files"}
                 </p>
                 <p className="text-muted-foreground">
-                  {formatBytes(totalSize)}
+                  <Sizes original={totalSize} compressed={compressedSize} />
                 </p>
                 <p className="mt-3 text-sm text-muted-foreground">
                   {dragging
@@ -400,11 +445,7 @@ export function PublishCard({
                     Cancel
                   </Button>
                 ) : (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setFiles([])}
-                  >
+                  <Button type="button" variant="ghost" onClick={clearFiles}>
                     Clear
                   </Button>
                 )}
@@ -418,11 +459,12 @@ export function PublishCard({
                     className="flex justify-between gap-4 px-4 py-2"
                     key={path}
                   >
-                    <span className="truncate" title={path}>
-                      {path}
-                    </span>
+                    <span className="truncate">{path}</span>
                     <span className="shrink-0 text-muted-foreground">
-                      {formatBytes(file.size)}
+                      <Sizes
+                        original={file.size}
+                        compressed={compressed[path]?.file.size ?? null}
+                      />
                     </span>
                   </li>
                 ))}

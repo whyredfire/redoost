@@ -1,6 +1,11 @@
 import type { SiteFile } from "./site-files";
 
-export type ManifestFile = { path: string; size: number; sha256: string };
+export type ManifestFile = {
+  path: string;
+  size: number;
+  sha256: string;
+  gzip: boolean;
+};
 
 export type Deployment = {
   slug: string;
@@ -27,6 +32,8 @@ export type CreatedDeployment = Deployment & {
 export type UploadSession = {
   deployment: CreatedDeployment;
   manifest: ManifestFile[];
+  // Size before compression; missing in sessions saved by older versions
+  originalSize?: number;
 };
 
 export class ApiError extends Error {

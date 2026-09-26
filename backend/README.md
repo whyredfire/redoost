@@ -7,8 +7,9 @@ in Compose (see the root README).
 
 - `GET /health`
 - `POST /api/deployments`: create a deployment from a manifest of
-  `{"path", "size", "sha256"}` files, where `sha256` is the base64-encoded
-  digest. Returns the slug, a management token, and one signed upload policy
+  `{"path", "size", "sha256", "gzip"}` files, where `sha256` is the
+  base64-encoded digest. Size and digest are of the bytes as uploaded; files
+  sent gzip-compressed set `gzip` and are served with `Content-Encoding: gzip`. Returns the slug, a management token, and one signed upload policy
   per file. Send a token from an earlier deployment to reuse it; unknown
   tokens get 403.
 - `GET /api/deployments`: ready deployments for the token, newest first.
