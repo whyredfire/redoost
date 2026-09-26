@@ -8,6 +8,7 @@ import { SitePreview } from "@/components/site-preview";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   completeDeployment,
   createDeployment,
@@ -471,23 +472,29 @@ export function PublishCard({ onEmptyChange, resetSignal }: PublishCardProps) {
               </div>
             </div>
 
+            {/* The fade sits on the scrolling viewport, so it dissolves the rows and not the border */}
             <div className="relative min-h-64 rounded-xl border bg-muted/30">
-              <ul className="absolute inset-0 divide-y overflow-y-auto font-mono text-xs">
-                {files.map(({ path, file }) => (
-                  <li
-                    className="flex justify-between gap-4 px-4 py-2"
-                    key={path}
-                  >
-                    <span className="truncate">{path}</span>
-                    <span className="shrink-0 text-muted-foreground">
-                      <Sizes
-                        original={file.size}
-                        compressed={compressed[path]?.file.size ?? null}
-                      />
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              {/* Radix pins the root to position: relative, so this div takes the space */}
+              <div className="absolute inset-0">
+                <ScrollArea className="h-full [&>[data-slot=scroll-area-viewport]]:scroll-fade">
+                  <ul className="divide-y font-mono text-xs">
+                    {files.map(({ path, file }) => (
+                      <li
+                        className="flex justify-between gap-4 px-4 py-2"
+                        key={path}
+                      >
+                        <span className="truncate">{path}</span>
+                        <span className="shrink-0 text-muted-foreground">
+                          <Sizes
+                            original={file.size}
+                            compressed={compressed[path]?.file.size ?? null}
+                          />
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </ScrollArea>
+              </div>
             </div>
           </div>
         )}
