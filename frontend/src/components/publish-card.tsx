@@ -1,4 +1,5 @@
 import { CircleCheck, ExternalLink, FolderOpen } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ThinkingOrb } from "thinking-orbs";
 import { CompressionSaving, Sizes } from "@/components/compression-saving";
@@ -72,6 +73,20 @@ function Working({ children }: { children: ReactNode }) {
   );
 }
 
+const MotionCardContent = motion.create(CardContent);
+
+// The live page's sections rise in one after another
+const stagger = { shown: { transition: { staggerChildren: 0.08 } } };
+const rise = {
+  hidden: { opacity: 0, y: 12, filter: "blur(4px)" },
+  shown: {
+    opacity: 1,
+    y: 0,
+    filter: "blur(0px)",
+    transition: { duration: 0.4, ease: "easeOut" as const },
+  },
+};
+
 type PublishCardProps = {
   onEmptyChange: (empty: boolean) => void;
   // Increases when the user asks to start over from the header
@@ -92,6 +107,7 @@ export function PublishCard({ onEmptyChange, resetSignal }: PublishCardProps) {
   const [uploadSize, setUploadSize] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [limits, setLimits] = useState<Limits | null>(null);
+  const reduceMotion = useReducedMotion();
   const controller = useRef<AbortController | null>(null);
   // Files are compressed as soon as they're selected, and Publish reuses it
   const compression = useRef<Promise<UploadFile[]> | null>(null);
@@ -316,9 +332,18 @@ export function PublishCard({ onEmptyChange, resetSignal }: PublishCardProps) {
     const url = siteUrl(session.deployment.slug);
     return (
       <Card className="min-h-(--publish-height) justify-center duration-300 motion-safe:transition-[min-height]">
-        <CardContent className="mx-auto w-full max-w-xl space-y-6 text-center duration-300 motion-safe:animate-in motion-safe:fade-in">
-          {url && <SitePreview url={url} />}
-          <div>
+        <MotionCardContent
+          className="mx-auto w-full max-w-xl space-y-6 text-center"
+          variants={stagger}
+          initial={reduceMotion ? false : "hidden"}
+          animate="shown"
+        >
+          {url && (
+            <motion.div variants={rise}>
+              <SitePreview url={url} />
+            </motion.div>
+          )}
+          <motion.div variants={rise}>
             <p className="flex items-center justify-center gap-2 text-xl font-semibold">
               <CircleCheck className="size-5 text-emerald-600 dark:text-emerald-500" />
               Your site is live
@@ -336,8 +361,11 @@ export function PublishCard({ onEmptyChange, resetSignal }: PublishCardProps) {
                 />
               </div>
             )}
-          </div>
-          <div className="flex items-center gap-1 rounded-xl border bg-muted/40 py-1 pr-1 pl-4 text-left">
+          </motion.div>
+          <motion.div
+            variants={rise}
+            className="flex items-center gap-1 rounded-xl border bg-muted/40 py-1 pr-1 pl-4 text-left"
+          >
             <span className="min-w-0 flex-1 truncate font-mono text-sm">
               {url ?? session.deployment.slug}
             </span>
@@ -356,11 +384,13 @@ export function PublishCard({ onEmptyChange, resetSignal }: PublishCardProps) {
                 </Button>
               </>
             )}
-          </div>
-          <Button type="button" variant="outline" onClick={startOver}>
-            Publish another site
-          </Button>
-        </CardContent>
+          </motion.div>
+          <motion.div variants={rise}>
+            <Button type="button" variant="outline" onClick={startOver}>
+              Publish another site
+            </Button>
+          </motion.div>
+        </MotionCardContent>
       </Card>
     );
   }
