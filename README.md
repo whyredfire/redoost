@@ -94,9 +94,10 @@ helm install redoost ./chart -f values.yaml
 
 Pushes that change the backend or frontend build both images for amd64 and
 arm64 and publish them to `ghcr.io/whyredfire/redoost-api` and
-`redoost-frontend`, tagged `sha-<commit>` and `latest`. The workflow then
-commits the new `sha-` tag to `chart/values.yaml`, so anything deploying the
-chart from `main` rolls out the new images.
+`redoost-frontend`, tagged `sha-<commit>` and `latest`. Running the `release`
+workflow tags the latest images with the version and commits that tag to
+`chart/values.yaml`, so anything deploying the chart from `main` rolls out on
+releases only.
 
 See [`chart/values.yaml`](chart/values.yaml) for all settings. The API runs as a
 single replica with the `Recreate` strategy, since SQLite lives on one volume;
