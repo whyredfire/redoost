@@ -64,7 +64,7 @@ if a model changes without a migration.
 
 `python -m scripts.cleanup` removes deployments still uploading after their
 upload window, sites past their `REDOOST_SITE_LIFETIME`, and bucket folders
-without a deployment, up to 100 of each per run. The chart runs it as a CronJob (`cleanup.schedule`, daily by default);
+without a deployment, up to 100 of each per run. The chart runs it as a CronJob (`cleanup.schedule`, daily by default), keeping the last 10 successful and failed runs (`cleanup.successfulJobsHistoryLimit`, `cleanup.failedJobsHistoryLimit`);
 in Compose, run it with `docker compose exec api uv run --no-sync python -m scripts.cleanup`.
 
 ## Checks

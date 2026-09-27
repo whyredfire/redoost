@@ -95,6 +95,9 @@ sites:
 # Removes unfinished uploads past their window, and files left without a site
 cleanup:
   schedule: "@daily"
+  # Finished runs kept, to check their logs
+  successfulJobsHistoryLimit: 10
+  failedJobsHistoryLimit: 10
 
 # Limits pod traffic to what the chart needs; off by default because the
 # gateway and S3 selectors depend on the cluster
