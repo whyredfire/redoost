@@ -1,4 +1,9 @@
-import { Link, createFileRoute, useRouter } from "@tanstack/react-router";
+import {
+  Link,
+  createFileRoute,
+  useNavigate,
+  useRouter,
+} from "@tanstack/react-router";
 import { Globe } from "lucide-react";
 import { SiteList } from "@/components/site-list";
 import { Button } from "@/components/ui/button";
@@ -9,6 +14,7 @@ import {
   loadSession,
   loadToken,
 } from "@/lib/session";
+import { useUpload } from "@/lib/upload";
 
 export const Route = createFileRoute("/sites")({
   loader: loadSites,
@@ -39,6 +45,13 @@ async function loadSites() {
 function SitesPage() {
   const sites = Route.useLoaderData();
   const router = useRouter();
+  const navigate = useNavigate();
+  const { busy, startUpdate } = useUpload();
+
+  function updateSite(slug: string) {
+    startUpdate(slug);
+    navigate({ to: "/" });
+  }
 
   async function deleteSite(slug: string) {
     const token = loadToken();
@@ -58,7 +71,12 @@ function SitesPage() {
         </p>
       </div>
       {sites.length > 0 ? (
-        <SiteList sites={sites} onDelete={deleteSite} />
+        <SiteList
+          sites={sites}
+          canUpdate={!busy}
+          onUpdate={updateSite}
+          onDelete={deleteSite}
+        />
       ) : (
         <div className="rounded-xl border px-6 py-14 text-center">
           <Globe className="mx-auto size-8 text-muted-foreground" />

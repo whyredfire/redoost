@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { formatDate, siteUrl } from "@/lib/format";
+import { formatDate, formatTime, siteUrl } from "@/lib/format";
+import type { FileChange } from "@/lib/site-files";
 import { usePageDrop, useUpload, type Stage } from "@/lib/upload";
 
 const statusText: Partial<Record<Stage, string>> = {
@@ -17,6 +18,26 @@ const statusText: Partial<Record<Stage, string>> = {
   creating: "Preparing upload…",
   completing: "Publishing site…",
 };
+
+const changeColor: Record<FileChange, string> = {
+  new: "text-emerald-600 dark:text-emerald-500",
+  changed: "text-amber-600 dark:text-amber-500",
+};
+
+function changeSummary(changes: Map<string, FileChange>, removed: number) {
+  const changed = [...changes.values()].filter(
+    (change) => change === "changed",
+  ).length;
+  const counts = [
+    [changes.size - changed, "new"],
+    [changed, "changed"],
+    [removed, "removed"],
+  ] as const;
+  return counts
+    .filter(([count]) => count > 0)
+    .map(([count, label]) => `${count} ${label}`)
+    .join(" · ");
+}
 
 function Working({ children }: { children: ReactNode }) {
   return (
@@ -49,7 +70,12 @@ export function PublishCard() {
     session,
     stage,
     message,
+    target,
+    lockedUntil,
+    diff,
+    unchanged,
     uploaded,
+    uploadCount,
     busy,
     totalSize,
     compressedSize,
@@ -58,6 +84,7 @@ export function PublishCard() {
     startOver,
     cancel,
     publish,
+    takeOver,
   } = useUpload();
   const dragging = usePageDrop(!busy && stage !== "ready");
   const reduceMotion = useReducedMotion();
@@ -80,7 +107,7 @@ export function PublishCard() {
           <motion.div variants={rise}>
             <p className="flex items-center justify-center gap-2 text-xl font-semibold">
               <CircleCheck className="size-5 text-emerald-600 dark:text-emerald-500" />
-              Your site is live
+              {target ? "Your site is updated" : "Your site is live"}
             </p>
             <p className="mt-1 text-muted-foreground">
               Share this address with anyone.
@@ -149,13 +176,25 @@ export function PublishCard() {
                   ? "Drop to replace these files."
                   : "Drop other files to replace them."}
               </p>
+              {target && (
+                <p className="mt-3 text-sm">
+                  Updates <span className="font-medium">{target}</span>
+                </p>
+              )}
+              {diff && (
+                <p className="text-sm text-muted-foreground">
+                  {unchanged
+                    ? "No changes"
+                    : changeSummary(diff.changes, diff.removed.length)}
+                </p>
+              )}
             </div>
 
             {stage === "uploading" && (
               <div className="space-y-2 text-sm" aria-live="polite">
                 <div className="flex justify-between gap-2">
                   <Working>
-                    Uploading {uploaded} of {files.length}
+                    Uploading {uploaded} of {uploadCount}
                   </Working>
                   <span className="text-muted-foreground">{percentage}%</span>
                 </div>
@@ -175,17 +214,32 @@ export function PublishCard() {
               </p>
             )}
 
+            {lockedUntil && !busy && (
+              <div className="space-y-3 text-sm text-muted-foreground">
+                <p>
+                  It frees up at {formatTime(lockedUntil)}. If it was abandoned,
+                  like in a closed tab, you can cancel it now. An upload still
+                  running elsewhere would mix its files with these.
+                </p>
+                <Button type="button" variant="outline" onClick={takeOver}>
+                  Cancel the other upload
+                </Button>
+              </div>
+            )}
+
             <div className="mt-auto flex gap-3">
               <Button
                 type="button"
                 className="flex-1"
-                disabled={busy}
+                disabled={busy || unchanged}
                 onClick={publish}
               >
                 {busy
                   ? "Publishing…"
                   : !session
-                    ? "Publish site"
+                    ? target
+                      ? "Update site"
+                      : "Publish site"
                     : stage === "error"
                       ? "Retry upload"
                       : "Resume upload"}
@@ -208,18 +262,37 @@ export function PublishCard() {
             <div className="absolute inset-0">
               <ScrollArea className="h-full [&>[data-slot=scroll-area-viewport]]:scroll-fade">
                 <ul className="divide-y font-mono text-xs">
-                  {files.map(({ path, file }) => (
+                  {files.map(({ path, file }) => {
+                    const change = diff?.changes.get(path);
+                    return (
+                      <li
+                        className="flex justify-between gap-4 px-4 py-2"
+                        key={path}
+                      >
+                        <span className="truncate">{path}</span>
+                        <span className="flex shrink-0 gap-3">
+                          {change && (
+                            <span className={changeColor[change]}>
+                              {change}
+                            </span>
+                          )}
+                          <span className="text-muted-foreground">
+                            <Sizes
+                              original={file.size}
+                              compressed={compressed[path]?.file.size ?? null}
+                            />
+                          </span>
+                        </span>
+                      </li>
+                    );
+                  })}
+                  {diff?.removed.map((path) => (
                     <li
-                      className="flex justify-between gap-4 px-4 py-2"
+                      className="flex justify-between gap-4 px-4 py-2 text-muted-foreground"
                       key={path}
                     >
-                      <span className="truncate">{path}</span>
-                      <span className="shrink-0 text-muted-foreground">
-                        <Sizes
-                          original={file.size}
-                          compressed={compressed[path]?.file.size ?? null}
-                        />
-                      </span>
+                      <span className="truncate line-through">{path}</span>
+                      <span className="shrink-0 text-destructive">removed</span>
                     </li>
                   ))}
                 </ul>

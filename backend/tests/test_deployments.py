@@ -16,6 +16,7 @@ from src.storage import content_type
 
 URL = "/api/deployments"
 SHA256 = base64.b64encode(hashlib.sha256(b"").digest()).decode()
+OTHER_SHA256 = base64.b64encode(hashlib.sha256(b"other").digest()).decode()
 
 
 def manifest(*paths: str, size: int = 1) -> dict[str, list[dict[str, str | int]]]:
@@ -209,43 +210,55 @@ def test_content_type(path: str, expected: str) -> None:
     assert content_type(path) == expected
 
 
-def complete(client: TestClient, created: dict[str, str]) -> Response:
+def complete(client: TestClient, created: dict[str, str], *paths: str) -> Response:
     return client.post(
-        f"{URL}/{created['slug']}/complete", headers=bearer(created["token"])
+        f"{URL}/{created['slug']}/complete",
+        headers=bearer(created["token"]),
+        json=manifest(*(paths or ("index.html",))),
     )
 
 
-def uploaded(count: int) -> Callable[[str], Awaitable[int]]:
-    async def count_objects(slug: str) -> int:
-        return count
+def stored(
+    *paths: str, sha256: str = SHA256
+) -> Callable[[str], Awaitable[dict[str, str | None]]]:
+    async def read_checksums(slug: str) -> dict[str, str | None]:
+        return dict.fromkeys(paths, sha256)
 
-    return count_objects
+    return read_checksums
 
 
 def test_complete_marks_deployment_ready(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     created = client.post(URL, json=manifest("index.html", "app.js")).json()
-    monkeypatch.setattr(deployments, "count_objects", uploaded(2))
+    monkeypatch.setattr(deployments, "read_checksums", stored("index.html", "app.js"))
 
-    response = complete(client, created)
+    response = complete(client, created, "index.html", "app.js")
     assert response.status_code == 200
     assert response.json()["state"] == "ready"
+    assert datetime.fromisoformat(response.json()["expires_at"]) <= datetime.now(UTC)
 
-    # Completing again returns the ready deployment without listing objects
-    monkeypatch.setattr(deployments, "count_objects", uploaded(0))
-    assert complete(client, created).json()["state"] == "ready"
+    # Repeating a completion succeeds while the files still match
+    assert complete(client, created, "index.html", "app.js").status_code == 200
+    assert complete(client, created).status_code == 410
 
 
+@pytest.mark.parametrize(
+    "checksums",
+    [stored("index.html"), stored("index.html", "app.js", sha256=OTHER_SHA256)],
+    ids=["missing", "different"],
+)
 def test_complete_rejects_missing_files(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    checksums: Callable[[str], Awaitable[dict[str, str | None]]],
 ) -> None:
     created = client.post(URL, json=manifest("index.html", "app.js")).json()
-    monkeypatch.setattr(deployments, "count_objects", uploaded(1))
+    monkeypatch.setattr(deployments, "read_checksums", checksums)
 
-    response = complete(client, created)
+    response = complete(client, created, "index.html", "app.js")
     assert response.status_code == 409
-    assert response.json()["detail"] == "1 of 2 files uploaded"
+    assert response.json()["detail"].endswith("of 2 files uploaded")
 
 
 def test_complete_rejects_closed_upload_window(
@@ -253,7 +266,7 @@ def test_complete_rejects_closed_upload_window(
 ) -> None:
     monkeypatch.setattr(settings, "upload_window", timedelta(seconds=-1))
     created = client.post(URL, json=manifest("index.html")).json()
-    monkeypatch.setattr(deployments, "count_objects", uploaded(1))
+    monkeypatch.setattr(deployments, "read_checksums", stored("index.html"))
 
     assert complete(client, created).status_code == 410
 
@@ -262,6 +275,129 @@ def test_complete_requires_its_token(client: TestClient) -> None:
     created = client.post(URL, json=manifest("index.html")).json()
 
     assert complete(client, {**created, "token": "wrong"}).status_code == 403
+
+
+def published(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, *paths: str
+) -> dict[str, str]:
+    monkeypatch.setattr(deployments, "read_checksums", stored(*paths))
+    created = client.post(URL, json=manifest(*paths)).json()
+    complete(client, created, *paths)
+    return created
+
+
+def update(client: TestClient, created: dict[str, str], *paths: str) -> Response:
+    return client.put(
+        f"{URL}/{created['slug']}",
+        headers=bearer(created["token"]),
+        json=manifest(*paths),
+    )
+
+
+def cancel(client: TestClient, created: dict[str, str]) -> Response:
+    return client.post(
+        f"{URL}/{created['slug']}/cancel", headers=bearer(created["token"])
+    )
+
+
+def test_read_files(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    created = published(client, monkeypatch, "index.html", "app.js")
+    url = f"{URL}/{created['slug']}/files"
+
+    assert client.get(url, headers=bearer("wrong")).status_code == 403
+    response = client.get(url, headers=bearer(created["token"]))
+    assert response.json() == [
+        {"path": "index.html", "sha256": SHA256},
+        {"path": "app.js", "sha256": SHA256},
+    ]
+
+
+def test_update_signs_only_new_and_changed_files(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    created = published(client, monkeypatch, "index.html", "app.js", "old.js")
+
+    async def read_checksums(slug: str) -> dict[str, str | None]:
+        return {"index.html": SHA256, "app.js": OTHER_SHA256, "old.js": SHA256}
+
+    monkeypatch.setattr(deployments, "read_checksums", read_checksums)
+    response = update(client, created, "index.html", "app.js", "new.js")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [upload["path"] for upload in body["uploads"]] == ["app.js", "new.js"]
+    assert body["uploads"][0]["fields"]["key"] == f"{created['slug']}/app.js"
+    assert datetime.fromisoformat(body["expires_at"]) > datetime.now(UTC)
+    assert "token" not in body
+
+
+def test_one_upload_at_a_time(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    created = published(client, monkeypatch, "index.html")
+
+    assert update(client, created, "index.html").status_code == 200
+    response = update(client, created, "index.html")
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Another upload to this site is in progress"
+
+    # Completing or cancelling frees the site again
+    assert complete(client, created).status_code == 200
+    assert update(client, created, "index.html").status_code == 200
+    assert cancel(client, created).status_code == 204
+    assert complete(client, created, "index.html", "app.js").status_code == 410
+    assert update(client, created, "index.html").status_code == 200
+
+
+def test_update_requires_a_published_site(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    created = client.post(URL, json=manifest("index.html")).json()
+    response = update(client, created, "index.html")
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Site isn't published yet"
+
+    monkeypatch.setattr(settings, "site_lifetime", timedelta(seconds=-1))
+    expired = published(client, monkeypatch, "index.html")
+    assert update(client, expired, "index.html").status_code == 410
+
+
+def test_update_requires_its_token(client: TestClient) -> None:
+    created = client.post(URL, json=manifest("index.html")).json()
+
+    assert (
+        update(client, {**created, "token": "wrong"}, "index.html").status_code == 403
+    )
+    assert cancel(client, {**created, "token": "wrong"}).status_code == 403
+
+
+def test_completing_an_update_replaces_the_site(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "site_lifetime", timedelta(days=1))
+    created = published(client, monkeypatch, "index.html", "old.html")
+    update(client, created, "index.html", "404.html")
+
+    deleted: list[tuple[str, list[str] | None]] = []
+
+    async def delete_objects(slug: str, paths: list[str] | None = None) -> None:
+        deleted.append((slug, paths))
+
+    stored_files = stored("index.html", "old.html", "404.html")
+    monkeypatch.setattr(deployments, "read_checksums", stored_files)
+    monkeypatch.setattr(deployments, "delete_objects", delete_objects)
+    monkeypatch.setattr(settings, "site_lifetime", timedelta(days=30))
+    response = complete(client, created, "index.html", "404.html")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert deleted == [(created["slug"], ["old.html"])]
+    assert body["file_count"] == 2
+    assert body["spa"] is False
+    # Every publish starts the site's lifetime again
+    until = datetime.fromisoformat(body["available_until"])
+    assert timedelta(days=29) < until - datetime.now(UTC) <= timedelta(days=30)
+    assert resolve(client, created["slug"]).headers["X-Site-Spa"] == "0"
 
 
 def test_create_deployment_reuses_token(client: TestClient) -> None:
@@ -283,7 +419,7 @@ def test_create_deployment_rejects_unknown_token(client: TestClient) -> None:
 def test_list_ready_deployments_for_token(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(deployments, "count_objects", uploaded(1))
+    monkeypatch.setattr(deployments, "read_checksums", stored("index.html"))
     first = client.post(URL, json=manifest("index.html")).json()
     headers = bearer(first["token"])
     second = client.post(URL, json=manifest("index.html"), headers=headers).json()
@@ -312,10 +448,10 @@ def test_delete_deployment(client: TestClient, monkeypatch: pytest.MonkeyPatch) 
     async def delete_objects(slug: str) -> None:
         deleted.append(slug)
 
-    monkeypatch.setattr(deployments, "delete_objects", delete_objects)
-    monkeypatch.setattr(deployments, "count_objects", uploaded(1))
+    monkeypatch.setattr(deployments, "read_checksums", stored("index.html"))
     created = client.post(URL, json=manifest("index.html")).json()
     complete(client, created)
+    monkeypatch.setattr(deployments, "delete_objects", delete_objects)
     url = f"{URL}/{created['slug']}"
 
     response = client.delete(url, headers=bearer(created["token"]))
@@ -353,8 +489,8 @@ def test_resolve_site_once_ready(
     assert created["spa"] == (spa == "1")
     assert resolve(client, created["slug"]).status_code == 403
 
-    monkeypatch.setattr(deployments, "count_objects", uploaded(len(paths)))
-    complete(client, created)
+    monkeypatch.setattr(deployments, "read_checksums", stored(*paths))
+    complete(client, created, *paths)
     response = resolve(client, created["slug"])
     assert response.status_code == 204
     assert response.headers["X-Site-Spa"] == spa
@@ -375,7 +511,7 @@ def test_cleanup_removes_expired_uploads_and_orphans(
         deleted.append(slug)
 
     monkeypatch.setattr(cleanup, "delete_objects", delete_objects)
-    monkeypatch.setattr(deployments, "count_objects", uploaded(1))
+    monkeypatch.setattr(deployments, "read_checksums", stored("index.html"))
     ready = client.post(URL, json=manifest("index.html")).json()
     complete(client, ready)
     pending = client.post(URL, json=manifest("index.html")).json()
@@ -400,7 +536,7 @@ def test_cleanup_removes_expired_uploads_and_orphans(
 def test_sites_live_forever_without_a_lifetime(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(deployments, "count_objects", uploaded(1))
+    monkeypatch.setattr(deployments, "read_checksums", stored("index.html"))
     created = client.post(URL, json=manifest("index.html")).json()
 
     assert complete(client, created).json()["available_until"] is None
@@ -409,7 +545,7 @@ def test_sites_live_forever_without_a_lifetime(
 def test_site_lifetime_is_fixed_at_publish(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(deployments, "count_objects", uploaded(1))
+    monkeypatch.setattr(deployments, "read_checksums", stored("index.html"))
     monkeypatch.setattr(settings, "site_lifetime", timedelta(days=30))
     created = client.post(URL, json=manifest("index.html")).json()
     until = datetime.fromisoformat(complete(client, created).json()["available_until"])
@@ -427,7 +563,7 @@ def test_expired_sites_are_hidden_and_cleaned_up(
     monkeypatch: pytest.MonkeyPatch,
     run_cleanup: Callable[[], tuple[int, int]],
 ) -> None:
-    monkeypatch.setattr(deployments, "count_objects", uploaded(1))
+    monkeypatch.setattr(deployments, "read_checksums", stored("index.html"))
     monkeypatch.setattr(settings, "site_lifetime", timedelta(seconds=-1))
     expired = client.post(URL, json=manifest("index.html")).json()
     complete(client, expired)

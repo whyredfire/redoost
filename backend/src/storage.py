@@ -1,3 +1,4 @@
+import asyncio
 import mimetypes
 from typing import Any
 
@@ -34,15 +35,32 @@ async def check_storage() -> None:
         await s3.head_bucket(Bucket=settings.s3_bucket)
 
 
-async def count_objects(slug: str) -> int:
-    count = 0
+async def list_keys(s3: Any, slug: str) -> list[str]:
+    keys: list[str] = []
+    pages = s3.get_paginator("list_objects_v2").paginate(
+        Bucket=settings.s3_bucket, Prefix=f"{slug}/"
+    )
+    async for page in pages:
+        keys.extend(item["Key"] for item in page.get("Contents", []))
+    return keys
+
+
+# Listings leave out checksums, so every object is read on its own
+async def read_checksums(slug: str) -> dict[str, str | None]:
     async with client(settings.s3_endpoint) as s3:
-        pages = s3.get_paginator("list_objects_v2").paginate(
-            Bucket=settings.s3_bucket, Prefix=f"{slug}/"
+        keys = await list_keys(s3, slug)
+        heads = await asyncio.gather(
+            *(
+                s3.head_object(
+                    Bucket=settings.s3_bucket, Key=key, ChecksumMode="ENABLED"
+                )
+                for key in keys
+            )
         )
-        async for page in pages:
-            count += page.get("KeyCount", 0)
-    return count
+    return {
+        key.removeprefix(f"{slug}/"): head.get("ChecksumSHA256")
+        for key, head in zip(keys, heads, strict=True)
+    }
 
 
 async def list_slugs() -> list[str]:
@@ -57,17 +75,18 @@ async def list_slugs() -> list[str]:
     return slugs
 
 
-async def delete_objects(slug: str) -> None:
+async def delete_objects(slug: str, paths: list[str] | None = None) -> None:
     async with client(settings.s3_endpoint) as s3:
-        pages = s3.get_paginator("list_objects_v2").paginate(
-            Bucket=settings.s3_bucket, Prefix=f"{slug}/"
-        )
-        async for page in pages:
-            keys = [{"Key": item["Key"]} for item in page.get("Contents", [])]
-            if not keys:
-                continue
+        # Without paths, every file of the site is deleted
+        if paths is None:
+            keys = await list_keys(s3, slug)
+        else:
+            keys = [f"{slug}/{path}" for path in paths]
+        # DeleteObjects takes up to 1000 keys at a time
+        for start in range(0, len(keys), 1000):
+            batch = [{"Key": key} for key in keys[start : start + 1000]]
             result = await s3.delete_objects(
-                Bucket=settings.s3_bucket, Delete={"Objects": keys, "Quiet": True}
+                Bucket=settings.s3_bucket, Delete={"Objects": batch, "Quiet": True}
             )
             # Failures for individual keys still come back as a 200
             errors = result.get("Errors", [])

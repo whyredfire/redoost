@@ -17,17 +17,21 @@ export type Deployment = {
   available_until: string | null;
 };
 
+export type StoredFile = { path: string; sha256: string | null };
+
 export type Limits = {
   max_file_size: number;
   max_deployment_size: number;
   max_deployment_files: number;
 };
 
-export type CreatedDeployment = Deployment & {
-  token: string;
+export type DeploymentUploads = Deployment & {
   upload_url: string;
+  // Only new and changed files when updating a site
   uploads: { path: string; fields: Record<string, string> }[];
 };
+
+export type CreatedDeployment = DeploymentUploads & { token: string };
 
 export type UploadSession = {
   deployment: CreatedDeployment;
@@ -93,14 +97,57 @@ export async function createDeployment(
   return readResponse<CreatedDeployment>(response);
 }
 
+export async function readFiles(slug: string, token: string) {
+  const response = await fetch(`/api/deployments/${slug}/files`, {
+    headers: authorization(token),
+  });
+  return readResponse<StoredFile[]>(response);
+}
+
+export async function updateDeployment(
+  slug: string,
+  files: ManifestFile[],
+  token: string,
+  signal: AbortSignal,
+) {
+  const response = await fetch(`/api/deployments/${slug}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...authorization(token) },
+    body: JSON.stringify({ files }),
+    signal,
+  });
+  return readResponse<DeploymentUploads>(response);
+}
+
 export async function completeDeployment(
   deployment: CreatedDeployment,
+  files: ManifestFile[],
   signal: AbortSignal,
 ) {
   const response = await fetch(`/api/deployments/${deployment.slug}/complete`, {
     method: "POST",
-    headers: authorization(deployment.token),
+    headers: {
+      "Content-Type": "application/json",
+      ...authorization(deployment.token),
+    },
+    body: JSON.stringify({ files }),
     signal,
+  });
+  return readResponse<Deployment>(response);
+}
+
+// Frees the site for another update
+export async function cancelUpload(slug: string, token: string) {
+  const response = await fetch(`/api/deployments/${slug}/cancel`, {
+    method: "POST",
+    headers: authorization(token),
+  });
+  await checkResponse(response);
+}
+
+export async function readDeployment(slug: string, token: string) {
+  const response = await fetch(`/api/deployments/${slug}`, {
+    headers: authorization(token),
   });
   return readResponse<Deployment>(response);
 }

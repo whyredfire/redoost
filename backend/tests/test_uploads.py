@@ -13,6 +13,8 @@ from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi.testclient import TestClient
 
+from scripts import cleanup
+from src import storage
 from src.config import settings
 from src.storage import check_storage, content_type
 
@@ -25,6 +27,15 @@ FILES = {
 
 def digest(content: bytes) -> str:
     return base64.b64encode(hashlib.sha256(content).digest()).decode()
+
+
+def manifest(files: dict[str, bytes]) -> dict[str, list[dict[str, Any]]]:
+    return {
+        "files": [
+            {"path": path, "size": len(content), "sha256": digest(content)}
+            for path, content in files.items()
+        ]
+    }
 
 
 # Checked once, so the tests skip quickly when Garage is unreachable
@@ -46,11 +57,7 @@ def s3() -> Any:
 
 @pytest.fixture
 def deployment(client: TestClient, s3: Any) -> Iterator[dict[str, Any]]:
-    files = [
-        {"path": path, "size": len(content), "sha256": digest(content)}
-        for path, content in FILES.items()
-    ]
-    created = client.post("/api/deployments", json={"files": files}).json()
+    created = client.post("/api/deployments", json=manifest(FILES)).json()
     yield created
     objects = s3.list_objects_v2(
         Bucket=settings.s3_bucket, Prefix=f"{created['slug']}/"
@@ -168,15 +175,57 @@ def test_completes_once_every_file_is_uploaded(
     headers = {"Authorization": f"Bearer {deployment['token']}"}
 
     upload(deployment, "index.html", FILES["index.html"])
-    response = client.post(url, headers=headers)
+    response = client.post(url, headers=headers, json=manifest(FILES))
     assert response.status_code == 409
     assert response.json()["detail"] == f"1 of {len(FILES)} files uploaded"
 
     for path, content in FILES.items():
         assert upload(deployment, path, content).status_code == 204
-    response = client.post(url, headers=headers)
+    response = client.post(url, headers=headers, json=manifest(FILES))
     assert response.status_code == 200
     assert response.json()["state"] == "ready"
+
+
+def test_updates_only_changed_files(
+    client: TestClient, deployment: dict[str, Any], s3: Any
+) -> None:
+    url = f"/api/deployments/{deployment['slug']}"
+    headers = {"Authorization": f"Bearer {deployment['token']}"}
+    for path, content in FILES.items():
+        upload(deployment, path, content)
+    client.post(f"{url}/complete", headers=headers, json=manifest(FILES))
+    stored_files = client.get(f"{url}/files", headers=headers).json()
+    assert {file["path"]: file["sha256"] for file in stored_files} == {
+        path: digest(content) for path, content in FILES.items()
+    }
+
+    files = {
+        "index.html": b"<h1>Updated</h1>",
+        "assets/app.js": FILES["assets/app.js"],
+        "new.txt": b"new file",
+    }
+    updated = client.put(url, headers=headers, json=manifest(files)).json()
+    assert [upload["path"] for upload in updated["uploads"]] == [
+        "index.html",
+        "new.txt",
+    ]
+    response = client.post(f"{url}/complete", headers=headers, json=manifest(files))
+    assert response.json()["detail"] == "1 of 3 files uploaded"
+
+    for path in ("index.html", "new.txt"):
+        assert upload(updated, path, files[path]).status_code == 204
+    response = client.post(f"{url}/complete", headers=headers, json=manifest(files))
+    assert response.status_code == 200
+    assert response.json()["file_count"] == 3
+
+    objects = s3.list_objects_v2(
+        Bucket=settings.s3_bucket, Prefix=f"{deployment['slug']}/"
+    )
+    assert sorted(item["Key"] for item in objects["Contents"]) == sorted(
+        f"{deployment['slug']}/{path}" for path in files
+    )
+    head = stored(s3, f"{deployment['slug']}/index.html")
+    assert head is not None and head["ChecksumSHA256"] == digest(files["index.html"])
 
 
 def test_delete_removes_uploaded_files(
@@ -197,13 +246,24 @@ def test_delete_removes_uploaded_files(
 
 
 def test_cleanup_removes_orphaned_files(
-    deployment: dict[str, Any], s3: Any, run_cleanup: Callable[[], tuple[int, int]]
+    deployment: dict[str, Any],
+    s3: Any,
+    run_cleanup: Callable[[], tuple[int, int]],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     upload(deployment, "index.html", FILES["index.html"])
     s3.put_object(
         Bucket=settings.s3_bucket, Key="orphan-test-0000/index.html", Body=b""
     )
 
+    # The test database is empty, so every other site in the bucket looks orphaned
+    async def list_slugs() -> list[str]:
+        slugs = await storage.list_slugs()
+        return [
+            slug for slug in slugs if slug in {deployment["slug"], "orphan-test-0000"}
+        ]
+
+    monkeypatch.setattr(cleanup, "list_slugs", list_slugs)
     run_cleanup()
     assert stored(s3, "orphan-test-0000/index.html") is None
     assert stored(s3, f"{deployment['slug']}/index.html") is not None

@@ -13,6 +13,7 @@ function LandingPage() {
     session,
     stage,
     message,
+    target,
     checks,
     selectFiles,
     showError,
@@ -67,6 +68,20 @@ function LandingPage() {
               start over
             </button>
             .
+          </p>
+        )}
+        {target && !session && (
+          <p className="rounded-xl bg-muted/60 px-4 py-3 text-sm">
+            Select the new version of{" "}
+            <span className="font-medium">{target}</span> to update it, or{" "}
+            <button
+              type="button"
+              className="underline underline-offset-4"
+              onClick={startOver}
+            >
+              publish a new site
+            </button>{" "}
+            instead.
           </p>
         )}
         <FolderDrop

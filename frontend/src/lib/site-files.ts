@@ -1,9 +1,10 @@
 import { unzip } from "fflate";
-import type { Limits } from "./deploy";
+import type { Limits, ManifestFile, StoredFile } from "./deploy";
 import { formatBytes } from "./format";
 
 export type SiteFile = { path: string; file: File };
-export type UploadFile = SiteFile & { gzip: boolean };
+export type UploadFile = SiteFile & { gzip: boolean; sha256: string };
+export type FileChange = "new" | "changed";
 export type SiteCheck = { label: string; passed: boolean };
 
 const compressible =
@@ -132,7 +133,7 @@ export async function droppedFiles(
 }
 
 // Text files are uploaded gzipped; CompressionStream gives the same bytes every time, so resumes still match
-async function compress(site: SiteFile): Promise<UploadFile> {
+async function compress(site: SiteFile): Promise<SiteFile & { gzip: boolean }> {
   if (!compressible.test(site.path)) return { ...site, gzip: false };
   const stream = site.file.stream().pipeThrough(new CompressionStream("gzip"));
   const packed = await new Response(stream).blob();
@@ -145,33 +146,55 @@ async function compress(site: SiteFile): Promise<UploadFile> {
   };
 }
 
-export async function compressFiles(
+async function digest(file: File) {
+  const contents = await file.arrayBuffer();
+  const hash = await crypto.subtle.digest("SHA-256", contents);
+  return btoa(String.fromCharCode(...new Uint8Array(hash)));
+}
+
+// Compresses and hashes each file, reporting them one by one
+export async function prepareFiles(
   files: SiteFile[],
   onFile: (file: UploadFile) => void,
 ) {
-  const compressed = [];
+  const prepared = [];
   for (const file of files) {
-    const result = await compress(file);
-    compressed.push(result);
+    const packed = await compress(file);
+    const sha256 = await digest(packed.file);
+    const result = { ...packed, sha256 };
+    prepared.push(result);
     onFile(result);
   }
-  return compressed;
+  return prepared;
 }
 
-export async function fileManifest(files: UploadFile[]) {
-  const manifest = [];
-  for (const { path, file, gzip } of files) {
-    const contents = await file.arrayBuffer();
-    const hash = await crypto.subtle.digest("SHA-256", contents);
-    const digest = new Uint8Array(hash);
-    manifest.push({
-      path,
-      size: file.size,
-      sha256: btoa(String.fromCharCode(...digest)),
-      gzip,
-    });
+export function fileManifest(files: UploadFile[]): ManifestFile[] {
+  return files.map(({ path, file, sha256, gzip }) => ({
+    path,
+    size: file.size,
+    sha256,
+    gzip,
+  }));
+}
+
+// What replacing a site's stored files with the selected ones changes;
+// files still being prepared have no change yet
+export function siteChanges(
+  files: SiteFile[],
+  prepared: UploadFile[],
+  stored: StoredFile[],
+) {
+  const checksums = new Map(stored.map(({ path, sha256 }) => [path, sha256]));
+  const changes = new Map<string, FileChange>();
+  for (const { path, sha256 } of prepared) {
+    if (!checksums.has(path)) changes.set(path, "new");
+    else if (checksums.get(path) !== sha256) changes.set(path, "changed");
   }
-  return manifest;
+  const selected = new Set(files.map(({ path }) => path));
+  const removed = stored
+    .map(({ path }) => path)
+    .filter((path) => !selected.has(path));
+  return { changes, removed };
 }
 
 // Mirrors the API's checks, so a site that would be rejected never reaches it

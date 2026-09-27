@@ -1,4 +1,4 @@
-import { ExternalLink, Trash2 } from "lucide-react";
+import { ExternalLink, FolderUp, Trash2 } from "lucide-react";
 import { useState, type MouseEvent } from "react";
 import {
   AlertDialog,
@@ -18,10 +18,18 @@ import { formatBytes, formatDate, siteUrl } from "@/lib/format";
 
 type SiteListProps = {
   sites: Deployment[];
+  // Off while an upload runs, which starting an update would lose
+  canUpdate: boolean;
+  onUpdate: (slug: string) => void;
   onDelete: (slug: string) => Promise<void>;
 };
 
-export function SiteList({ sites, onDelete }: SiteListProps) {
+export function SiteList({
+  sites,
+  canUpdate,
+  onUpdate,
+  onDelete,
+}: SiteListProps) {
   const [target, setTarget] = useState<Deployment | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
@@ -83,6 +91,17 @@ export function SiteList({ sites, onDelete }: SiteListProps) {
                     </Button>
                   </>
                 )}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Update ${site.slug}`}
+                  title="Update with new files"
+                  disabled={!canUpdate}
+                  onClick={() => onUpdate(site.slug)}
+                >
+                  <FolderUp />
+                </Button>
                 <Button
                   type="button"
                   variant="ghost"

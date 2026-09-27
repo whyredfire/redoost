@@ -17,3 +17,7 @@ export function formatBytes(bytes: number) {
 export function formatDate(date: string) {
   return new Date(date).toLocaleDateString(undefined, { dateStyle: "medium" });
 }
+
+export function formatTime(date: string) {
+  return new Date(date).toLocaleTimeString(undefined, { timeStyle: "short" });
+}

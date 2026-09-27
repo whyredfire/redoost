@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlmodel import col, or_, select
+from sqlmodel import col, or_, select, update
 
 from .config import settings
 from .database import Session
@@ -15,10 +15,12 @@ from .models import (
     DeploymentBase,
     DeploymentCreated,
     DeploymentState,
+    DeploymentUploads,
     Limits,
     Manifest,
+    StoredFile,
 )
-from .storage import count_objects, delete_objects, sign_uploads
+from .storage import delete_objects, read_checksums, sign_uploads
 
 router = APIRouter(prefix="/api/deployments", tags=["deployments"])
 
@@ -68,8 +70,8 @@ async def create_deployment(
     deployment = Deployment(
         token_hash=hash_token(token),
         file_count=len(manifest.files),
-        total_size=sum(file.size for file in manifest.files),
-        spa=all(file.path != "404.html" for file in manifest.files),
+        total_size=manifest.total_size,
+        spa=manifest.spa,
     )
     upload_url, uploads = await sign_uploads(deployment.slug, manifest.files)
     session.add(deployment)
@@ -116,30 +118,94 @@ async def read_deployment(deployment: OwnedDeployment) -> DeploymentBase:
     return deployment
 
 
+# Lets the frontend show what an update changes before it starts
+@router.get("/{slug}/files")
+async def read_files(deployment: OwnedDeployment) -> list[StoredFile]:
+    checksums = await read_checksums(deployment.slug)
+    return [StoredFile(path=path, sha256=sha256) for path, sha256 in checksums.items()]
+
+
+@router.put("/{slug}")
+async def update_deployment(
+    manifest: Manifest, deployment: OwnedDeployment, session: Session
+) -> DeploymentUploads:
+    if deployment.available_until and deployment.available_until < datetime.now(UTC):
+        raise HTTPException(status.HTTP_410_GONE, "Site has expired")
+    if deployment.state != DeploymentState.ready:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Site isn't published yet")
+
+    # Only new and changed files are uploaded again
+    checksums = await read_checksums(deployment.slug)
+    changed = [
+        file for file in manifest.files if checksums.get(file.path) != file.sha256
+    ]
+    upload_url, uploads = await sign_uploads(deployment.slug, changed)
+
+    # Taken in one statement, so two uploads to a site never overlap
+    now = datetime.now(UTC)
+    result = await session.exec(
+        update(Deployment)
+        .where(col(Deployment.slug) == deployment.slug)
+        .where(col(Deployment.expires_at) <= now)
+        .values(expires_at=now + settings.upload_window)
+    )
+    if result.rowcount == 0:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Another upload to this site is in progress"
+        )
+    await session.commit()
+    return DeploymentUploads(
+        **deployment.model_dump(), upload_url=upload_url, uploads=uploads
+    )
+
+
 @router.post("/{slug}/complete")
 async def complete_deployment(
-    deployment: OwnedDeployment, session: Session
+    manifest: Manifest, deployment: OwnedDeployment, session: Session
 ) -> DeploymentBase:
-    if deployment.state == DeploymentState.ready:
-        return deployment
-    if deployment.expires_at < datetime.now(UTC):
-        raise HTTPException(status.HTTP_410_GONE, "Upload window has closed")
+    checksums = await read_checksums(deployment.slug)
+    uploaded = sum(checksums.get(file.path) == file.sha256 for file in manifest.files)
+    paths = {file.path for file in manifest.files}
+    extra = [path for path in checksums if path not in paths]
 
-    # Policies only allow the manifest's files with their exact content
-    uploaded = await count_objects(deployment.slug)
-    if uploaded != deployment.file_count:
+    now = datetime.now(UTC)
+    if deployment.expires_at <= now:
+        # Repeats a completion whose response was lost
+        if (
+            deployment.state == DeploymentState.ready
+            and uploaded == len(manifest.files)
+            and not extra
+        ):
+            return deployment
+        raise HTTPException(status.HTTP_410_GONE, "Upload window has closed")
+    if uploaded != len(manifest.files):
         raise HTTPException(
             status.HTTP_409_CONFLICT,
-            f"{uploaded} of {deployment.file_count} files uploaded",
+            f"{uploaded} of {len(manifest.files)} files uploaded",
         )
 
+    # Removed files stay online until the new ones are all in place
+    await delete_objects(deployment.slug, extra)
     deployment.state = DeploymentState.ready
+    deployment.file_count = len(manifest.files)
+    deployment.total_size = manifest.total_size
+    deployment.spa = manifest.spa
+    # Frees the site for its next update
+    deployment.expires_at = now
     # Fixed at publish time, so changing the setting never moves existing dates
     if settings.site_lifetime:
-        deployment.available_until = datetime.now(UTC) + settings.site_lifetime
+        deployment.available_until = now + settings.site_lifetime
     session.add(deployment)
     await session.commit()
     return deployment
+
+
+# Frees the site for another update; files uploaded so far stay until then
+@router.post("/{slug}/cancel", status_code=status.HTTP_204_NO_CONTENT)
+async def cancel_upload(deployment: OwnedDeployment, session: Session) -> None:
+    deployment.expires_at = datetime.now(UTC)
+    session.add(deployment)
+    await session.commit()
 
 
 @router.delete("/{slug}", status_code=status.HTTP_204_NO_CONTENT)

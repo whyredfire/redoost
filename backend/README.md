@@ -15,9 +15,19 @@ in Compose (see the root README).
 - `GET /api/deployments`: ready deployments for the token, newest first.
 - `GET /api/deployments/{slug}`: deployment status. Requires
   `Authorization: Bearer <token>`.
-- `POST /api/deployments/{slug}/complete`: marks the deployment `ready` once
-  every file is uploaded. Returns 409 while files are missing and 410 after
-  the upload window. Requires the token.
+- `GET /api/deployments/{slug}/files`: the site's stored files as
+  `{"path", "sha256"}`, so an update can be previewed. Requires the token.
+- `PUT /api/deployments/{slug}`: updates a ready site in place from a full
+  manifest. Returns upload policies only for new and changed files, compared
+  by checksum with what's stored. One upload per site at a time: returns 409
+  while another is in progress and 410 for expired sites. Requires the token.
+- `POST /api/deployments/{slug}/complete`: send the manifest again; marks the
+  deployment `ready` once every file is stored with its checksum, then
+  deletes files not in the manifest and frees the site for its next update.
+  Returns 409 while files are missing and 410 after the upload window.
+  Requires the token.
+- `POST /api/deployments/{slug}/cancel`: frees the site for another update.
+  Files uploaded so far stay until then. Requires the token.
 - `DELETE /api/deployments/{slug}`: deletes the deployment's files, then the
   deployment. Requires the token. The site shows "Site not found" right away.
 - `GET /internal/sites/{slug}`: readiness check for Nginx. Not exposed publicly.

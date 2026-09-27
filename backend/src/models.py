@@ -61,10 +61,18 @@ class Manifest(SQLModel):
         if "index.html" not in paths:
             raise ValueError("A root index.html is required")
         # Check total size
-        if sum(file.size for file in self.files) > settings.max_deployment_size:
+        if self.total_size > settings.max_deployment_size:
             limit = settings.max_deployment_size.human_readable()
             raise ValueError(f"Deployment exceeds {limit}")
         return self
+
+    @property
+    def total_size(self) -> int:
+        return sum(file.size for file in self.files)
+
+    @property
+    def spa(self) -> bool:
+        return all(file.path != "404.html" for file in self.files)
 
 
 class Limits(SQLModel):
@@ -92,7 +100,7 @@ class DeploymentBase(SQLModel):
     )
     expires_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC) + settings.upload_window,
-        description="When the upload policies expire",
+        description="When the latest upload's policies expire; uploads are locked until then",
     )
     available_until: datetime | None = Field(
         default=None,
@@ -106,12 +114,22 @@ class Deployment(DeploymentBase, table=True):
     )
 
 
+class StoredFile(SQLModel):
+    path: str = Field(description="Path relative to the site root")
+    sha256: str | None = Field(description="Base64-encoded SHA-256 of the stored bytes")
+
+
 class UploadPolicy(SQLModel):
     path: str = Field(description="Path from the manifest")
     fields: dict[str, str] = Field(description="Form fields to send before the file")
 
 
-class DeploymentCreated(DeploymentBase):
-    token: str = Field(description="Management token, reusable for later deployments")
+class DeploymentUploads(DeploymentBase):
     upload_url: str = Field(description="URL to POST each file to")
-    uploads: list[UploadPolicy] = Field(description="Signed upload policy per file")
+    uploads: list[UploadPolicy] = Field(
+        description="Signed upload policy per new or changed file"
+    )
+
+
+class DeploymentCreated(DeploymentUploads):
+    token: str = Field(description="Management token, reusable for later deployments")
