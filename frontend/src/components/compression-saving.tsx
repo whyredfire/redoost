@@ -1,4 +1,10 @@
+import { Info } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { formatBytes } from "@/lib/format";
 
 // Smaller savings, like a site of mostly images, aren't worth mentioning
@@ -39,6 +45,25 @@ export function Sizes({ original, compressed }: SizesProps) {
         )}
       </motion.span>
     </AnimatePresence>
+  );
+}
+
+// Says which size is shown, since a site's size is easy to mistake for an update's
+export function SizeInfo({ update }: { update: boolean }) {
+  return (
+    <Popover>
+      <PopoverTrigger
+        className="rounded-full transition-colors hover:text-foreground"
+        aria-label="What this size means"
+      >
+        <Info className="size-4" />
+      </PopoverTrigger>
+      <PopoverContent className="text-sm" align="start">
+        {update
+          ? "What this update uploads: only new and changed files. Text files like HTML, CSS, and JavaScript are gzipped in your browser first."
+          : "The size of the whole site. Text files like HTML, CSS, and JavaScript are gzipped in your browser before uploading, so less is stored."}
+      </PopoverContent>
+    </Popover>
   );
 }
 

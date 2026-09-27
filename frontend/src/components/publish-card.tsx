@@ -7,7 +7,11 @@ import {
 import { motion, useReducedMotion } from "motion/react";
 import { useState, type ReactNode } from "react";
 import { ThinkingOrb } from "thinking-orbs";
-import { CompressionSaving, Sizes } from "@/components/compression-saving";
+import {
+  CompressionSaving,
+  SizeInfo,
+  Sizes,
+} from "@/components/compression-saving";
 import { CopyButton } from "@/components/copy-button";
 import { SitePreview } from "@/components/site-preview";
 import { Button } from "@/components/ui/button";
@@ -145,7 +149,6 @@ export function PublishCard() {
     uploaded,
     uploadCount,
     busy,
-    totalSize,
     compressedSize,
     percentage,
     clearFiles,
@@ -235,8 +238,20 @@ export function PublishCard() {
       change: "removed" as const,
     })),
   ];
+  const compared = diff !== null && compressedSize !== null;
   // Split once every file is compared, so rows don't jump between sections
-  const split = diff !== null && compressedSize !== null && !unchanged;
+  const split = compared && !unchanged;
+  // Updates show what they upload rather than the whole site
+  const uploadFiles = compared
+    ? files.filter(({ path }) => diff.changes.has(path))
+    : files;
+  const uploadSize = uploadFiles.reduce((sum, { file }) => sum + file.size, 0);
+  const uploadCompressed = compared
+    ? uploadFiles.reduce(
+        (sum, { path }) => sum + (compressed[path]?.file.size ?? 0),
+        0,
+      )
+    : compressedSize;
   const changedFiles = listed
     .filter(({ change }) => change)
     .sort((a, b) => a.path.localeCompare(b.path));
@@ -261,9 +276,10 @@ export function PublishCard() {
               <p className="mt-3 text-2xl font-semibold tracking-tight">
                 {files.length} {files.length === 1 ? "file" : "files"}
               </p>
-              <p className="text-muted-foreground">
-                <Sizes original={totalSize} compressed={compressedSize} />
-              </p>
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Sizes original={uploadSize} compressed={uploadCompressed} />
+                <SizeInfo update={compared} />
+              </div>
               <p className="mt-3 text-sm text-muted-foreground">
                 {dragging
                   ? "Drop to replace these files."
