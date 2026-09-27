@@ -1,6 +1,11 @@
-import { CircleCheck, ExternalLink, FolderOpen } from "lucide-react";
+import {
+  ChevronRight,
+  CircleCheck,
+  ExternalLink,
+  FolderOpen,
+} from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { ThinkingOrb } from "thinking-orbs";
 import { CompressionSaving, Sizes } from "@/components/compression-saving";
 import { CopyButton } from "@/components/copy-button";
@@ -19,10 +24,73 @@ const statusText: Partial<Record<Stage, string>> = {
   completing: "Publishing site…",
 };
 
-const changeColor: Record<FileChange, string> = {
+type ListedFile = {
+  path: string;
+  // Missing for files that are only on the server
+  file?: File;
+  change?: FileChange | "removed";
+};
+
+const changeColor: Record<FileChange | "removed", string> = {
   new: "text-emerald-600 dark:text-emerald-500",
   changed: "text-amber-600 dark:text-amber-500",
+  removed: "text-destructive",
 };
+
+function FileRow({
+  path,
+  file,
+  change,
+  compressed,
+}: ListedFile & { compressed: number | null }) {
+  return (
+    <li className="flex justify-between gap-4 px-4 py-2">
+      <span
+        className={`truncate ${file ? "" : "text-muted-foreground line-through"}`}
+      >
+        {path}
+      </span>
+      <span className="flex shrink-0 gap-3">
+        {change && <span className={changeColor[change]}>{change}</span>}
+        {file && (
+          <span className="text-muted-foreground">
+            <Sizes original={file.size} compressed={compressed} />
+          </span>
+        )}
+      </span>
+    </li>
+  );
+}
+
+function FileSection({
+  title,
+  files,
+  row,
+}: {
+  title: string;
+  files: ListedFile[];
+  row: (file: ListedFile) => ReactNode;
+}) {
+  const [open, setOpen] = useState(true);
+  return (
+    <>
+      <li>
+        <button
+          type="button"
+          className="flex w-full items-center gap-1.5 bg-muted/50 px-4 py-1.5 font-sans font-medium text-muted-foreground transition-colors hover:text-foreground"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+        >
+          <ChevronRight
+            className={`size-3.5 transition-transform ${open ? "rotate-90" : ""}`}
+          />
+          {title} · {files.length}
+        </button>
+      </li>
+      {open && files.map(row)}
+    </>
+  );
+}
 
 function changeSummary(changes: Map<string, FileChange>, removed: number) {
   const changed = [...changes.values()].filter(
@@ -156,6 +224,31 @@ export function PublishCard() {
     );
   }
 
+  const listed: ListedFile[] = [
+    ...files.map(({ path, file }) => ({
+      path,
+      file,
+      change: diff?.changes.get(path),
+    })),
+    ...(diff?.removed ?? []).map((path) => ({
+      path,
+      change: "removed" as const,
+    })),
+  ];
+  // Split once every file is compared, so rows don't jump between sections
+  const split = diff !== null && compressedSize !== null && !unchanged;
+  const changedFiles = listed
+    .filter(({ change }) => change)
+    .sort((a, b) => a.path.localeCompare(b.path));
+  const unchangedFiles = listed.filter(({ change }) => !change);
+  const row = (listedFile: ListedFile) => (
+    <FileRow
+      key={listedFile.path}
+      {...listedFile}
+      compressed={compressed[listedFile.path]?.file.size ?? null}
+    />
+  );
+
   return (
     <Card
       className={`min-h-[max(26rem,calc(100svh-14rem))] transition-colors duration-300 ${dragging ? "border-foreground/20" : ""}`}
@@ -262,39 +355,24 @@ export function PublishCard() {
             <div className="absolute inset-0">
               <ScrollArea className="h-full [&>[data-slot=scroll-area-viewport]]:scroll-fade">
                 <ul className="divide-y font-mono text-xs">
-                  {files.map(({ path, file }) => {
-                    const change = diff?.changes.get(path);
-                    return (
-                      <li
-                        className="flex justify-between gap-4 px-4 py-2"
-                        key={path}
-                      >
-                        <span className="truncate">{path}</span>
-                        <span className="flex shrink-0 gap-3">
-                          {change && (
-                            <span className={changeColor[change]}>
-                              {change}
-                            </span>
-                          )}
-                          <span className="text-muted-foreground">
-                            <Sizes
-                              original={file.size}
-                              compressed={compressed[path]?.file.size ?? null}
-                            />
-                          </span>
-                        </span>
-                      </li>
-                    );
-                  })}
-                  {diff?.removed.map((path) => (
-                    <li
-                      className="flex justify-between gap-4 px-4 py-2 text-muted-foreground"
-                      key={path}
-                    >
-                      <span className="truncate line-through">{path}</span>
-                      <span className="shrink-0 text-destructive">removed</span>
-                    </li>
-                  ))}
+                  {split ? (
+                    <>
+                      <FileSection
+                        title="Changed"
+                        files={changedFiles}
+                        row={row}
+                      />
+                      {unchangedFiles.length > 0 && (
+                        <FileSection
+                          title="Unchanged"
+                          files={unchangedFiles}
+                          row={row}
+                        />
+                      )}
+                    </>
+                  ) : (
+                    listed.map(row)
+                  )}
                 </ul>
               </ScrollArea>
             </div>
