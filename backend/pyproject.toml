@@ -1,6 +1,6 @@
 [project]
 name = "redoost"
-version = "0.1.6"
+version = "0.1.7"
 description = "Self-hosted static-site publishing with FastAPI, React, Garage, and Nginx"
 readme = "README.md"
 authors = [
