@@ -52,7 +52,7 @@ services:
     command: ["uv", "run", "--no-sync", "alembic", "upgrade", "head"]
     env_file: .env
     environment:
-      REDOOST_DATABASE_URL: sqlite+aiosqlite:///./data/redoost.db
+      REDOOST_DATABASE_URL: ${REDOOST_DATABASE_URL:-sqlite+aiosqlite:///./data/redoost.db}
     volumes:
       - api-data:/app/data
     develop:
@@ -66,7 +66,7 @@ services:
       dockerfile: Dockerfile.dev
     env_file: .env
     environment:
-      REDOOST_DATABASE_URL: sqlite+aiosqlite:///./data/redoost.db
+      REDOOST_DATABASE_URL: ${REDOOST_DATABASE_URL:-sqlite+aiosqlite:///./data/redoost.db}
       REDOOST_RELOAD: "true"
     depends_on:
       init:

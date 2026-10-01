@@ -8,7 +8,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from .config import settings
 
-engine = create_async_engine(settings.database_url)
+engine = create_async_engine(settings.database_url, pool_pre_ping=True)
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:

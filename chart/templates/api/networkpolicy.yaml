@@ -27,4 +27,10 @@ spec:
         {{- toYaml .Values.networkPolicy.s3 | nindent 8 }}
       ports:
         - port: {{ include "redoost.s3Port" . }}
+    {{- if include "redoost.postgres" . }}
+    - to:
+        {{- toYaml .Values.networkPolicy.database | nindent 8 }}
+      ports:
+        - port: {{ include "redoost.databasePort" . }}
+    {{- end }}
 {{- end }}

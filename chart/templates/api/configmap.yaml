@@ -7,7 +7,9 @@ metadata:
     app.kubernetes.io/component: api
 data:
   REDOOST_LOG_LEVEL: {{ .Values.api.logLevel | quote }}
+  {{- if not (include "redoost.postgres" .) }}
   REDOOST_DATABASE_URL: sqlite+aiosqlite:////app/data/redoost.db
+  {{- end }}
   REDOOST_APP_ORIGIN: {{ .Values.appOrigin | quote }}
   REDOOST_S3_ENDPOINT: {{ .Values.s3.endpoint | quote }}
   REDOOST_S3_PUBLIC_ENDPOINT: {{ .Values.s3.publicEndpoint | quote }}

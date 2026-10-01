@@ -1,7 +1,7 @@
 import asyncio
 
 from alembic import context
-from sqlalchemy import pool
+from sqlalchemy import pool, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlmodel import SQLModel
@@ -18,6 +18,9 @@ def run_migrations(connection: Connection) -> None:
         render_as_batch=True,
     )
     with context.begin_transaction():
+        # API replicas all migrate on start, so they wait for each other
+        if connection.dialect.name == "postgresql":
+            connection.execute(text("SELECT pg_advisory_xact_lock(7562105)"))
         context.run_migrations()
 
 

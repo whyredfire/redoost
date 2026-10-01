@@ -63,6 +63,21 @@ Settings shared by the API, its migrations, and the bucket setup Job
     name: {{ include "redoost.fullname" . }}-api
 - secretRef:
     name: {{ include "redoost.secretName" . }}
+{{- if include "redoost.postgres" . }}
+- secretRef:
+    name: {{ include "redoost.databaseSecretName" . }}
+{{- end }}
+{{- end }}
+
+{{/*
+Non-empty when the API uses Postgres instead of SQLite on a volume
+*/}}
+{{- define "redoost.postgres" -}}
+{{- if or .Values.database.url .Values.database.existingSecret }}true{{ end }}
+{{- end }}
+
+{{- define "redoost.databaseSecretName" -}}
+{{- .Values.database.existingSecret | default (printf "%s-database" (include "redoost.fullname" .)) }}
 {{- end }}
 
 {{/*
@@ -107,6 +122,10 @@ Egress rule for cluster DNS
 {{- define "redoost.s3Port" -}}
 {{- $s3 := urlParse .Values.s3.endpoint }}
 {{- include "redoost.port" (dict "host" $s3.host "default" (ternary "443" "80" (eq $s3.scheme "https"))) }}
+{{- end }}
+
+{{- define "redoost.databasePort" -}}
+{{- include "redoost.port" (dict "host" (urlParse .Values.database.url).host "default" "5432") }}
 {{- end }}
 
 {{- define "redoost.websitePort" -}}

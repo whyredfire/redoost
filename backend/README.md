@@ -1,6 +1,6 @@
 # Redoost backend
 
-FastAPI, async SQLModel on SQLite, and async S3. It runs as the `api` service
+FastAPI, async SQLModel on SQLite or Postgres, and async S3. It runs as the `api` service
 in Compose (see the root README).
 
 ## API
@@ -70,8 +70,9 @@ in Compose, run it with `docker compose exec api uv run --no-sync python -m scri
 ## Checks
 
 Run from the repository root while the stack is up. Tests use an in-memory
-database; the public S3 endpoint is overridden so upload tests can reach Garage
-from inside the container:
+SQLite database, or the one in `REDOOST_TEST_DATABASE_URL`, e.g. an empty
+Postgres database; the public S3 endpoint is overridden so upload tests can
+reach Garage from inside the container:
 
 ```sh
 docker compose exec -e REDOOST_S3_PUBLIC_ENDPOINT=http://garage:3900 api uv run --no-sync python -m pytest

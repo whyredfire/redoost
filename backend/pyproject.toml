@@ -11,6 +11,7 @@ dependencies = [
     "aioboto3>=15.5.0",
     "aiosqlite>=0.22.1",
     "alembic>=1.20.0",
+    "asyncpg>=0.31.0",
     "coolname>=5.0.0",
     "fastapi>=0.142.2",
     "greenlet>=3.5.6",

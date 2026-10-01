@@ -8,9 +8,11 @@ metadata:
 spec:
   replicas: {{ .Values.api.replicas }}
   revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  {{- if not (include "redoost.postgres" .) }}
   # SQLite can't be shared, so the old pod stops before the new one starts
   strategy:
     type: Recreate
+  {{- end }}
   selector:
     matchLabels:
       {{- include "redoost.selectorLabels" . | nindent 6 }}
@@ -20,16 +22,21 @@ spec:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/api/configmap.yaml") . | sha256sum }}
         checksum/secret: {{ include (print $.Template.BasePath "/api/secret.yaml") . | sha256sum }}
+        {{- if include "redoost.postgres" . }}
+        checksum/database-secret: {{ include (print $.Template.BasePath "/api/database-secret.yaml") . | sha256sum }}
+        {{- end }}
       labels:
         {{- include "redoost.labels" . | nindent 8 }}
         app.kubernetes.io/component: api
     spec:
       securityContext:
         {{- include "redoost.podSecurityContext" . | nindent 8 }}
+        {{- if not (include "redoost.postgres" .) }}
         # Lets the image's non-root user write to the SQLite volume
         fsGroup: 65532
       affinity:
         {{- include "redoost.apiAffinity" . | nindent 8 }}
+        {{- end }}
       initContainers:
         - name: migrate
           image: {{ include "redoost.image" (dict "image" .Values.api.image "context" $) }}
@@ -41,9 +48,11 @@ spec:
             {{- toYaml .Values.api.resources | nindent 12 }}
           securityContext:
             {{- include "redoost.securityContext" . | nindent 12 }}
+          {{- if not (include "redoost.postgres" .) }}
           volumeMounts:
             - name: data
               mountPath: /app/data
+          {{- end }}
       containers:
         - name: api
           image: {{ include "redoost.image" (dict "image" .Values.api.image "context" $) }}
@@ -65,10 +74,14 @@ spec:
             {{- toYaml .Values.api.resources | nindent 12 }}
           securityContext:
             {{- include "redoost.securityContext" . | nindent 12 }}
+          {{- if not (include "redoost.postgres" .) }}
           volumeMounts:
             - name: data
               mountPath: /app/data
+          {{- end }}
+      {{- if not (include "redoost.postgres" .) }}
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: {{ include "redoost.fullname" . }}-api-data
+      {{- end }}

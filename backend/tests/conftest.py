@@ -8,7 +8,9 @@ from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 # Tests never touch the real database
-os.environ["REDOOST_DATABASE_URL"] = "sqlite+aiosqlite://"
+os.environ["REDOOST_DATABASE_URL"] = os.environ.get(
+    "REDOOST_TEST_DATABASE_URL", "sqlite+aiosqlite://"
+)
 
 # Real values from the environment take precedence, which enables the Garage tests
 for name, value in {
@@ -22,6 +24,20 @@ for name, value in {
     "REDOOST_S3_SECRET_ACCESS_KEY": "test-secret",
 }.items():
     os.environ.setdefault(name, value)
+
+
+@pytest.fixture(autouse=True, scope="session")
+def database_engine() -> None:
+    from sqlalchemy.ext.asyncio import create_async_engine
+    from sqlalchemy.pool import NullPool
+
+    from src import database
+    from src.config import settings
+
+    # asyncpg connections can't cross event loops, and each test runs its own.
+    # In-memory SQLite needs its pool, or every connection gets an empty database.
+    if not settings.database_url.startswith("sqlite"):
+        database.engine = create_async_engine(settings.database_url, poolclass=NullPool)
 
 
 async def create_tables() -> None:

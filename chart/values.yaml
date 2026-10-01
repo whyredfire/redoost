@@ -40,6 +40,13 @@ s3:
   # used instead of the two values above
   existingSecret: ""
 
+# Postgres database, e.g. postgresql+asyncpg://user:password@host:5432/redoost.
+# When neither value is set, the API uses SQLite on a volume.
+database:
+  url: ""
+  # Secret with REDOOST_DATABASE_URL, used instead of the url above
+  existingSecret: ""
+
 api:
   image:
     repository: ghcr.io/whyredfire/redoost-api
@@ -113,3 +120,8 @@ networkPolicy:
     - namespaceSelector:
         matchLabels:
           kubernetes.io/metadata.name: garage
+  # NetworkPolicy peers running Postgres; the port comes from database.url, or 5432
+  database:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: postgres

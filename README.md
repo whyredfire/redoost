@@ -38,7 +38,7 @@ flowchart LR
     visitor[Visitor] --> sites[Sites Nginx]
     sites -->|is the site ready?| api
     sites -->|files| garage
-    api --- db[(SQLite)]
+    api --- db[(SQLite or Postgres)]
 ```
 
 1. The dashboard hashes the folder's files and sends a manifest to the API,
@@ -49,7 +49,7 @@ flowchart LR
 4. Nginx serves `<slug>.<sites domain>` from Garage's website endpoint, after
    checking with the API (cached briefly) that the site exists.
 
-Built with FastAPI, SQLModel, and Alembic on SQLite; React, TanStack Router,
+Built with FastAPI, SQLModel, and Alembic on SQLite or Postgres; React, TanStack Router,
 Tailwind, and shadcn/ui, built with Vite and Bun; [Garage](https://garagehq.deuxfleurs.fr) for storage; and
 Nginx for serving sites.
 
@@ -99,9 +99,11 @@ workflow tags the latest images with the version and commits that tag to
 `chart/values.yaml`, so anything deploying the chart from `main` rolls out on
 releases only.
 
-See [`chart/values.yaml`](chart/values.yaml) for all settings. The API runs as a
-single replica with the `Recreate` strategy, since SQLite lives on one volume;
-a daily CronJob on the same node removes abandoned uploads and leftover files.
+See [`chart/values.yaml`](chart/values.yaml) for all settings. By default the
+API uses SQLite on a volume, so it runs as a single replica with the `Recreate`
+strategy, and the daily cleanup CronJob runs on the same node. Setting
+`database.url` (or `database.existingSecret`) switches to Postgres, with no
+volume and any number of replicas.
 
 ## Local development
 
@@ -142,7 +144,7 @@ values.
 | --- | --- | --- |
 | `REDOOST_APP_ORIGIN` | | Dashboard origin, allowed to upload to the bucket |
 | `REDOOST_LOG_LEVEL` | | `INFO` or `VERBOSE` |
-| `REDOOST_DATABASE_URL` | `sqlite+aiosqlite:///./redoost.db` | Async SQLAlchemy database URL |
+| `REDOOST_DATABASE_URL` | `sqlite+aiosqlite:///./redoost.db` | Async SQLAlchemy database URL, `sqlite+aiosqlite://` or `postgresql+asyncpg://` |
 | `REDOOST_S3_ENDPOINT` | | S3 endpoint used by the API |
 | `REDOOST_S3_PUBLIC_ENDPOINT` | | S3 endpoint used by browsers for uploads |
 | `REDOOST_S3_REGION` | | Region used for signing |

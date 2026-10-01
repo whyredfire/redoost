@@ -5,6 +5,7 @@ from typing import Self
 
 from coolname import generate_slug
 from pydantic import field_validator, model_validator
+from sqlalchemy import BigInteger
 from sqlmodel import Field, SQLModel
 
 from .config import settings
@@ -91,7 +92,9 @@ class DeploymentBase(SQLModel):
         default=DeploymentState.uploading, description="Lifecycle state"
     )
     file_count: int = Field(ge=1, description="Number of files in the manifest")
-    total_size: int = Field(ge=0, description="Total manifest size in bytes")
+    total_size: int = Field(
+        ge=0, sa_type=BigInteger, description="Total manifest size in bytes"
+    )
     spa: bool = Field(
         default=False, description="Serve index.html for missing pages (no 404.html)"
     )

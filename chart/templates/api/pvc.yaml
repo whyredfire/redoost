@@ -1,3 +1,4 @@
+{{- if not (include "redoost.postgres" .) }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -14,3 +15,4 @@ spec:
   resources:
     requests:
       storage: {{ .Values.api.persistence.size }}
+{{- end }}

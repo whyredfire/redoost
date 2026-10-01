@@ -1,8 +1,8 @@
 """Create deployment table
 
-Revision ID: 04b8482583ba
+Revision ID: 5e0ea8a27714
 Revises:
-Create Date: 2026-09-23 18:25:53.657969
+Create Date: 2026-10-01 17:46:04.106231
 
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 import sqlmodel.sql.sqltypes
 from alembic import op
 
-revision: str = "04b8482583ba"
+revision: str = "5e0ea8a27714"
 down_revision: str | Sequence[str] | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -29,10 +29,13 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("file_count", sa.Integer(), nullable=False),
-        sa.Column("total_size", sa.Integer(), nullable=False),
+        sa.Column("total_size", sa.BigInteger(), nullable=False),
         sa.Column("spa", sa.Boolean(), nullable=False),
         sa.Column("created_at", sqlmodel.sql.sqltypes.UTCDateTime(), nullable=False),
         sa.Column("expires_at", sqlmodel.sql.sqltypes.UTCDateTime(), nullable=False),
+        sa.Column(
+            "available_until", sqlmodel.sql.sqltypes.UTCDateTime(), nullable=True
+        ),
         sa.Column("token_hash", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.PrimaryKeyConstraint("slug"),
     )
@@ -51,3 +54,5 @@ def downgrade() -> None:
 
     op.drop_table("deployment")
     # ### end Alembic commands ###
+    # Postgres keeps enum types after their table is dropped
+    sa.Enum(name="deploymentstate").drop(op.get_bind(), checkfirst=True)
