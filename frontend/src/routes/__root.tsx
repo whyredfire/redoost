@@ -90,7 +90,8 @@ function Layout() {
               rel="noreferrer"
             >
               GitHub
-            </a>
+            </a>{" "}
+            · {import.meta.env.VITE_VERSION ?? "dev"}
           </p>
           <p className="whitespace-nowrap">
             Made by{" "}

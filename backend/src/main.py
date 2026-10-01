@@ -23,6 +23,7 @@ class HealthResponse(BaseModel):
     status: Literal["ok", "unavailable"] = Field(
         description="Whether the database and S3 are reachable"
     )
+    version: str = Field(description="Deployed version, e.g. 0.1.6-abc1234")
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -30,8 +31,13 @@ async def health() -> HealthResponse | JSONResponse:
     try:
         await asyncio.gather(check_database(), check_storage())
     except BotoCoreError, ClientError, ConnectionError, SQLAlchemyError:
-        return JSONResponse(status_code=503, content={"status": "unavailable"})
-    return HealthResponse(status="ok")
+        return JSONResponse(
+            status_code=503,
+            content=HealthResponse(
+                status="unavailable", version=settings.version
+            ).model_dump(),
+        )
+    return HealthResponse(status="ok", version=settings.version)
 
 
 if __name__ == "__main__":

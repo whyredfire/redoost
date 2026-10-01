@@ -28,5 +28,8 @@ COPY src ./src
 COPY migrations ./migrations
 COPY scripts ./scripts
 
+ARG VERSION=dev
+ENV REDOOST_VERSION=$VERSION
+
 EXPOSE 8000
 CMD ["python", "-m", "src.main"]

@@ -19,7 +19,7 @@ def test_health_when_dependencies_are_available(
     response = client.get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert response.json() == {"status": "ok", "version": "dev"}
 
 
 def test_health_when_s3_is_unavailable(
@@ -29,4 +29,4 @@ def test_health_when_s3_is_unavailable(
     response = client.get("/health")
 
     assert response.status_code == 503
-    assert response.json() == {"status": "unavailable"}
+    assert response.json() == {"status": "unavailable", "version": "dev"}

@@ -82,8 +82,22 @@ jobs:
       - run: bunx tsc --noEmit
       - run: bun run build
 
+  version:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-slim
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: version
+        run: |
+          release=$(git describe --tags --abbrev=0 --match 'v[0-9]*')
+          echo "version=${release#v}-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
   build:
-    needs: [backend, backend-postgres, frontend]
+    needs: [backend, backend-postgres, frontend, version]
     if: github.event_name == 'push'
     strategy:
       matrix:
@@ -104,13 +118,13 @@ jobs:
       platforms: linux/amd64,linux/arm64
       cache: true
       cache-scope: ${{ matrix.image }}
+      build-args: VERSION=${{ needs.version.outputs.version }}
       sbom: true
-      # Links the packages to this repository on GHCR
       set-meta-labels: true
       set-meta-annotations: true
       meta-images: ghcr.io/whyredfire/${{ matrix.image }}
       meta-tags: |
-        type=sha
+        type=raw,value=${{ needs.version.outputs.version }}
         type=raw,value=latest
     secrets:
       registry-auths: |

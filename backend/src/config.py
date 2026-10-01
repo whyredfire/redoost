@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     log_level: Literal["INFO", "VERBOSE"] = Field(description="Log verbosity")
     app_origin: str = Field(description="Frontend origin allowed to upload to S3")
     reload: bool = Field(default=False, description="Reload the API on code changes")
+    version: str = Field(default="dev", description="Version reported by /health")
     database_url: str = Field(
         default="sqlite+aiosqlite:///./redoost.db",
         description="Async SQLAlchemy database URL",
