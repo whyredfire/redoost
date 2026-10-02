@@ -6,11 +6,18 @@ import {
   useNavigate,
   useRouter,
 } from "@tanstack/react-router";
+import { AccountMenu } from "@/components/account-menu";
 import { AgentPromptButton } from "@/components/agent-prompt-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TokenDialog } from "@/components/token-dialog";
 import { Button } from "@/components/ui/button";
-import { authConfig, providerNames, signIn, signOut } from "@/lib/auth";
+import {
+  authConfig,
+  providerNames,
+  signIn,
+  signOut,
+  signedInUser,
+} from "@/lib/auth";
 import { listDeployments } from "@/lib/deploy";
 import { saveToken, useToken } from "@/lib/session";
 import { useUpload } from "@/lib/upload";
@@ -82,16 +89,17 @@ function Layout() {
             <AgentPromptButton />
             {!authConfig.oidc ? (
               <TokenDialog onImport={importToken} />
-            ) : token ? (
-              <Button variant="ghost" size="sm" onClick={leave}>
-                Sign out
-              </Button>
             ) : (
-              <Button size="sm" onClick={signIn}>
-                Sign in with {providerNames[authConfig.oidc.provider]}
-              </Button>
+              !token && (
+                <Button size="sm" onClick={signIn}>
+                  Sign in with {providerNames[authConfig.oidc.provider]}
+                </Button>
+              )
             )}
             <ThemeToggle />
+            {authConfig.oidc && token && (
+              <AccountMenu user={signedInUser()} onSignOut={leave} />
+            )}
           </div>
         </div>
       </header>

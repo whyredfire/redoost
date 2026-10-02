@@ -13,6 +13,13 @@ type AuthConfig = {
   } | null;
 };
 
+export type User = {
+  id: string;
+  provider: Provider | null;
+  email: string | null;
+  name: string | null;
+};
+
 export const providerNames: Record<Provider, string> = { google: "Google" };
 
 const signInKey = "redoost.sign-in";
@@ -28,6 +35,13 @@ async function loadAuthConfig(): Promise<AuthConfig> {
   }
 }
 
+// Set whenever the token is, so the header can show who's signed in
+let user: User | null = null;
+
+export function signedInUser() {
+  return user;
+}
+
 // Dropped up front, so the dashboard asks for a new token instead of failing later
 async function checkToken() {
   const token = loadToken();
@@ -36,6 +50,10 @@ async function checkToken() {
     headers: { Authorization: `Bearer ${token}` },
   }).catch(() => null);
   if (response?.status === 401) clearToken();
+  if (response?.ok) {
+    const me: User = await response.json();
+    user = me;
+  }
 }
 
 export const [authConfig] = await Promise.all([loadAuthConfig(), checkToken()]);
@@ -98,13 +116,15 @@ export async function finishSignIn({ code, state, error }: Callback) {
       redirect_uri: redirectUri,
     }),
   });
-  const { token } = await readResponse<{ token: string }>(response);
+  const signedIn = await readResponse<{ token: string; user: User }>(response);
   clearSession();
-  saveToken(token);
+  user = signedIn.user;
+  saveToken(signedIn.token);
 }
 
 export function signOut() {
   clearSession();
+  user = null;
   clearToken();
 }
 
