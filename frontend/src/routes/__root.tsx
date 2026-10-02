@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-router";
 import { AccountMenu } from "@/components/account-menu";
 import { AgentPromptButton } from "@/components/agent-prompt-button";
+import { ProviderLogo } from "@/components/provider-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TokenDialog } from "@/components/token-dialog";
 import { Button } from "@/components/ui/button";
@@ -92,6 +93,7 @@ function Layout() {
             ) : (
               !token && (
                 <Button size="sm" onClick={signIn}>
+                  <ProviderLogo provider={authConfig.oidc.provider} />
                   Sign in with {providerNames[authConfig.oidc.provider]}
                 </Button>
               )

@@ -1,6 +1,7 @@
 import { Navigate, createFileRoute } from "@tanstack/react-router";
 import { LogIn } from "lucide-react";
 import { FolderDrop } from "@/components/folder-drop";
+import { ProviderLogo } from "@/components/provider-logo";
 import { RotatingWord } from "@/components/rotating-word";
 import { Button } from "@/components/ui/button";
 import { authConfig, providerNames, signIn } from "@/lib/auth";
@@ -103,6 +104,7 @@ function LandingPage() {
               Your sites stay online for as long as you keep them.
             </p>
             <Button onClick={signIn}>
+              <ProviderLogo provider={authConfig.oidc.provider} />
               Sign in with {providerNames[authConfig.oidc.provider]}
             </Button>
           </div>
