@@ -112,6 +112,14 @@ function Layout() {
             >
               GitHub
             </a>{" "}
+            ·{" "}
+            <Link to="/privacy" className={footerLink}>
+              Privacy
+            </Link>{" "}
+            ·{" "}
+            <Link to="/terms" className={footerLink}>
+              Terms
+            </Link>{" "}
             · {import.meta.env.VITE_VERSION ?? "dev"}
           </p>
           <p className="whitespace-nowrap">
