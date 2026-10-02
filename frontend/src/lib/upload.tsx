@@ -17,19 +17,14 @@ import {
   readLimits,
   updateDeployment,
   uploadFiles,
-  type CreatedDeployment,
+  type DeploymentUploads,
   type Limits,
   type ManifestFile,
   type StoredFile,
   type UploadSession,
 } from "./deploy";
-import {
-  clearSession,
-  loadSession,
-  loadToken,
-  saveSession,
-  saveToken,
-} from "./session";
+import { publishToken } from "./auth";
+import { clearSession, loadSession, loadToken, saveSession } from "./session";
 import {
   droppedFiles,
   fileManifest,
@@ -189,9 +184,9 @@ function useUploadState() {
   function startOver() {
     controller.current?.abort();
     // An unfinished upload keeps its site locked, so it's released here
-    if (session && session.deployment.state !== "ready") {
-      const { slug, token } = session.deployment;
-      cancelUpload(slug, token).catch(() => {});
+    const token = loadToken();
+    if (session && session.deployment.state !== "ready" && token) {
+      cancelUpload(session.deployment.slug, token).catch(() => {});
     }
     clearSession();
     setSession(null);
@@ -210,13 +205,13 @@ function useUploadState() {
     slug: string,
     manifest: ManifestFile[],
     signal: AbortSignal,
-  ): Promise<CreatedDeployment> {
+  ): Promise<DeploymentUploads> {
     const token = loadToken();
     if (!token) throw new Error("Import this site's token to update it.");
     try {
       const deployment = await updateDeployment(slug, manifest, token, signal);
       // The site stays ready on the server; here, the update is what's unfinished
-      return { ...deployment, token, state: "uploading" };
+      return { ...deployment, state: "uploading" };
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
         const current = await readDeployment(slug, token);
@@ -264,18 +259,14 @@ function useUploadState() {
       let active = session;
       if (!active) {
         setStage("creating");
-        let deployment: CreatedDeployment;
+        let deployment: DeploymentUploads;
         if (target) {
           deployment = await prepareUpdate(target, manifest, abort.signal);
         } else {
-          deployment = await createDeployment(
-            manifest,
-            loadToken(),
-            abort.signal,
-          );
+          const token = await publishToken();
+          deployment = await createDeployment(manifest, token, abort.signal);
         }
         active = { deployment, manifest, originalSize: totalSize };
-        saveToken(active.deployment.token);
         saveSession(active);
         setSession(active);
       } else if (Date.now() >= Date.parse(active.deployment.expires_at)) {
@@ -303,9 +294,11 @@ function useUploadState() {
       await uploadFiles(active.deployment, pages, abort.signal, onProgress);
 
       setStage("completing");
+      const token = await publishToken();
       const result = await completeDeployment(
-        active.deployment,
+        active.deployment.slug,
         active.manifest,
+        token,
         abort.signal,
       );
       const finished = {

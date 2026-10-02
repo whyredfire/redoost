@@ -31,10 +31,8 @@ export type DeploymentUploads = Deployment & {
   uploads: { path: string; fields: Record<string, string> }[];
 };
 
-export type CreatedDeployment = DeploymentUploads & { token: string };
-
 export type UploadSession = {
-  deployment: CreatedDeployment;
+  deployment: DeploymentUploads;
   manifest: ManifestFile[];
   // Size before compression; missing in sessions saved by older versions
   originalSize?: number;
@@ -71,7 +69,7 @@ async function checkResponse(response: Response) {
   }
 }
 
-async function readResponse<T>(response: Response): Promise<T> {
+export async function readResponse<T>(response: Response): Promise<T> {
   await checkResponse(response);
   return response.json() as Promise<T>;
 }
@@ -82,19 +80,16 @@ function authorization(token: string) {
 
 export async function createDeployment(
   files: ManifestFile[],
-  token: string | null,
+  token: string,
   signal: AbortSignal,
 ) {
   const response = await fetch("/api/deployments", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token && authorization(token)),
-    },
+    headers: { "Content-Type": "application/json", ...authorization(token) },
     body: JSON.stringify({ files }),
     signal,
   });
-  return readResponse<CreatedDeployment>(response);
+  return readResponse<DeploymentUploads>(response);
 }
 
 export async function readFiles(slug: string, token: string) {
@@ -120,16 +115,14 @@ export async function updateDeployment(
 }
 
 export async function completeDeployment(
-  deployment: CreatedDeployment,
+  slug: string,
   files: ManifestFile[],
+  token: string,
   signal: AbortSignal,
 ) {
-  const response = await fetch(`/api/deployments/${deployment.slug}/complete`, {
+  const response = await fetch(`/api/deployments/${slug}/complete`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...authorization(deployment.token),
-    },
+    headers: { "Content-Type": "application/json", ...authorization(token) },
     body: JSON.stringify({ files }),
     signal,
   });
@@ -238,7 +231,7 @@ async function uploadWithRetry(
 const parallelUploads = 32;
 
 export async function uploadFiles(
-  deployment: CreatedDeployment,
+  deployment: DeploymentUploads,
   files: SiteFile[],
   signal: AbortSignal,
   onProgress: (path: string, bytes: number, complete: boolean) => void,

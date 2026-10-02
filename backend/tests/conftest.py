@@ -22,8 +22,11 @@ for name, value in {
     "REDOOST_S3_BUCKET": "redoost-sites",
     "REDOOST_S3_ACCESS_KEY_ID": "test-key",
     "REDOOST_S3_SECRET_ACCESS_KEY": "test-secret",
+    "REDOOST_JWT_SECRET": "test-jwt-secret-that-is-long-enough",
 }.items():
     os.environ.setdefault(name, value)
+# Tests start in anonymous mode; the account tests configure sign-in themselves
+os.environ.pop("REDOOST_OIDC_ISSUER", None)
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -34,8 +37,7 @@ def database_engine() -> None:
     from src import database
     from src.config import settings
 
-    # asyncpg connections can't cross event loops, and each test runs its own.
-    # In-memory SQLite needs its pool, or every connection gets an empty database.
+    # asyncpg connections can't cross event loops; in-memory SQLite needs its pool
     if not settings.database_url.startswith("sqlite"):
         database.engine = create_async_engine(settings.database_url, poolclass=NullPool)
 
@@ -48,9 +50,12 @@ async def create_tables() -> None:
 
 
 @pytest.fixture
-def client() -> Iterator[TestClient]:
+def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
+    from src.config import settings
     from src.main import app
 
+    # The limit has tests of its own; elsewhere, tests create as many as they need
+    monkeypatch.setattr(settings, "anonymous_site_limit", 1000)
     # Migrations are checked in test_migrations.py; here the models are enough
     asyncio.run(create_tables())
     with TestClient(app) as test_client:
@@ -58,11 +63,22 @@ def client() -> Iterator[TestClient]:
 
 
 @pytest.fixture
-def run_cleanup() -> Callable[[], tuple[int, int]]:
+def new_token(client: TestClient) -> Callable[[], str]:
+    """Creates an anonymous user and returns its token."""
+    return lambda: client.post("/api/auth/anonymous").json()["token"]
+
+
+@pytest.fixture
+def token(new_token: Callable[[], str]) -> str:
+    return new_token()
+
+
+@pytest.fixture
+def run_cleanup() -> Callable[[], tuple[int, int, int]]:
     from scripts.cleanup import cleanup
     from src.database import engine
 
-    async def run() -> tuple[int, int]:
+    async def run() -> tuple[int, int, int]:
         async with AsyncSession(engine) as session:
             return await cleanup(session)
 

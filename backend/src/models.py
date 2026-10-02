@@ -5,10 +5,10 @@ from typing import Self
 
 from coolname import generate_slug
 from pydantic import field_validator, model_validator
-from sqlalchemy import BigInteger
+from sqlalchemy import BigInteger, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
-from .config import settings
+from .config import Provider, settings
 
 
 class DeploymentState(StrEnum):
@@ -112,8 +112,8 @@ class DeploymentBase(SQLModel):
 
 
 class Deployment(DeploymentBase, table=True):
-    token_hash: str = Field(
-        index=True, description="SHA-256 hash of the management token"
+    owner_id: str = Field(
+        foreign_key="users.id", index=True, description="User who owns the site"
     )
 
 
@@ -134,5 +134,64 @@ class DeploymentUploads(DeploymentBase):
     )
 
 
-class DeploymentCreated(DeploymentUploads):
-    token: str = Field(description="Management token, reusable for later deployments")
+class UserBase(SQLModel):
+    id: str = Field(
+        default_factory=lambda: secrets.token_hex(16),
+        primary_key=True,
+        description="User ID",
+    )
+    provider: Provider | None = Field(
+        default=None, description="Who the user signs in with; anonymous when unset"
+    )
+    email: str | None = Field(default=None, description="Email from the provider")
+    name: str | None = Field(default=None, description="Name from the provider")
+
+
+class User(UserBase, table=True):
+    # "user" is reserved in Postgres
+    __tablename__ = "users"  # pyright: ignore[reportAssignmentType]
+    __table_args__ = (UniqueConstraint("provider", "subject"),)
+
+    # Emails can change, so users are found by this
+    subject: str | None = Field(
+        default=None, description="The provider's stable ID for the user"
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC), description="Creation time"
+    )
+
+
+class OidcConfig(SQLModel):
+    provider: Provider = Field(description="Who users sign in with")
+    authorization_endpoint: str = Field(description="Where sign-in starts")
+    client_id: str = Field(description="OIDC client ID")
+    scope: str = Field(description="Scopes to request")
+
+
+class AuthConfig(SQLModel):
+    oidc: OidcConfig | None = Field(
+        description="How to sign in; publishing is anonymous when unset"
+    )
+
+
+class OidcMetadata(SQLModel):
+    authorization_endpoint: str = Field(description="Where sign-in starts")
+    token_endpoint: str = Field(description="Where codes are exchanged")
+    userinfo_endpoint: str = Field(description="Where the user is read from")
+
+
+class UserInfo(SQLModel):
+    sub: str = Field(description="The provider's stable ID for the user")
+    email: str | None = Field(default=None, description="The user's email")
+    name: str | None = Field(default=None, description="The user's name")
+
+
+class SignIn(SQLModel):
+    code: str = Field(description="Authorization code from the provider")
+    code_verifier: str = Field(description="PKCE verifier the code was requested with")
+    redirect_uri: str = Field(description="Redirect URI the code was requested with")
+
+
+class Token(SQLModel):
+    token: str = Field(description="Bearer token for the API")
+    user: UserBase = Field(description="Who the token belongs to")

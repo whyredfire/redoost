@@ -1,58 +1,59 @@
-import hashlib
-import hmac
-import secrets
 from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlmodel import col, or_, select, update
+from sqlmodel import col, func, or_, select, update
 
+from .auth import CurrentUser
 from .config import settings
 from .database import Session
 from .models import (
     Deployment,
     DeploymentBase,
-    DeploymentCreated,
     DeploymentState,
     DeploymentUploads,
     Limits,
     Manifest,
     StoredFile,
+    User,
 )
 from .storage import delete_objects, read_checksums, sign_uploads
 
 router = APIRouter(prefix="/api/deployments", tags=["deployments"])
 
-Credentials = Annotated[HTTPAuthorizationCredentials, Depends(HTTPBearer())]
-OptionalCredentials = Annotated[
-    HTTPAuthorizationCredentials | None, Depends(HTTPBearer(auto_error=False))
-]
 
-
-def hash_token(token: str) -> str:
-    return hashlib.sha256(token.encode()).hexdigest()
-
-
-async def check_token(session: Session, token_hash: str) -> None:
-    # Only tokens issued with an earlier deployment are valid
-    query = select(Deployment.slug).where(Deployment.token_hash == token_hash)
-    result = await session.exec(query.limit(1))
-    if result.first() is None:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Invalid token")
-
-
-async def get_deployment(
-    slug: str, session: Session, credentials: Credentials
-) -> Deployment:
+async def get_deployment(slug: str, session: Session, user: CurrentUser) -> Deployment:
     deployment = await session.get(Deployment, slug)
     if deployment is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Deployment not found")
-    if not hmac.compare_digest(
-        deployment.token_hash, hash_token(credentials.credentials)
-    ):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Invalid deployment token")
+    if deployment.owner_id != user.id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Not your deployment")
     return deployment
+
+
+async def check_anonymous_limit(session: Session, user: User) -> None:
+    # Expired sites and abandoned uploads don't count, though cleanup hasn't run
+    now = datetime.now(UTC)
+    query = (
+        select(func.count())
+        .select_from(Deployment)
+        .where(Deployment.owner_id == user.id)
+        .where(
+            or_(
+                (col(Deployment.state) == DeploymentState.ready)
+                & (col(Deployment.available_until) > now),
+                (col(Deployment.state) == DeploymentState.uploading)
+                & (col(Deployment.expires_at) > now),
+            )
+        )
+    )
+    result = await session.exec(query)
+    if result.one() >= settings.anonymous_site_limit:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            f"Anonymous users can have up to {settings.anonymous_site_limit} sites"
+            " at once",
+        )
 
 
 OwnedDeployment = Annotated[Deployment, Depends(get_deployment)]
@@ -60,15 +61,12 @@ OwnedDeployment = Annotated[Deployment, Depends(get_deployment)]
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_deployment(
-    manifest: Manifest, session: Session, credentials: OptionalCredentials
-) -> DeploymentCreated:
-    if credentials:
-        token = credentials.credentials
-        await check_token(session, hash_token(token))
-    else:
-        token = secrets.token_urlsafe(32)
+    manifest: Manifest, session: Session, user: CurrentUser
+) -> DeploymentUploads:
+    if user.provider is None:
+        await check_anonymous_limit(session, user)
     deployment = Deployment(
-        token_hash=hash_token(token),
+        owner_id=user.id,
         file_count=len(manifest.files),
         total_size=manifest.total_size,
         spa=manifest.spa,
@@ -76,20 +74,16 @@ async def create_deployment(
     upload_url, uploads = await sign_uploads(deployment.slug, manifest.files)
     session.add(deployment)
     await session.commit()
-    return DeploymentCreated(
-        **deployment.model_dump(), token=token, upload_url=upload_url, uploads=uploads
+    return DeploymentUploads(
+        **deployment.model_dump(), upload_url=upload_url, uploads=uploads
     )
 
 
 @router.get("")
-async def list_deployments(
-    session: Session, credentials: Credentials
-) -> list[DeploymentBase]:
-    token_hash = hash_token(credentials.credentials)
-    await check_token(session, token_hash)
+async def list_deployments(session: Session, user: CurrentUser) -> list[DeploymentBase]:
     query = (
         select(Deployment)
-        .where(Deployment.token_hash == token_hash)
+        .where(Deployment.owner_id == user.id)
         .where(Deployment.state == DeploymentState.ready)
         .where(
             or_(
@@ -161,7 +155,7 @@ async def update_deployment(
 
 @router.post("/{slug}/complete")
 async def complete_deployment(
-    manifest: Manifest, deployment: OwnedDeployment, session: Session
+    manifest: Manifest, deployment: OwnedDeployment, session: Session, user: CurrentUser
 ) -> DeploymentBase:
     checksums = await read_checksums(deployment.slug)
     uploaded = sum(checksums.get(file.path) == file.sha256 for file in manifest.files)
@@ -192,9 +186,9 @@ async def complete_deployment(
     deployment.spa = manifest.spa
     # Frees the site for its next update
     deployment.expires_at = now
-    # Fixed at publish time, so changing the setting never moves existing dates
-    if settings.site_lifetime:
-        deployment.available_until = now + settings.site_lifetime
+    # Fixed at the first publish, so updates and setting changes never move it
+    if user.provider is None and deployment.available_until is None:
+        deployment.available_until = now + settings.anonymous_site_lifetime
     session.add(deployment)
     await session.commit()
     return deployment

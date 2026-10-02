@@ -56,9 +56,13 @@ def s3() -> Any:
 
 
 @pytest.fixture
-def deployment(client: TestClient, s3: Any) -> Iterator[dict[str, Any]]:
-    created = client.post("/api/deployments", json=manifest(FILES)).json()
-    yield created
+def deployment(client: TestClient, token: str, s3: Any) -> Iterator[dict[str, Any]]:
+    created = client.post(
+        "/api/deployments",
+        json=manifest(FILES),
+        headers={"Authorization": f"Bearer {token}"},
+    ).json()
+    yield {**created, "token": token}
     objects = s3.list_objects_v2(
         Bucket=settings.s3_bucket, Prefix=f"{created['slug']}/"
     )
@@ -97,10 +101,14 @@ def test_uploads_matching_files(deployment: dict[str, Any], s3: Any) -> None:
         assert head["ChecksumSHA256"] == digest(content)
 
 
-def test_uploads_gzipped_files(client: TestClient, s3: Any) -> None:
+def test_uploads_gzipped_files(client: TestClient, token: str, s3: Any) -> None:
     content = gzip.compress(FILES["index.html"])
     file = {"path": "index.html", "size": len(content), "sha256": digest(content)}
-    created = client.post("/api/deployments", json={"files": [{**file, "gzip": True}]})
+    created = client.post(
+        "/api/deployments",
+        json={"files": [{**file, "gzip": True}]},
+        headers={"Authorization": f"Bearer {token}"},
+    )
     deployment = created.json()
     try:
         # The signed policy requires the header, so it can't be left out
@@ -151,7 +159,7 @@ def test_rejects_changed_content_type(deployment: dict[str, Any]) -> None:
 
 
 def test_rejects_expired_policies(
-    client: TestClient, s3: Any, monkeypatch: pytest.MonkeyPatch
+    client: TestClient, token: str, s3: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(settings, "upload_window", timedelta(seconds=-1))
     content = FILES["index.html"]
@@ -162,6 +170,7 @@ def test_rejects_expired_policies(
                 {"path": "index.html", "size": len(content), "sha256": digest(content)}
             ]
         },
+        headers={"Authorization": f"Bearer {token}"},
     ).json()
 
     assert upload(created, "index.html", content).status_code == 400
@@ -248,7 +257,7 @@ def test_delete_removes_uploaded_files(
 def test_cleanup_removes_orphaned_files(
     deployment: dict[str, Any],
     s3: Any,
-    run_cleanup: Callable[[], tuple[int, int]],
+    run_cleanup: Callable[[], tuple[int, int, int]],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     upload(deployment, "index.html", FILES["index.html"])

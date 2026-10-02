@@ -19,6 +19,7 @@ async def drop_tables() -> None:
         await connection.execute(text("DROP TABLE IF EXISTS alembic_version"))
         # drop_all skips enum types whose table is already gone
         await connection.execute(text("DROP TYPE IF EXISTS deploymentstate"))
+        await connection.execute(text("DROP TYPE IF EXISTS provider"))
 
 
 def test_migrations_match_models(

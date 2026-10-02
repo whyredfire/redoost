@@ -2,7 +2,7 @@
 
 A self-hosted alternative to Vercel Drop and Cloudflare Pages direct uploads.
 Drop a folder with a built static site, a zip of one, or a single HTML file,
-and get a shareable address, with no account and no build step.
+and get a shareable address, with no build step.
 
 **[Try it at redoost.whyredfire.dev](https://redoost.whyredfire.dev)**
 
@@ -23,9 +23,12 @@ and get a shareable address, with no account and no build step.
   upload is interrupted, selecting the same folder again resumes it.
 - **Single-page apps just work.** Sites without a top-level `404.html` serve
   `index.html` for unknown pages; sites with one get their own 404 page.
-- **Manage your sites.** Sites published from a browser are listed with their
-  size and date, and can be deleted. Copy your token to manage them from
-  another device.
+- **Anonymous or with accounts.** Without sign-in configured, anyone can publish
+  up to 5 sites at once, each online for 7 days; copy your token to manage them
+  from another device. With an OIDC provider, people sign in instead, and their
+  sites stay online for as long as they keep them.
+- **Manage your sites.** Your sites are listed with their size and date, and
+  can be updated or deleted.
 - **Sensible limits.** 10 MiB per file, 50 MiB and 500 files per site, all
   configurable. The dashboard checks them as soon as files are selected.
 
@@ -156,7 +159,13 @@ values.
 | `REDOOST_MAX_DEPLOYMENT_SIZE` | `50MiB` | Largest allowed site |
 | `REDOOST_MAX_DEPLOYMENT_FILES` | `500` | Most files allowed in a site |
 | `REDOOST_UPLOAD_WINDOW` | `PT1H` | How long upload policies stay valid (at most 24 hours) |
-| `REDOOST_SITE_LIFETIME` | | How long published sites stay online, e.g. `P30D`; forever when unset. Fixed per site when it's published |
+| `REDOOST_JWT_SECRET` | | Signs the API's tokens, e.g. from `openssl rand -hex 32` |
+| `REDOOST_ANONYMOUS_SITE_LIFETIME` | `P7D` | How long anonymous sites stay online after their first publish |
+| `REDOOST_ANONYMOUS_SITE_LIMIT` | `5` | Most sites an anonymous user can have at once |
+| `REDOOST_OIDC_ISSUER` | | OIDC issuer to sign in with; accounts replace anonymous publishing when set |
+| `REDOOST_OIDC_PROVIDER` | `google` | Who the issuer signs users in with, for the sign-in button |
+| `REDOOST_OIDC_CLIENT_ID` | | OIDC client ID, with `<app origin>/auth/callback` as its redirect URI |
+| `REDOOST_OIDC_CLIENT_SECRET` | | OIDC client secret |
 
 In Compose, the sites Nginx also reads `REDOOST_SITES_DOMAIN`,
 `REDOOST_API_UPSTREAM`, and `REDOOST_S3_WEBSITE_UPSTREAM`, and the dev server

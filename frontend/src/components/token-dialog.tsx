@@ -60,7 +60,7 @@ export function TokenDialog({ onImport }: TokenDialogProps) {
       await onImport(value);
       setOpen(false);
     } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 403) {
+      if (cause instanceof ApiError && cause.status === 401) {
         setError("This token doesn't match any sites.");
       } else {
         setError(cause instanceof Error ? cause.message : String(cause));

@@ -19,6 +19,10 @@ data:
   REDOOST_MAX_DEPLOYMENT_SIZE: {{ .Values.api.maxDeploymentSize | quote }}
   REDOOST_MAX_DEPLOYMENT_FILES: {{ .Values.api.maxDeploymentFiles | quote }}
   REDOOST_UPLOAD_WINDOW: {{ .Values.api.uploadWindow | quote }}
-  {{- with .Values.api.siteLifetime }}
-  REDOOST_SITE_LIFETIME: {{ . | quote }}
+  REDOOST_ANONYMOUS_SITE_LIFETIME: {{ .Values.api.anonymousSiteLifetime | quote }}
+  REDOOST_ANONYMOUS_SITE_LIMIT: {{ .Values.api.anonymousSiteLimit | quote }}
+  {{- with .Values.auth.oidc.issuer }}
+  REDOOST_OIDC_ISSUER: {{ . | quote }}
+  REDOOST_OIDC_PROVIDER: {{ $.Values.auth.oidc.provider | quote }}
+  REDOOST_OIDC_CLIENT_ID: {{ required "Set auth.oidc.clientId" $.Values.auth.oidc.clientId | quote }}
   {{- end }}

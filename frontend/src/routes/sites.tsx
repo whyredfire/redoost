@@ -7,6 +7,7 @@ import {
 import { Globe } from "lucide-react";
 import { SiteList } from "@/components/site-list";
 import { Button } from "@/components/ui/button";
+import { authConfig } from "@/lib/auth";
 import { ApiError, deleteDeployment, listDeployments } from "@/lib/deploy";
 import {
   clearSession,
@@ -34,7 +35,7 @@ async function loadSites() {
     return deployments;
   } catch (error) {
     // The token is unknown to the API, so the next publish starts a new one
-    if (error instanceof ApiError && error.status === 403) {
+    if (error instanceof ApiError && error.status === 401) {
       clearToken();
       return [];
     }
@@ -67,7 +68,9 @@ function SitesPage() {
       <div className="mb-8">
         <h1 className="text-2xl font-semibold tracking-tight">Your sites</h1>
         <p className="mt-1 text-muted-foreground">
-          Sites published from this browser, or from the token you imported.
+          {authConfig.oidc
+            ? "Sites published from your account."
+            : "Sites published from this browser, or from the token you imported."}
         </p>
       </div>
       {sites.length > 0 ? (
@@ -82,7 +85,9 @@ function SitesPage() {
           <Globe className="mx-auto size-8 text-muted-foreground" />
           <p className="mt-4 font-medium">No sites yet</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Publish your first site, or import a token from another device.
+            {authConfig.oidc
+              ? "Publish your first site."
+              : "Publish your first site, or import a token from another device."}
           </p>
           <Button className="mt-6" asChild>
             <Link to="/">Publish a site</Link>

@@ -40,6 +40,21 @@ s3:
   # used instead of the two values above
   existingSecret: ""
 
+auth:
+  # Signs the API's tokens, e.g. from openssl rand -hex 32
+  jwtSecret: ""
+  # Sign-in with an OIDC provider, which replaces anonymous publishing. Register
+  # <appOrigin>/auth/callback as its redirect URI.
+  oidc:
+    issuer: ""
+    # Shown on the sign-in button; only google for now
+    provider: google
+    clientId: ""
+    clientSecret: ""
+  # Secret with REDOOST_JWT_SECRET and, with sign-in, REDOOST_OIDC_CLIENT_SECRET,
+  # used instead of the secrets above
+  existingSecret: ""
+
 # Postgres database, e.g. postgresql+asyncpg://user:password@host:5432/redoost.
 # When neither value is set, the API uses SQLite on a volume.
 database:
@@ -58,8 +73,10 @@ api:
   maxDeploymentSize: 50MiB
   maxDeploymentFiles: 500
   uploadWindow: PT1H
-  # How long published sites stay online, e.g. P30D; forever when empty
-  siteLifetime: ""
+  # Anonymous sites stay online this long after their first publish, and each
+  # anonymous user can have this many at once; sites of signed-in users have neither
+  anonymousSiteLifetime: P7D
+  anonymousSiteLimit: 5
   persistence:
     size: 100Mi
     storageClass: ""
@@ -120,6 +137,9 @@ networkPolicy:
     - namespaceSelector:
         matchLabels:
           kubernetes.io/metadata.name: garage
+  # NetworkPolicy peers the API reaches the OIDC issuer at, on the port from
+  # auth.oidc.issuer; empty allows any destination, as public providers need
+  oidc: []
   # NetworkPolicy peers running Postgres; the port comes from database.url, or 5432
   database:
     - namespaceSelector:

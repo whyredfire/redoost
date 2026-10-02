@@ -63,6 +63,8 @@ Settings shared by the API, its migrations, and the bucket setup Job
     name: {{ include "redoost.fullname" . }}-api
 - secretRef:
     name: {{ include "redoost.secretName" . }}
+- secretRef:
+    name: {{ include "redoost.authSecretName" . }}
 {{- if include "redoost.postgres" . }}
 - secretRef:
     name: {{ include "redoost.databaseSecretName" . }}
@@ -74,6 +76,15 @@ Non-empty when the API uses Postgres instead of SQLite on a volume
 */}}
 {{- define "redoost.postgres" -}}
 {{- if or .Values.database.url .Values.database.existingSecret }}true{{ end }}
+{{- end }}
+
+{{- define "redoost.authSecretName" -}}
+{{- .Values.auth.existingSecret | default (printf "%s-auth" (include "redoost.fullname" .)) }}
+{{- end }}
+
+{{- define "redoost.oidcPort" -}}
+{{- $issuer := urlParse .Values.auth.oidc.issuer }}
+{{- include "redoost.port" (dict "host" $issuer.host "default" (ternary "443" "80" (eq $issuer.scheme "https"))) }}
 {{- end }}
 
 {{- define "redoost.databaseSecretName" -}}

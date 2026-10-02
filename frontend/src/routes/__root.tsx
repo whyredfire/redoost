@@ -3,14 +3,16 @@ import {
   Outlet,
   createRootRoute,
   useLocation,
+  useNavigate,
   useRouter,
 } from "@tanstack/react-router";
 import { AgentPromptButton } from "@/components/agent-prompt-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TokenDialog } from "@/components/token-dialog";
 import { Button } from "@/components/ui/button";
+import { authConfig, providerNames, signIn, signOut } from "@/lib/auth";
 import { listDeployments } from "@/lib/deploy";
-import { saveToken } from "@/lib/session";
+import { saveToken, useToken } from "@/lib/session";
 import { useUpload } from "@/lib/upload";
 
 export const Route = createRootRoute({
@@ -27,6 +29,8 @@ function Layout() {
   const { busy, startOver } = useUpload();
   const pathname = useLocation({ select: (location) => location.pathname });
   const router = useRouter();
+  const navigate = useNavigate();
+  const token = useToken();
 
   // The header's links to / start a fresh publish, unless an upload is running
   function startFresh() {
@@ -37,6 +41,13 @@ function Layout() {
     // Listing checks the token before it replaces the current one
     await listDeployments(token);
     saveToken(token);
+    await router.invalidate();
+  }
+
+  async function leave() {
+    startOver();
+    signOut();
+    await navigate({ to: "/" });
     await router.invalidate();
   }
 
@@ -69,7 +80,17 @@ function Layout() {
           </nav>
           <div className="ml-auto flex items-center gap-1">
             <AgentPromptButton />
-            <TokenDialog onImport={importToken} />
+            {!authConfig.oidc ? (
+              <TokenDialog onImport={importToken} />
+            ) : token ? (
+              <Button variant="ghost" size="sm" onClick={leave}>
+                Sign out
+              </Button>
+            ) : (
+              <Button size="sm" onClick={signIn}>
+                Sign in with {providerNames[authConfig.oidc.provider]}
+              </Button>
+            )}
             <ThemeToggle />
           </div>
         </div>

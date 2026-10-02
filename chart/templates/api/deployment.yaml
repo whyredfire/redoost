@@ -22,6 +22,7 @@ spec:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/api/configmap.yaml") . | sha256sum }}
         checksum/secret: {{ include (print $.Template.BasePath "/api/secret.yaml") . | sha256sum }}
+        checksum/auth-secret: {{ include (print $.Template.BasePath "/api/auth-secret.yaml") . | sha256sum }}
         {{- if include "redoost.postgres" . }}
         checksum/database-secret: {{ include (print $.Template.BasePath "/api/database-secret.yaml") . | sha256sum }}
         {{- end }}

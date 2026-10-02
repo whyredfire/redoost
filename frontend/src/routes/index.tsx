@@ -1,6 +1,10 @@
 import { Navigate, createFileRoute } from "@tanstack/react-router";
+import { LogIn } from "lucide-react";
 import { FolderDrop } from "@/components/folder-drop";
 import { RotatingWord } from "@/components/rotating-word";
+import { Button } from "@/components/ui/button";
+import { authConfig, providerNames, signIn } from "@/lib/auth";
+import { useToken } from "@/lib/session";
 import { usePageDrop, useUpload } from "@/lib/upload";
 
 export const Route = createFileRoute("/")({
@@ -20,7 +24,10 @@ function LandingPage() {
     clearFiles,
     startOver,
   } = useUpload();
-  const dragging = usePageDrop(true);
+  const token = useToken();
+  // Accounts can't publish until they sign in
+  const signedOut = authConfig.oidc !== null && !token;
+  const dragging = usePageDrop(!signedOut);
 
   // Listed files are reviewed and published on their own page
   if (files.length > 0) return <Navigate to="/publish" />;
@@ -50,8 +57,10 @@ function LandingPage() {
           </span>
         </h1>
         <p className="mt-3 text-muted-foreground">
-          Drop a built site and get a shareable address. No account or build
-          step required.
+          Drop a built site and get a shareable address.{" "}
+          {authConfig.oidc
+            ? "No build step required."
+            : "No account or build step required."}
         </p>
       </div>
       {/* The drop area fills what's left of the first screen */}
@@ -84,14 +93,29 @@ function LandingPage() {
             instead.
           </p>
         )}
-        <FolderDrop
-          dragging={dragging}
-          error={message}
-          checks={checks}
-          onFiles={selectFiles}
-          onError={showError}
-          onDismiss={clearFiles}
-        />
+        {signedOut && authConfig.oidc ? (
+          <div className="flex flex-1 flex-col items-center justify-center rounded-xl border-2 px-6 py-12 text-center">
+            <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-muted">
+              <LogIn className="size-5 text-muted-foreground" />
+            </div>
+            <p className="text-lg font-medium">Sign in to publish</p>
+            <p className="mt-1 mb-6 text-sm text-muted-foreground">
+              Your sites stay online for as long as you keep them.
+            </p>
+            <Button onClick={signIn}>
+              Sign in with {providerNames[authConfig.oidc.provider]}
+            </Button>
+          </div>
+        ) : (
+          <FolderDrop
+            dragging={dragging}
+            error={message}
+            checks={checks}
+            onFiles={selectFiles}
+            onError={showError}
+            onDismiss={clearFiles}
+          />
+        )}
       </div>
     </>
   );
