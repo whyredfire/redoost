@@ -7,7 +7,7 @@ export const Route = createFileRoute("/terms")({
 
 function TermsPage() {
   return (
-    <LegalPage title="Terms of service" updated="2 October 2026">
+    <LegalPage title="Terms of Service" updated="2 October 2026">
       <Section title="Using redoost">
         <p>
           redoost hosts static sites for free. By publishing a site, you agree

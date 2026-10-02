@@ -122,11 +122,11 @@ function Layout() {
             </a>{" "}
             ·{" "}
             <Link to="/privacy" className={footerLink}>
-              Privacy
+              Privacy Policy
             </Link>{" "}
             ·{" "}
             <Link to="/terms" className={footerLink}>
-              Terms
+              Terms of Service
             </Link>{" "}
             · {import.meta.env.VITE_VERSION ?? "dev"}
           </p>

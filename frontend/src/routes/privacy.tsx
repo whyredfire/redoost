@@ -7,7 +7,7 @@ export const Route = createFileRoute("/privacy")({
 
 function PrivacyPage() {
   return (
-    <LegalPage title="Privacy policy" updated="2 October 2026">
+    <LegalPage title="Privacy Policy" updated="2 October 2026">
       <Section title="What we store">
         <p>
           When you sign in with Google, we store your Google account ID, email
