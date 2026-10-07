@@ -1,10 +1,8 @@
 import { Navigate, createFileRoute } from "@tanstack/react-router";
-import { LogIn } from "lucide-react";
 import { FolderDrop } from "@/components/folder-drop";
-import { ProviderLogo } from "@/components/provider-logo";
 import { RotatingWord } from "@/components/rotating-word";
-import { Button } from "@/components/ui/button";
-import { authConfig, providerNames, signIn } from "@/lib/auth";
+import { SignInPrompt } from "@/components/sign-in-prompt";
+import { authConfig } from "@/lib/auth";
 import { useToken } from "@/lib/session";
 import { usePageDrop, useUpload } from "@/lib/upload";
 
@@ -94,20 +92,12 @@ function LandingPage() {
             instead.
           </p>
         )}
-        {signedOut && authConfig.oidc ? (
-          <div className="flex flex-1 flex-col items-center justify-center rounded-xl border-2 px-6 py-12 text-center">
-            <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-muted">
-              <LogIn className="size-5 text-muted-foreground" />
-            </div>
-            <p className="text-lg font-medium">Sign in to publish</p>
-            <p className="mt-1 mb-6 text-sm text-muted-foreground">
-              Your sites stay online for as long as you keep them.
-            </p>
-            <Button onClick={signIn}>
-              <ProviderLogo provider={authConfig.oidc.provider} />
-              Sign in with {providerNames[authConfig.oidc.provider]}
-            </Button>
-          </div>
+        {signedOut ? (
+          <SignInPrompt
+            className="flex-1"
+            title="Sign in to publish"
+            description="Your sites stay online for as long as you keep them."
+          />
         ) : (
           <FolderDrop
             dragging={dragging}

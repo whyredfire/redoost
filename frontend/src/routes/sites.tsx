@@ -5,6 +5,7 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { Globe } from "lucide-react";
+import { SignInPrompt } from "@/components/sign-in-prompt";
 import { SiteList } from "@/components/site-list";
 import { Button } from "@/components/ui/button";
 import { authConfig } from "@/lib/auth";
@@ -14,6 +15,7 @@ import {
   clearToken,
   loadSession,
   loadToken,
+  useToken,
 } from "@/lib/session";
 import { useUpload } from "@/lib/upload";
 
@@ -48,6 +50,7 @@ function SitesPage() {
   const router = useRouter();
   const navigate = useNavigate();
   const { busy, startUpdate } = useUpload();
+  const token = useToken();
 
   function updateSite(slug: string) {
     startUpdate(slug);
@@ -73,7 +76,12 @@ function SitesPage() {
             : "Sites published from this browser, or from the token you imported."}
         </p>
       </div>
-      {sites.length > 0 ? (
+      {authConfig.oidc && !token ? (
+        <SignInPrompt
+          title="Sign in to see your sites"
+          description="Sites you publish while signed in are listed here."
+        />
+      ) : sites.length > 0 ? (
         <SiteList
           sites={sites}
           canUpdate={!busy}

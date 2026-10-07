@@ -8,17 +8,10 @@ import {
 } from "@tanstack/react-router";
 import { AccountMenu } from "@/components/account-menu";
 import { AgentPromptButton } from "@/components/agent-prompt-button";
-import { ProviderLogo } from "@/components/provider-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TokenDialog } from "@/components/token-dialog";
 import { Button } from "@/components/ui/button";
-import {
-  authConfig,
-  providerNames,
-  signIn,
-  signOut,
-  signedInUser,
-} from "@/lib/auth";
+import { authConfig, signOut, signedInUser } from "@/lib/auth";
 import { listDeployments } from "@/lib/deploy";
 import { saveToken, useToken } from "@/lib/session";
 import { useUpload } from "@/lib/upload";
@@ -62,7 +55,7 @@ function Layout() {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-7xl items-center gap-6 px-5">
+        <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-5 sm:gap-6">
           <Link
             to="/"
             className="flex items-center gap-2 font-semibold"
@@ -71,7 +64,8 @@ function Layout() {
             <span className="flex size-7 items-center justify-center rounded-lg bg-primary text-xs text-primary-foreground">
               r.
             </span>
-            redoost
+            {/* Phones show only the mark, so the header fits */}
+            <span className="sr-only sm:not-sr-only">redoost</span>
           </Link>
           <nav className="flex gap-5">
             <Link
@@ -88,16 +82,7 @@ function Layout() {
           </nav>
           <div className="ml-auto flex items-center gap-1">
             <AgentPromptButton />
-            {!authConfig.oidc ? (
-              <TokenDialog onImport={importToken} />
-            ) : (
-              !token && (
-                <Button size="sm" onClick={signIn}>
-                  <ProviderLogo provider={authConfig.oidc.provider} />
-                  Sign in with {providerNames[authConfig.oidc.provider]}
-                </Button>
-              )
-            )}
+            {!authConfig.oidc && <TokenDialog onImport={importToken} />}
             <ThemeToggle />
             {authConfig.oidc && token && (
               <AccountMenu user={signedInUser()} onSignOut={leave} />
