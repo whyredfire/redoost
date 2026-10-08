@@ -29,8 +29,9 @@ and get a shareable address, with no build step.
   sites stay online for as long as they keep them.
 - **Manage your sites.** Your sites are listed with their size and date, and
   can be updated or deleted.
-- **Sensible limits.** 10 MiB per file, 50 MiB and 500 files per site, all
-  configurable. The dashboard checks them as soon as files are selected.
+- **Sensible limits.** 10 MiB per file, 50 MiB and 500 files per site, and 1 GiB
+  per user, all configurable. The dashboard checks the per-site limits as soon as
+  files are selected.
 
 ## How it works
 
@@ -158,6 +159,7 @@ values.
 | `REDOOST_MAX_FILE_SIZE` | `10MiB` | Largest allowed file |
 | `REDOOST_MAX_DEPLOYMENT_SIZE` | `50MiB` | Largest allowed site |
 | `REDOOST_MAX_DEPLOYMENT_FILES` | `500` | Most files allowed in a site |
+| `REDOOST_MAX_ACCOUNT_SIZE` | `1GiB` | Largest total size of a user's sites, counting uploads in progress |
 | `REDOOST_UPLOAD_WINDOW` | `PT1H` | How long upload policies stay valid (at most 24 hours) |
 | `REDOOST_JWT_SECRET` | | Signs the API's tokens, e.g. from `openssl rand -hex 32` |
 | `REDOOST_ANONYMOUS_SITE_LIFETIME` | `P7D` | How long anonymous sites stay online after their first publish |

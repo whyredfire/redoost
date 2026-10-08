@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from fastapi.testclient import TestClient
 from httpx import Response
+from pydantic import ByteSize
 
 from scripts import cleanup
 from src import deployments
@@ -609,6 +610,35 @@ def test_expired_sites_and_uploads_free_their_slots(
     assert create(client, token, "index.html")["slug"]
     assert create(client, token, "index.html")["slug"]
     response = client.post(URL, json=manifest("index.html"), headers=bearer(token))
+    assert response.status_code == 403
+
+
+def test_users_have_a_storage_limit(
+    client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "max_account_size", ByteSize(3))
+    published(client, token, monkeypatch, "index.html")
+    # Uploads in progress count too
+    create(client, token, "index.html")
+
+    response = client.post(
+        URL, json=manifest("index.html", "app.js"), headers=bearer(token)
+    )
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Your sites can use up to 3B in total"
+    assert create(client, token, "index.html")["slug"]
+
+
+def test_updates_count_at_their_new_size(
+    client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "max_account_size", ByteSize(3))
+    site = published(client, token, monkeypatch, "index.html")
+    published(client, token, monkeypatch, "index.html")
+
+    assert update(client, site, "index.html", "app.js").status_code == 200
+    cancel(client, site)
+    response = update(client, site, "index.html", "app.js", "404.html")
     assert response.status_code == 403
 
 

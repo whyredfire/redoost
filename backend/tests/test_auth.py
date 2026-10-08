@@ -6,7 +6,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import Response
-from pydantic import SecretStr
+from pydantic import ByteSize, SecretStr
 
 from scripts import cleanup
 from src import auth, deployments, oidc
@@ -217,6 +217,29 @@ def test_accounts_replace_anonymous_users(
     account = sign_in(accounts, monkeypatch).json()["token"]
     monkeypatch.setattr(settings, "oidc_issuer", None)
     assert accounts.get("/api/auth/me", headers=bearer(account)).status_code == 401
+
+
+def test_account_sites_count_toward_their_storage(
+    accounts: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "max_account_size", ByteSize(1))
+    account = sign_in(accounts, monkeypatch, subject="quota").json()["token"]
+    site = {"files": [{"path": "index.html", "size": 1, "sha256": SHA256}]}
+
+    async def read_checksums(slug: str) -> dict[str, str | None]:
+        return {"index.html": SHA256}
+
+    monkeypatch.setattr(deployments, "read_checksums", read_checksums)
+    created = accounts.post("/api/deployments", json=site, headers=bearer(account))
+    accounts.post(
+        f"/api/deployments/{created.json()['slug']}/complete",
+        json=site,
+        headers=bearer(account),
+    )
+
+    # Published account sites never expire, and still take up room
+    response = accounts.post("/api/deployments", json=site, headers=bearer(account))
+    assert response.status_code == 403
 
 
 def test_account_sites_have_no_limit_or_lifetime(

@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import ColumnElement
 from sqlmodel import col, func, or_, select, update
 
 from .auth import CurrentUser
@@ -31,21 +32,26 @@ async def get_deployment(slug: str, session: Session, user: CurrentUser) -> Depl
     return deployment
 
 
-async def check_anonymous_limit(session: Session, user: User) -> None:
+def in_use() -> ColumnElement[bool]:
     # Expired sites and abandoned uploads don't count, though cleanup hasn't run
     now = datetime.now(UTC)
+    return or_(
+        (col(Deployment.state) == DeploymentState.ready)
+        & or_(
+            col(Deployment.available_until).is_(None),
+            col(Deployment.available_until) > now,
+        ),
+        (col(Deployment.state) == DeploymentState.uploading)
+        & (col(Deployment.expires_at) > now),
+    )
+
+
+async def check_anonymous_limit(session: Session, user: User) -> None:
     query = (
         select(func.count())
         .select_from(Deployment)
         .where(Deployment.owner_id == user.id)
-        .where(
-            or_(
-                (col(Deployment.state) == DeploymentState.ready)
-                & (col(Deployment.available_until) > now),
-                (col(Deployment.state) == DeploymentState.uploading)
-                & (col(Deployment.expires_at) > now),
-            )
-        )
+        .where(in_use())
     )
     result = await session.exec(query)
     if result.one() >= settings.anonymous_site_limit:
@@ -53,6 +59,26 @@ async def check_anonymous_limit(session: Session, user: User) -> None:
             status.HTTP_403_FORBIDDEN,
             f"Anonymous users can have up to {settings.anonymous_site_limit} sites"
             " at once",
+        )
+
+
+async def check_storage(
+    session: Session, user: User, size: int, replacing: str | None = None
+) -> None:
+    query = (
+        select(func.coalesce(func.sum(Deployment.total_size), 0))
+        .where(Deployment.owner_id == user.id)
+        .where(in_use())
+    )
+    # A site being updated counts at its new size instead
+    if replacing:
+        query = query.where(Deployment.slug != replacing)
+    result = await session.exec(query)
+    used = int(result.one())
+    if used + size > settings.max_account_size:
+        limit = settings.max_account_size.human_readable()
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, f"Your sites can use up to {limit} in total"
         )
 
 
@@ -65,6 +91,7 @@ async def create_deployment(
 ) -> DeploymentUploads:
     if user.provider is None:
         await check_anonymous_limit(session, user)
+    await check_storage(session, user, manifest.total_size)
     deployment = Deployment(
         owner_id=user.id,
         file_count=len(manifest.files),
@@ -121,12 +148,13 @@ async def read_files(deployment: OwnedDeployment) -> list[StoredFile]:
 
 @router.put("/{slug}")
 async def update_deployment(
-    manifest: Manifest, deployment: OwnedDeployment, session: Session
+    manifest: Manifest, deployment: OwnedDeployment, session: Session, user: CurrentUser
 ) -> DeploymentUploads:
     if deployment.available_until and deployment.available_until < datetime.now(UTC):
         raise HTTPException(status.HTTP_410_GONE, "Site has expired")
     if deployment.state != DeploymentState.ready:
         raise HTTPException(status.HTTP_409_CONFLICT, "Site isn't published yet")
+    await check_storage(session, user, manifest.total_size, replacing=deployment.slug)
 
     # Only new and changed files are uploaded again
     checksums = await read_checksums(deployment.slug)

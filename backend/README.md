@@ -29,13 +29,14 @@ returns the token's user.
   `{"path", "size", "sha256", "gzip"}` files, where `sha256` is the
   base64-encoded digest. Size and digest are of the bytes as uploaded; files
   sent gzip-compressed set `gzip` and are served with `Content-Encoding: gzip`. Returns the slug and one signed upload policy
-  per file. Anonymous users over their limit get 403.
+  per file. Users whose sites would exceed `REDOOST_MAX_ACCOUNT_SIZE` in total,
+  and anonymous users over their site limit, get 403.
 - `GET /api/deployments`: the user's ready deployments, newest first.
 - `GET /api/deployments/{slug}`: deployment status.
 - `GET /api/deployments/{slug}/files`: the site's stored files as
   `{"path", "sha256"}`, so an update can be previewed.
 - `PUT /api/deployments/{slug}`: updates a ready site in place from a full
-  manifest. Returns upload policies only for new and changed files, compared
+  manifest, counted at its new size against `REDOOST_MAX_ACCOUNT_SIZE`. Returns upload policies only for new and changed files, compared
   by checksum with what's stored. One upload per site at a time: returns 409
   while another is in progress and 410 for expired sites.
 - `POST /api/deployments/{slug}/complete`: send the manifest again; marks the

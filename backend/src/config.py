@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     max_deployment_files: int = Field(
         default=500, description="Maximum number of files in a deployment"
     )
+    max_account_size: ByteSize = Field(
+        default=ByteSize(1024**3), description="Maximum total size of a user's sites"
+    )
 
     # Garage rejects POST policies signed more than 24 hours ago
     upload_window: timedelta = Field(

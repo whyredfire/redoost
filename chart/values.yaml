@@ -72,6 +72,8 @@ api:
   maxFileSize: 10MiB
   maxDeploymentSize: 50MiB
   maxDeploymentFiles: 500
+  # Total size of each user's sites
+  maxAccountSize: 1GiB
   uploadWindow: PT1H
   # Anonymous sites stay online this long after their first publish, and each
   # anonymous user can have this many at once; sites of signed-in users have neither

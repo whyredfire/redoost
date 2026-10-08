@@ -18,6 +18,7 @@ data:
   REDOOST_MAX_FILE_SIZE: {{ .Values.api.maxFileSize | quote }}
   REDOOST_MAX_DEPLOYMENT_SIZE: {{ .Values.api.maxDeploymentSize | quote }}
   REDOOST_MAX_DEPLOYMENT_FILES: {{ .Values.api.maxDeploymentFiles | quote }}
+  REDOOST_MAX_ACCOUNT_SIZE: {{ .Values.api.maxAccountSize | quote }}
   REDOOST_UPLOAD_WINDOW: {{ .Values.api.uploadWindow | quote }}
   REDOOST_ANONYMOUS_SITE_LIFETIME: {{ .Values.api.anonymousSiteLifetime | quote }}
   REDOOST_ANONYMOUS_SITE_LIMIT: {{ .Values.api.anonymousSiteLimit | quote }}
