@@ -7,7 +7,7 @@ from datetime import timedelta
 from typing import Any
 
 import boto3
-import httpx
+import httpx2
 import pytest
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
@@ -72,9 +72,9 @@ def deployment(client: TestClient, token: str, s3: Any) -> Iterator[dict[str, An
 
 def upload(
     deployment: dict[str, Any], path: str, content: bytes, **overrides: str
-) -> httpx.Response:
+) -> httpx2.Response:
     policy = next(u for u in deployment["uploads"] if u["path"] == path)
-    return httpx.post(
+    return httpx2.post(
         deployment["upload_url"],
         data={**policy["fields"], **overrides},
         files={"file": (path, content)},

@@ -9,3 +9,6 @@ logging.basicConfig(
 logging.getLogger("uvicorn.access").addFilter(
     lambda record: " /health " not in record.getMessage()
 )
+# Requests to the sign-in provider are only logged when verbose
+if settings.log_level == "INFO":
+    logging.getLogger("httpx2").setLevel(logging.WARNING)

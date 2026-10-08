@@ -5,7 +5,7 @@ import jwt
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from httpx import Response
+from httpx2 import Response
 from pydantic import ByteSize, SecretStr
 
 from scripts import cleanup

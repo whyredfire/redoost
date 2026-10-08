@@ -1,5 +1,4 @@
-import aiohttp
-from pydantic import ValidationError
+import httpx2
 
 from .config import settings
 from .models import OidcMetadata, UserInfo
@@ -14,19 +13,17 @@ class OidcError(Exception):
 _metadata: OidcMetadata | None = None
 
 
-def client() -> aiohttp.ClientSession:
-    return aiohttp.ClientSession(
-        raise_for_status=True, timeout=aiohttp.ClientTimeout(total=10)
-    )
+def client() -> httpx2.AsyncClient:
+    return httpx2.AsyncClient(timeout=10)
 
 
-async def discover(http: aiohttp.ClientSession) -> OidcMetadata:
+async def discover(http: httpx2.AsyncClient) -> OidcMetadata:
     global _metadata
     if _metadata is None:
         issuer = str(settings.oidc_issuer).rstrip("/")
-        async with http.get(f"{issuer}/.well-known/openid-configuration") as response:
-            body = await response.json()
-        _metadata = OidcMetadata.model_validate(body)
+        response = await http.get(f"{issuer}/.well-known/openid-configuration")
+        response.raise_for_status()
+        _metadata = OidcMetadata.model_validate(response.json())
     return _metadata
 
 
@@ -34,7 +31,8 @@ async def read_metadata() -> OidcMetadata:
     try:
         async with client() as http:
             metadata = await discover(http)
-    except (aiohttp.ClientError, TimeoutError, ValidationError) as error:
+    # ValueError covers malformed JSON and missing fields
+    except (httpx2.HTTPError, ValueError) as error:
         raise OidcError("Couldn't read the provider's configuration") from error
     return metadata
 
@@ -45,7 +43,7 @@ async def read_userinfo(code: str, code_verifier: str, redirect_uri: str) -> Use
     try:
         async with client() as http:
             metadata = await discover(http)
-            async with http.post(
+            response = await http.post(
                 metadata.token_endpoint,
                 data={
                     "grant_type": "authorization_code",
@@ -53,20 +51,19 @@ async def read_userinfo(code: str, code_verifier: str, redirect_uri: str) -> Use
                     "code_verifier": code_verifier,
                     "redirect_uri": redirect_uri,
                 },
-                headers={
-                    "Authorization": aiohttp.encode_basic_auth(
-                        settings.oidc_client_id,
-                        settings.oidc_client_secret.get_secret_value(),
-                    )
-                },
-            ) as response:
-                tokens = await response.json()
-            async with http.get(
+                auth=(
+                    settings.oidc_client_id,
+                    settings.oidc_client_secret.get_secret_value(),
+                ),
+            )
+            response.raise_for_status()
+            access_token = response.json()["access_token"]
+            response = await http.get(
                 metadata.userinfo_endpoint,
-                headers={"Authorization": f"Bearer {tokens['access_token']}"},
-            ) as response:
-                body = await response.json()
-        info = UserInfo.model_validate(body)
-    except (aiohttp.ClientError, TimeoutError, KeyError, ValidationError) as error:
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            response.raise_for_status()
+        info = UserInfo.model_validate(response.json())
+    except (httpx2.HTTPError, ValueError, KeyError) as error:
         raise OidcError("Couldn't sign in with the provider") from error
     return info
