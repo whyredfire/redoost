@@ -91,6 +91,10 @@ jobs:
             echo
             git log --no-merges --pretty='- %s (%h)' ${previous:+"$previous..HEAD"} |
               grep -vE '^- chore(\(chart\))?: (Update image tags|Release v)' || true
+            if [ -n "$previous" ]; then
+              echo
+              echo "**Full Changelog**: https://github.com/${GITHUB_REPOSITORY}/compare/${previous}...v${VERSION}"
+            fi
           } > "$RUNNER_TEMP/notes.md"
           cat "$RUNNER_TEMP/notes.md"
 
@@ -103,4 +107,4 @@ jobs:
           git commit -am "chore: Release v${VERSION}"
           git tag "v${VERSION}"
           git push origin HEAD "v${VERSION}"
-          gh release create "v${VERSION}" --title "v${VERSION}" --notes-file "$RUNNER_TEMP/notes.md" --generate-notes
+          gh release create "v${VERSION}" --title "v${VERSION}" --notes-file "$RUNNER_TEMP/notes.md"
