@@ -1,4 +1,4 @@
-import { readResponse } from "./deploy";
+import { checkResponse, readResponse } from "./deploy";
 import { clearSession, clearToken, loadToken, saveToken } from "./session";
 
 type Provider = "google";
@@ -126,6 +126,18 @@ export function signOut() {
   clearSession();
   user = null;
   clearToken();
+}
+
+// Removes the account and all its sites, then signs out
+export async function deleteAccount() {
+  const token = loadToken();
+  if (!token) return;
+  const response = await fetch("/api/auth/me", {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  await checkResponse(response);
+  signOut();
 }
 
 // Anonymous users are created on their first publish

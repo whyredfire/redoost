@@ -1,3 +1,4 @@
+import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
@@ -9,7 +10,16 @@ from sqlmodel import col, select
 from . import oidc
 from .config import settings
 from .database import Session
-from .models import AuthConfig, OidcConfig, SignIn, Token, User, UserBase
+from .models import (
+    AuthConfig,
+    Deployment,
+    OidcConfig,
+    SignIn,
+    Token,
+    User,
+    UserBase,
+)
+from .storage import delete_objects
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -83,6 +93,20 @@ async def read_config() -> AuthConfig:
 @router.get("/me")
 async def read_user(user: CurrentUser) -> UserBase:
     return user
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user(user: CurrentUser, session: Session) -> None:
+    query = select(Deployment).where(Deployment.owner_id == user.id)
+    result = await session.exec(query)
+    deployments = result.all()
+    # Files go first, so a failed delete leaves the account in place to retry
+    deletes = [delete_objects(deployment.slug) for deployment in deployments]
+    await asyncio.gather(*deletes)
+    for deployment in deployments:
+        await session.delete(deployment)
+    await session.delete(user)
+    await session.commit()
 
 
 @anonymous_router.post("/anonymous", status_code=status.HTTP_201_CREATED)

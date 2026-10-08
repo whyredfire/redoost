@@ -56,7 +56,7 @@ class UploadError extends Error {
   }
 }
 
-async function checkResponse(response: Response) {
+export async function checkResponse(response: Response) {
   if (!response.ok) {
     const body = await response.json().catch(() => null);
     const detail = body?.detail;

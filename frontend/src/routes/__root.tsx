@@ -11,7 +11,7 @@ import { AgentPromptButton } from "@/components/agent-prompt-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TokenDialog } from "@/components/token-dialog";
 import { Button } from "@/components/ui/button";
-import { authConfig, signOut, signedInUser } from "@/lib/auth";
+import { authConfig, deleteAccount, signOut, signedInUser } from "@/lib/auth";
 import { listDeployments } from "@/lib/deploy";
 import { saveToken, useToken } from "@/lib/session";
 import { useUpload } from "@/lib/upload";
@@ -52,6 +52,11 @@ function Layout() {
     await router.invalidate();
   }
 
+  async function removeAccount() {
+    await deleteAccount();
+    await leave();
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur">
@@ -85,7 +90,11 @@ function Layout() {
             {!authConfig.oidc && <TokenDialog onImport={importToken} />}
             <ThemeToggle />
             {authConfig.oidc && token && (
-              <AccountMenu user={signedInUser()} onSignOut={leave} />
+              <AccountMenu
+                user={signedInUser()}
+                onSignOut={leave}
+                onDelete={removeAccount}
+              />
             )}
           </div>
         </div>

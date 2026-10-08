@@ -40,7 +40,8 @@ async def cleanup(session: AsyncSession) -> tuple[int, int, int]:
     orphaned = [slug for slug in slugs if slug not in known][:batch_size]
 
     stale = [*orphaned, *(deployment.slug for deployment in expired)]
-    await asyncio.gather(*(delete_objects(slug) for slug in stale))
+    deletes = [delete_objects(slug) for slug in stale]
+    await asyncio.gather(*deletes)
     for deployment in expired:
         await session.delete(deployment)
     await session.flush()

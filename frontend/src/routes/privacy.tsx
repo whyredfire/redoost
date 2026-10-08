@@ -7,7 +7,7 @@ export const Route = createFileRoute("/privacy")({
 
 function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Policy" updated="2 October 2026">
+    <LegalPage title="Privacy Policy" updated="9 October 2026">
       <Section title="What we store">
         <p>
           When you sign in with Google, we store your Google account ID, email
@@ -40,8 +40,9 @@ function PrivacyPage() {
 
       <Section title="Deleting your data">
         <p>
-          You can delete your sites at any time from Your sites. To delete your
-          account and everything stored with it, email <ContactLink />.
+          You can delete your sites at any time from Your sites, and your
+          account with everything stored with it from the account menu. For
+          anything else, email <ContactLink />.
         </p>
       </Section>
     </LegalPage>

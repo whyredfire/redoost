@@ -20,7 +20,8 @@ unknown tokens get 401, and other users' deployments 403. There are two modes:
 
 `GET /api/auth/config` returns the authorization endpoint, client ID, and
 scope to sign in with, or `{"oidc": null}` in anonymous mode. `GET /api/auth/me`
-returns the token's user.
+returns the token's user, and `DELETE /api/auth/me` deletes them with all their
+sites, files first, after which their tokens get 401.
 
 ## API
 

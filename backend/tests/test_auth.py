@@ -89,6 +89,62 @@ def test_cleanup_removes_anonymous_users_without_sites(
     assert signed_in(with_site)
 
 
+def test_deleting_an_account_removes_its_sites(
+    client: TestClient,
+    token: str,
+    new_token: Callable[[], str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def read_checksums(slug: str) -> dict[str, str | None]:
+        return {"index.html": SHA256}
+
+    deleted: list[str] = []
+
+    async def delete_objects(slug: str) -> None:
+        deleted.append(slug)
+
+    monkeypatch.setattr(deployments, "read_checksums", read_checksums)
+    monkeypatch.setattr(auth, "delete_objects", delete_objects)
+    published = client.post("/api/deployments", json=MANIFEST, headers=bearer(token))
+    client.post(
+        f"/api/deployments/{published.json()['slug']}/complete",
+        json=MANIFEST,
+        headers=bearer(token),
+    )
+    uploading = client.post("/api/deployments", json=MANIFEST, headers=bearer(token))
+    other = new_token()
+    kept = client.post("/api/deployments", json=MANIFEST, headers=bearer(other))
+
+    response = client.delete("/api/auth/me", headers=bearer(token))
+
+    assert response.status_code == 204
+    assert sorted(deleted) == sorted(
+        [published.json()["slug"], uploading.json()["slug"]]
+    )
+    # Its tokens stop working, and other users keep their sites
+    assert client.get("/api/auth/me", headers=bearer(token)).status_code == 401
+    kept_url = f"/api/deployments/{kept.json()['slug']}"
+    assert client.get(kept_url, headers=bearer(other)).status_code == 200
+
+
+def test_failed_deletes_keep_the_account(
+    client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def delete_objects(slug: str) -> None:
+        raise RuntimeError("S3 is unavailable")
+
+    monkeypatch.setattr(auth, "delete_objects", delete_objects)
+    client.post("/api/deployments", json=MANIFEST, headers=bearer(token))
+
+    with pytest.raises(RuntimeError):
+        client.delete("/api/auth/me", headers=bearer(token))
+    assert client.get("/api/auth/me", headers=bearer(token)).status_code == 200
+
+
+def test_deleting_an_account_requires_a_user(client: TestClient) -> None:
+    assert client.delete("/api/auth/me").status_code == 401
+
+
 METADATA = OidcMetadata(
     authorization_endpoint="https://id.example.com/authorize",
     token_endpoint="https://id.example.com/token",
@@ -217,6 +273,19 @@ def test_accounts_replace_anonymous_users(
     account = sign_in(accounts, monkeypatch).json()["token"]
     monkeypatch.setattr(settings, "oidc_issuer", None)
     assert accounts.get("/api/auth/me", headers=bearer(account)).status_code == 401
+
+
+def test_signing_in_after_deleting_starts_afresh(
+    accounts: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    first = sign_in(accounts, monkeypatch, subject="deleted").json()
+    response = accounts.delete("/api/auth/me", headers=bearer(first["token"]))
+    again = sign_in(accounts, monkeypatch, subject="deleted").json()
+
+    assert response.status_code == 204
+    assert again["user"]["id"] != first["user"]["id"]
+    listed = accounts.get("/api/deployments", headers=bearer(again["token"]))
+    assert listed.json() == []
 
 
 def test_account_sites_count_toward_their_storage(
