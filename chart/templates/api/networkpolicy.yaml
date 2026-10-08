@@ -27,13 +27,11 @@ spec:
         {{- toYaml .Values.networkPolicy.s3 | nindent 8 }}
       ports:
         - port: {{ include "redoost.s3Port" . }}
-    {{- if .Values.auth.oidc.issuer }}
     # Signing in reads the provider's configuration and exchanges codes there
     - to:
         {{- toYaml .Values.networkPolicy.oidc | nindent 8 }}
       ports:
         - port: {{ include "redoost.oidcPort" . }}
-    {{- end }}
     {{- if include "redoost.postgres" . }}
     - to:
         {{- toYaml .Values.networkPolicy.database | nindent 8 }}

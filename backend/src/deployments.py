@@ -33,33 +33,11 @@ async def get_deployment(slug: str, session: Session, user: CurrentUser) -> Depl
 
 
 def in_use() -> ColumnElement[bool]:
-    # Expired sites and abandoned uploads don't count, though cleanup hasn't run
-    now = datetime.now(UTC)
+    # Abandoned uploads don't count, though cleanup hasn't run
     return or_(
-        (col(Deployment.state) == DeploymentState.ready)
-        & or_(
-            col(Deployment.available_until).is_(None),
-            col(Deployment.available_until) > now,
-        ),
-        (col(Deployment.state) == DeploymentState.uploading)
-        & (col(Deployment.expires_at) > now),
+        col(Deployment.state) == DeploymentState.ready,
+        col(Deployment.expires_at) > datetime.now(UTC),
     )
-
-
-async def check_anonymous_limit(session: Session, user: User) -> None:
-    query = (
-        select(func.count())
-        .select_from(Deployment)
-        .where(Deployment.owner_id == user.id)
-        .where(in_use())
-    )
-    result = await session.exec(query)
-    if result.one() >= settings.anonymous_site_limit:
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
-            f"Anonymous users can have up to {settings.anonymous_site_limit} sites"
-            " at once",
-        )
 
 
 async def check_storage(
@@ -89,8 +67,6 @@ OwnedDeployment = Annotated[Deployment, Depends(get_deployment)]
 async def create_deployment(
     manifest: Manifest, session: Session, user: CurrentUser
 ) -> DeploymentUploads:
-    if user.provider is None:
-        await check_anonymous_limit(session, user)
     await check_storage(session, user, manifest.total_size)
     deployment = Deployment(
         owner_id=user.id,
@@ -112,12 +88,6 @@ async def list_deployments(session: Session, user: CurrentUser) -> list[Deployme
         select(Deployment)
         .where(Deployment.owner_id == user.id)
         .where(Deployment.state == DeploymentState.ready)
-        .where(
-            or_(
-                col(Deployment.available_until).is_(None),
-                col(Deployment.available_until) > datetime.now(UTC),
-            )
-        )
         .order_by(col(Deployment.created_at).desc())
     )
     result = await session.exec(query)
@@ -150,8 +120,6 @@ async def read_files(deployment: OwnedDeployment) -> list[StoredFile]:
 async def update_deployment(
     manifest: Manifest, deployment: OwnedDeployment, session: Session, user: CurrentUser
 ) -> DeploymentUploads:
-    if deployment.available_until and deployment.available_until < datetime.now(UTC):
-        raise HTTPException(status.HTTP_410_GONE, "Site has expired")
     if deployment.state != DeploymentState.ready:
         raise HTTPException(status.HTTP_409_CONFLICT, "Site isn't published yet")
     await check_storage(session, user, manifest.total_size, replacing=deployment.slug)
@@ -183,7 +151,7 @@ async def update_deployment(
 
 @router.post("/{slug}/complete")
 async def complete_deployment(
-    manifest: Manifest, deployment: OwnedDeployment, session: Session, user: CurrentUser
+    manifest: Manifest, deployment: OwnedDeployment, session: Session
 ) -> DeploymentBase:
     checksums = await read_checksums(deployment.slug)
     uploaded = sum(checksums.get(file.path) == file.sha256 for file in manifest.files)
@@ -214,9 +182,6 @@ async def complete_deployment(
     deployment.spa = manifest.spa
     # Frees the site for its next update
     deployment.expires_at = now
-    # Fixed at the first publish, so updates and setting changes never move it
-    if user.provider is None and deployment.available_until is None:
-        deployment.available_until = now + settings.anonymous_site_lifetime
     session.add(deployment)
     await session.commit()
     return deployment

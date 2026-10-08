@@ -263,7 +263,7 @@ function useUploadState() {
         if (target) {
           deployment = await prepareUpdate(target, manifest, abort.signal);
         } else {
-          const token = await publishToken();
+          const token = publishToken();
           deployment = await createDeployment(manifest, token, abort.signal);
         }
         active = { deployment, manifest, originalSize: totalSize };
@@ -294,7 +294,7 @@ function useUploadState() {
       await uploadFiles(active.deployment, pages, abort.signal, onProgress);
 
       setStage("completing");
-      const token = await publishToken();
+      const token = publishToken();
       const result = await completeDeployment(
         active.deployment.slug,
         active.manifest,

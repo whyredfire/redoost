@@ -4,18 +4,19 @@ import { clearSession, clearToken, loadToken, saveToken } from "./session";
 type Provider = "google";
 
 type AuthConfig = {
-  // Publishing is anonymous when unset
   oidc: {
     provider: Provider;
     authorization_endpoint: string;
     client_id: string;
     scope: string;
   } | null;
+  // Local development signs in as a dev user instead
+  dev: boolean;
 };
 
 export type User = {
   id: string;
-  provider: Provider | null;
+  provider: Provider;
   email: string | null;
   name: string | null;
 };
@@ -30,8 +31,8 @@ async function loadAuthConfig(): Promise<AuthConfig> {
     const response = await fetch("/api/auth/config");
     return await readResponse<AuthConfig>(response);
   } catch {
-    // Without it, publishing fails with the API's error instead
-    return { oidc: null };
+    // Without it, signing in isn't offered
+    return { oidc: null, dev: false };
   }
 }
 
@@ -122,6 +123,13 @@ export async function finishSignIn({ code, state, error }: Callback) {
   saveToken(signedIn.token);
 }
 
+export async function signInAsDev() {
+  const response = await fetch("/api/auth/dev", { method: "POST" });
+  const signedIn = await readResponse<{ token: string; user: User }>(response);
+  user = signedIn.user;
+  saveToken(signedIn.token);
+}
+
 export function signOut() {
   clearSession();
   user = null;
@@ -140,17 +148,8 @@ export async function deleteAccount() {
   signOut();
 }
 
-// Anonymous users are created on their first publish
-export async function publishToken() {
+export function publishToken() {
   const token = loadToken();
-  if (token) return token;
-  if (authConfig.oidc) {
-    throw new Error(
-      `Sign in with ${providerNames[authConfig.oidc.provider]} to publish.`,
-    );
-  }
-  const response = await fetch("/api/auth/anonymous", { method: "POST" });
-  const created = await readResponse<{ token: string }>(response);
-  saveToken(created.token);
-  return created.token;
+  if (!token) throw new Error("Sign in to publish.");
+  return token;
 }

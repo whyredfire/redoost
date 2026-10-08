@@ -380,17 +380,11 @@ def test_one_upload_at_a_time(
     assert update(client, created, "index.html").status_code == 200
 
 
-def test_update_requires_a_published_site(
-    client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_update_requires_a_published_site(client: TestClient, token: str) -> None:
     created = create(client, token, "index.html")
     response = update(client, created, "index.html")
     assert response.status_code == 409
     assert response.json()["detail"] == "Site isn't published yet"
-
-    monkeypatch.setattr(settings, "anonymous_site_lifetime", timedelta(seconds=-1))
-    expired = published(client, token, monkeypatch, "index.html")
-    assert update(client, expired, "index.html").status_code == 410
 
 
 def test_update_requires_its_owner(
@@ -407,9 +401,6 @@ def test_completing_an_update_replaces_the_site(
     client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     created = published(client, token, monkeypatch, "index.html", "old.html")
-    until = client.get(f"{URL}/{created['slug']}", headers=bearer(token)).json()[
-        "available_until"
-    ]
     update(client, created, "index.html", "404.html")
 
     deleted: list[tuple[str, list[str] | None]] = []
@@ -427,8 +418,6 @@ def test_completing_an_update_replaces_the_site(
     assert deleted == [(created["slug"], ["old.html"])]
     assert body["file_count"] == 2
     assert body["spa"] is False
-    # Updates don't give anonymous sites more time
-    assert body["available_until"] == until
     assert resolve(client, created["slug"]).headers["X-Site-Spa"] == "0"
 
 
@@ -527,7 +516,7 @@ def test_cleanup_removes_expired_uploads_and_orphans(
     client: TestClient,
     token: str,
     monkeypatch: pytest.MonkeyPatch,
-    run_cleanup: Callable[[], tuple[int, int, int]],
+    run_cleanup: Callable[[], tuple[int, int]],
 ) -> None:
     deleted: list[str] = []
 
@@ -544,7 +533,7 @@ def test_cleanup_removes_expired_uploads_and_orphans(
         return [ready["slug"], pending["slug"], "orphan-slug-0000"]
 
     monkeypatch.setattr(cleanup, "list_slugs", list_slugs)
-    _, orphaned, _ = run_cleanup()
+    _, orphaned = run_cleanup()
 
     assert orphaned == 1
     assert "orphan-slug-0000" in deleted
@@ -555,70 +544,16 @@ def test_cleanup_removes_expired_uploads_and_orphans(
         assert client.get(url, headers=bearer(token)).status_code == code
 
 
-def test_anonymous_sites_expire_after_their_lifetime(
-    client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(deployments, "read_checksums", stored("index.html"))
-    created = create(client, token, "index.html")
-    # Uploads haven't started their lifetime yet
-    assert created["available_until"] is None
-
-    until = datetime.fromisoformat(complete(client, created).json()["available_until"])
-    lifetime = settings.anonymous_site_lifetime
-    assert lifetime - timedelta(minutes=1) < until - datetime.now(UTC) <= lifetime
-
-    # Later changes to the setting don't move the date
-    monkeypatch.setattr(settings, "anonymous_site_lifetime", timedelta(days=1))
-    response = client.get(f"{URL}/{created['slug']}", headers=bearer(token))
-    assert datetime.fromisoformat(response.json()["available_until"]) == until
-
-
-def test_anonymous_users_have_a_site_limit(
-    client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(settings, "anonymous_site_limit", 2)
-    monkeypatch.setattr(deployments, "read_checksums", stored("index.html"))
-    first = published(client, token, monkeypatch, "index.html")
-    create(client, token, "index.html")
-
-    response = client.post(URL, json=manifest("index.html"), headers=bearer(token))
-    assert response.status_code == 403
-    assert response.json()["detail"] == (
-        "Anonymous users can have up to 2 sites at once"
-    )
-
-    # Deleting a site frees its slot
-    async def delete_objects(slug: str) -> None:
-        pass
-
-    monkeypatch.setattr(deployments, "delete_objects", delete_objects)
-    client.delete(f"{URL}/{first['slug']}", headers=bearer(token))
-    assert create(client, token, "index.html")["slug"]
-
-
-def test_expired_sites_and_uploads_free_their_slots(
-    client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(settings, "anonymous_site_limit", 2)
-    monkeypatch.setattr(settings, "anonymous_site_lifetime", timedelta(seconds=-1))
-    published(client, token, monkeypatch, "index.html")
-    monkeypatch.setattr(settings, "upload_window", timedelta(seconds=-1))
-    create(client, token, "index.html")
-
-    # Neither counts, even before cleanup removes them
-    monkeypatch.setattr(settings, "upload_window", timedelta(hours=1))
-    assert create(client, token, "index.html")["slug"]
-    assert create(client, token, "index.html")["slug"]
-    response = client.post(URL, json=manifest("index.html"), headers=bearer(token))
-    assert response.status_code == 403
-
-
 def test_users_have_a_storage_limit(
     client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(settings, "max_account_size", ByteSize(3))
     published(client, token, monkeypatch, "index.html")
-    # Uploads in progress count too
+    # Abandoned uploads don't count, even before cleanup removes them
+    monkeypatch.setattr(settings, "upload_window", timedelta(seconds=-1))
+    create(client, token, "index.html", "app.js")
+    monkeypatch.setattr(settings, "upload_window", timedelta(hours=1))
+    # Uploads in progress count
     create(client, token, "index.html")
 
     response = client.post(
@@ -640,33 +575,3 @@ def test_updates_count_at_their_new_size(
     cancel(client, site)
     response = update(client, site, "index.html", "app.js", "404.html")
     assert response.status_code == 403
-
-
-def test_expired_sites_are_hidden_and_cleaned_up(
-    client: TestClient,
-    token: str,
-    monkeypatch: pytest.MonkeyPatch,
-    run_cleanup: Callable[[], tuple[int, int, int]],
-) -> None:
-    monkeypatch.setattr(settings, "anonymous_site_lifetime", timedelta(seconds=-1))
-    expired = published(client, token, monkeypatch, "index.html")
-    monkeypatch.setattr(settings, "anonymous_site_lifetime", timedelta(days=7))
-    kept = published(client, token, monkeypatch, "index.html")
-
-    assert resolve(client, expired["slug"]).status_code == 403
-    assert resolve(client, kept["slug"]).status_code == 204
-    listed = client.get(URL, headers=bearer(token)).json()
-    assert [site["slug"] for site in listed] == [kept["slug"]]
-
-    deleted: list[str] = []
-
-    async def delete_objects(slug: str) -> None:
-        deleted.append(slug)
-
-    async def list_slugs() -> list[str]:
-        return [expired["slug"], kept["slug"]]
-
-    monkeypatch.setattr(cleanup, "delete_objects", delete_objects)
-    monkeypatch.setattr(cleanup, "list_slugs", list_slugs)
-    run_cleanup()
-    assert expired["slug"] in deleted and kept["slug"] not in deleted

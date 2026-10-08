@@ -9,11 +9,9 @@ import {
 import { AccountMenu } from "@/components/account-menu";
 import { AgentPromptButton } from "@/components/agent-prompt-button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { TokenDialog } from "@/components/token-dialog";
 import { Button } from "@/components/ui/button";
-import { authConfig, deleteAccount, signOut, signedInUser } from "@/lib/auth";
-import { listDeployments } from "@/lib/deploy";
-import { saveToken, useToken } from "@/lib/session";
+import { deleteAccount, signOut, signedInUser } from "@/lib/auth";
+import { useToken } from "@/lib/session";
 import { useUpload } from "@/lib/upload";
 
 export const Route = createRootRoute({
@@ -50,13 +48,6 @@ function Layout() {
   // The header's links to / start a fresh publish, unless an upload is running
   function startFresh() {
     if (!busy) startOver();
-  }
-
-  async function importToken(token: string) {
-    // Listing checks the token before it replaces the current one
-    await listDeployments(token);
-    saveToken(token);
-    await router.invalidate();
   }
 
   async function leave() {
@@ -101,9 +92,8 @@ function Layout() {
           </nav>
           <div className="ml-auto flex items-center gap-1">
             <AgentPromptButton />
-            {!authConfig.oidc && <TokenDialog onImport={importToken} />}
             <ThemeToggle />
-            {authConfig.oidc && token && (
+            {token && (
               <AccountMenu
                 user={signedInUser()}
                 onSignOut={leave}

@@ -23,9 +23,7 @@ and get a shareable address, with no build step.
   upload is interrupted, selecting the same folder again resumes it.
 - **Single-page apps just work.** Sites without a top-level `404.html` serve
   `index.html` for unknown pages; sites with one get their own 404 page.
-- **Anonymous or with accounts.** Without sign-in configured, anyone can publish
-  up to 5 sites at once, each online for 7 days; copy your token to manage them
-  from another device. With an OIDC provider, people sign in instead, and their
+- **Sign in with Google.** People sign in through an OIDC provider, and their
   sites stay online for as long as they keep them.
 - **Manage your sites.** Your sites are listed with their size and date, and
   can be updated or deleted.
@@ -126,6 +124,11 @@ and frontend reload in place; lockfile changes rebuild the image. The
 `Dockerfile.dev` images are for development only; `backend/Dockerfile` and
 `frontend/Dockerfile` build the production images.
 
+Locally, `REDOOST_DEV_SIGN_IN=true` from `.env.example` replaces the OIDC
+provider: the dashboard shows "Sign in as dev user", which signs you in as
+`dev@localhost` without any setup. The API refuses to start with both dev
+sign-in and an OIDC issuer set, and the chart never enables it.
+
 Only two ports are published. The `gateway` service stands in for the cluster's
 ingress and routes by host:
 
@@ -163,12 +166,11 @@ values.
 | `REDOOST_MAX_ACCOUNT_SIZE` | `1GiB` | Largest total size of a user's sites, counting uploads in progress |
 | `REDOOST_UPLOAD_WINDOW` | `PT1H` | How long upload policies stay valid (at most 24 hours) |
 | `REDOOST_JWT_SECRET` | | Signs the API's tokens, e.g. from `openssl rand -hex 32` |
-| `REDOOST_ANONYMOUS_SITE_LIFETIME` | `P7D` | How long anonymous sites stay online after their first publish |
-| `REDOOST_ANONYMOUS_SITE_LIMIT` | `5` | Most sites an anonymous user can have at once |
-| `REDOOST_OIDC_ISSUER` | | OIDC issuer to sign in with; accounts replace anonymous publishing when set |
+| `REDOOST_OIDC_ISSUER` | | OIDC issuer users sign in with |
 | `REDOOST_OIDC_PROVIDER` | `google` | Who the issuer signs users in with, for the sign-in button |
 | `REDOOST_OIDC_CLIENT_ID` | | OIDC client ID, with `<app origin>/auth/callback` as its redirect URI |
 | `REDOOST_OIDC_CLIENT_SECRET` | | OIDC client secret |
+| `REDOOST_DEV_SIGN_IN` | `false` | Sign in as a local dev user instead of with an OIDC provider; for development only |
 
 In Compose, the sites Nginx also reads `REDOOST_SITES_DOMAIN`,
 `REDOOST_API_UPSTREAM`, and `REDOOST_S3_WEBSITE_UPSTREAM`, and the dev server

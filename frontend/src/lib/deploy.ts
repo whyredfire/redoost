@@ -14,7 +14,6 @@ export type Deployment = {
   total_size: number;
   created_at: string;
   expires_at: string;
-  available_until: string | null;
 };
 
 export type StoredFile = { path: string; sha256: string | null };

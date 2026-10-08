@@ -2,31 +2,23 @@ import asyncio
 import logging
 from datetime import UTC, datetime
 
-from sqlmodel import col, delete, exists, not_, or_, select
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from src.config import settings
 from src.database import engine
-from src.models import Deployment, DeploymentState, User
+from src.models import Deployment, DeploymentState
 from src.storage import delete_objects, list_slugs
 
 # Caps each run, so a large backlog is cleared over several runs
 batch_size = 100
 
 
-async def cleanup(session: AsyncSession) -> tuple[int, int, int]:
-    now = datetime.now(UTC)
-    # Unfinished uploads past their window, whose policies can no longer be
-    # used, and published sites past their lifetime
+async def cleanup(session: AsyncSession) -> tuple[int, int]:
+    # Unfinished uploads past their window, whose policies can no longer be used
     expired_query = (
         select(Deployment)
-        .where(
-            or_(
-                (col(Deployment.state) == DeploymentState.uploading)
-                & (col(Deployment.expires_at) < now),
-                col(Deployment.available_until) < now,
-            )
-        )
+        .where(col(Deployment.state) == DeploymentState.uploading)
+        .where(col(Deployment.expires_at) < datetime.now(UTC))
         .limit(batch_size)
     )
     slugs, result = await asyncio.gather(list_slugs(), session.exec(expired_query))
@@ -44,30 +36,16 @@ async def cleanup(session: AsyncSession) -> tuple[int, int, int]:
     await asyncio.gather(*deletes)
     for deployment in expired:
         await session.delete(deployment)
-    await session.flush()
-
-    # Anonymous users without sites can't get back in; newer ones may be publishing
-    unused = (
-        delete(User)
-        .where(col(User.provider).is_(None))
-        .where(col(User.created_at) < now - settings.upload_window)
-        .where(not_(exists().where(col(Deployment.owner_id) == User.id)))
-    )
-    result = await session.exec(unused)
-    users = result.rowcount
     await session.commit()
-    return len(expired), len(orphaned), users
+    return len(expired), len(orphaned)
 
 
 async def main() -> None:
     async with AsyncSession(engine) as session:
-        expired, orphaned, users = await cleanup(session)
+        expired, orphaned = await cleanup(session)
     await engine.dispose()
     logging.getLogger(__name__).info(
-        "Removed %d expired deployments, %d orphaned folders and %d anonymous users",
-        expired,
-        orphaned,
-        users,
+        "Removed %d expired deployments and %d orphaned folders", expired, orphaned
     )
 
 

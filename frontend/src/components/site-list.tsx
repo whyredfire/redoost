@@ -68,8 +68,6 @@ export function SiteList({
                 <p className="mt-0.5 shrink-0 text-sm text-muted-foreground md:mt-0">
                   {site.file_count} {site.file_count === 1 ? "file" : "files"} ·{" "}
                   {formatBytes(site.total_size)} · {formatDate(site.created_at)}
-                  {site.available_until &&
-                    ` · until ${formatDate(site.available_until)}`}
                 </p>
               </div>
               <div className="flex shrink-0 items-center">

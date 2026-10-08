@@ -105,10 +105,6 @@ class DeploymentBase(SQLModel):
         default_factory=lambda: datetime.now(UTC) + settings.upload_window,
         description="When the latest upload's policies expire; uploads are locked until then",
     )
-    available_until: datetime | None = Field(
-        default=None,
-        description="When the published site is removed; never when unset",
-    )
 
 
 class Deployment(DeploymentBase, table=True):
@@ -140,9 +136,7 @@ class UserBase(SQLModel):
         primary_key=True,
         description="User ID",
     )
-    provider: Provider | None = Field(
-        default=None, description="Who the user signs in with; anonymous when unset"
-    )
+    provider: Provider = Field(description="Who the user signs in with")
     email: str | None = Field(default=None, description="Email from the provider")
     name: str | None = Field(default=None, description="Name from the provider")
 
@@ -153,9 +147,7 @@ class User(UserBase, table=True):
     __table_args__ = (UniqueConstraint("provider", "subject"),)
 
     # Emails can change, so users are found by this
-    subject: str | None = Field(
-        default=None, description="The provider's stable ID for the user"
-    )
+    subject: str = Field(description="The provider's stable ID for the user")
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC), description="Creation time"
     )
@@ -169,9 +161,8 @@ class OidcConfig(SQLModel):
 
 
 class AuthConfig(SQLModel):
-    oidc: OidcConfig | None = Field(
-        description="How to sign in; publishing is anonymous when unset"
-    )
+    oidc: OidcConfig | None = Field(description="How to sign in with a provider")
+    dev: bool = Field(description="Whether to sign in as a dev user instead")
 
 
 class OidcMetadata(SQLModel):

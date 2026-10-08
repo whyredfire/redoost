@@ -7,19 +7,18 @@ in Compose (see the root README).
 
 Every request apart from `/health`, the limits, and the auth config sends
 `Authorization: Bearer <token>`, a JWT the API issues. Missing, expired, or
-unknown tokens get 401, and other users' deployments 403. There are two modes:
+unknown tokens get 401, and other users' deployments 403. Tokens are valid for
+30 days, and users sign in one of two ways:
 
-- **Anonymous**, when no OIDC issuer is set: `POST /api/auth/anonymous` creates
-  a user and returns its token, which never expires. Sites stay online for
-  `REDOOST_ANONYMOUS_SITE_LIFETIME` after their first publish, up to
-  `REDOOST_ANONYMOUS_SITE_LIMIT` at once.
-- **Accounts**, when `REDOOST_OIDC_ISSUER` is set: clients sign in with the
-  authorization code flow and PKCE, then send the code to `POST /api/auth/token`
-  as `{"code", "code_verifier", "redirect_uri"}`. The API exchanges it with the
-  client secret and returns a token valid for 30 days. Sites never expire.
+- **With an OIDC provider**, when `REDOOST_OIDC_ISSUER` is set: clients sign in
+  with the authorization code flow and PKCE, then send the code to
+  `POST /api/auth/token` as `{"code", "code_verifier", "redirect_uri"}`. The API
+  exchanges it with the client secret and returns a token.
+- **As a dev user**, when `REDOOST_DEV_SIGN_IN` is set, for local development:
+  `POST /api/auth/dev` returns a token for `dev@localhost`.
 
 `GET /api/auth/config` returns the authorization endpoint, client ID, and
-scope to sign in with, or `{"oidc": null}` in anonymous mode. `GET /api/auth/me`
+scope to sign in with as `oidc`, and whether dev sign-in is on as `dev`. `GET /api/auth/me`
 returns the token's user, and `DELETE /api/auth/me` deletes them with all their
 sites, files first, after which their tokens get 401.
 
@@ -30,8 +29,8 @@ sites, files first, after which their tokens get 401.
   `{"path", "size", "sha256", "gzip"}` files, where `sha256` is the
   base64-encoded digest. Size and digest are of the bytes as uploaded; files
   sent gzip-compressed set `gzip` and are served with `Content-Encoding: gzip`. Returns the slug and one signed upload policy
-  per file. Users whose sites would exceed `REDOOST_MAX_ACCOUNT_SIZE` in total,
-  and anonymous users over their site limit, get 403.
+  per file. Users whose sites would exceed `REDOOST_MAX_ACCOUNT_SIZE` in total
+  get 403.
 - `GET /api/deployments`: the user's ready deployments, newest first.
 - `GET /api/deployments/{slug}`: deployment status.
 - `GET /api/deployments/{slug}/files`: the site's stored files as
@@ -39,7 +38,7 @@ sites, files first, after which their tokens get 401.
 - `PUT /api/deployments/{slug}`: updates a ready site in place from a full
   manifest, counted at its new size against `REDOOST_MAX_ACCOUNT_SIZE`. Returns upload policies only for new and changed files, compared
   by checksum with what's stored. One upload per site at a time: returns 409
-  while another is in progress and 410 for expired sites.
+  while another is in progress.
 - `POST /api/deployments/{slug}/complete`: send the manifest again; marks the
   deployment `ready` once every file is stored with its checksum, then
   deletes files not in the manifest and frees the site for its next update.
@@ -81,9 +80,8 @@ if a model changes without a migration.
 ## Cleanup
 
 `python -m scripts.cleanup` removes deployments still uploading after their
-upload window, anonymous sites past their lifetime, and bucket folders without
-a deployment, up to 100 of each per run, then anonymous users left without
-sites. The chart runs it as a CronJob (`cleanup.schedule`, daily by default), keeping the last 10 successful and failed runs (`cleanup.successfulJobsHistoryLimit`, `cleanup.failedJobsHistoryLimit`);
+upload window, and bucket folders without a deployment, up to 100 of each per
+run. The chart runs it as a CronJob (`cleanup.schedule`, daily by default), keeping the last 10 successful and failed runs (`cleanup.successfulJobsHistoryLimit`, `cleanup.failedJobsHistoryLimit`);
 in Compose, run it with `docker compose exec api uv run --no-sync python -m scripts.cleanup`.
 
 ## Checks

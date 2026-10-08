@@ -8,7 +8,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlmodel import col, select
 
 from . import oidc
-from .config import settings
+from .config import Provider, settings
 from .database import Session
 from .models import (
     AuthConfig,
@@ -23,21 +23,18 @@ from .storage import delete_objects
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-# Only one of these is served, depending on whether sign-in is configured
-anonymous_router = APIRouter(prefix="/api/auth", tags=["auth"])
-account_router = APIRouter(prefix="/api/auth", tags=["auth"])
+# Only one of these is served, depending on how users sign in
+oidc_router = APIRouter(prefix="/api/auth", tags=["auth"])
+dev_router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-# Anonymous tokens never expire, since they're the only way back to their sites
-account_token_lifetime = timedelta(days=30)
+token_lifetime = timedelta(days=30)
 
 Credentials = Annotated[HTTPAuthorizationCredentials, Depends(HTTPBearer())]
 
 
 def create_token(user: User) -> Token:
     now = datetime.now(UTC)
-    claims: dict[str, Any] = {"sub": user.id, "iat": now}
-    if user.provider:
-        claims["exp"] = now + account_token_lifetime
+    claims: dict[str, Any] = {"sub": user.id, "iat": now, "exp": now + token_lifetime}
     token = jwt.encode(
         claims, settings.jwt_secret.get_secret_value(), algorithm="HS256"
     )
@@ -58,13 +55,12 @@ async def current_user(session: Session, credentials: Credentials) -> User:
             credentials.credentials,
             settings.jwt_secret.get_secret_value(),
             algorithms=["HS256"],
-            options={"require": ["sub", "iat"]},
+            options={"require": ["sub", "iat", "exp"]},
         )
     except jwt.InvalidTokenError:
         raise invalid_token() from None
     user = await session.get(User, claims["sub"])
-    # Tokens from the other mode stop working when an install switches
-    if user is None or (user.provider is None) != (settings.oidc_issuer is None):
+    if user is None:
         raise invalid_token()
     return user
 
@@ -75,7 +71,7 @@ CurrentUser = Annotated[User, Depends(current_user)]
 @router.get("/config")
 async def read_config() -> AuthConfig:
     if not settings.oidc_issuer or not settings.oidc_client_id:
-        return AuthConfig(oidc=None)
+        return AuthConfig(oidc=None, dev=settings.dev_sign_in)
     try:
         metadata = await oidc.read_metadata()
     except oidc.OidcError as error:
@@ -86,7 +82,8 @@ async def read_config() -> AuthConfig:
             authorization_endpoint=metadata.authorization_endpoint,
             client_id=settings.oidc_client_id,
             scope=oidc.scope,
-        )
+        ),
+        dev=False,
     )
 
 
@@ -109,15 +106,25 @@ async def delete_user(user: CurrentUser, session: Session) -> None:
     await session.commit()
 
 
-@anonymous_router.post("/anonymous", status_code=status.HTTP_201_CREATED)
-async def create_anonymous_user(session: Session) -> Token:
-    user = User()
+@dev_router.post("/dev")
+async def sign_in_as_dev(session: Session) -> Token:
+    # Google's subjects are numeric, so this can't be a real account
+    query = select(User).where(
+        col(User.provider) == Provider.google, col(User.subject) == "dev"
+    )
+    result = await session.exec(query)
+    user = result.first() or User(
+        provider=Provider.google,
+        subject="dev",
+        email="dev@localhost",
+        name="Dev User",
+    )
     session.add(user)
     await session.commit()
     return create_token(user)
 
 
-@account_router.post("/token")
+@oidc_router.post("/token")
 async def sign_in(body: SignIn, session: Session) -> Token:
     try:
         info = await oidc.read_userinfo(

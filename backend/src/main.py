@@ -17,11 +17,10 @@ from .storage import check_storage
 
 app = FastAPI()
 app.include_router(auth.router)
-# Accounts replace anonymous publishing when sign-in is configured
 if settings.oidc_issuer:
-    app.include_router(auth.account_router)
+    app.include_router(auth.oidc_router)
 else:
-    app.include_router(auth.anonymous_router)
+    app.include_router(auth.dev_router)
 app.include_router(deployments_router)
 app.include_router(sites_router)
 

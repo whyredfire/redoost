@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { formatDate, formatTime, siteUrl } from "@/lib/format";
+import { formatTime, siteUrl } from "@/lib/format";
 import type { FileChange } from "@/lib/site-files";
 import { usePageDrop, useUpload, type Stage } from "@/lib/upload";
 
@@ -182,8 +182,6 @@ export function PublishCard() {
             </p>
             <p className="mt-1 text-muted-foreground">
               Share this address with anyone.
-              {session.deployment.available_until &&
-                ` It stays online until ${formatDate(session.deployment.available_until)}.`}
             </p>
             {session.originalSize !== undefined && (
               <div className="mt-2">

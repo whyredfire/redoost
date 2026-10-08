@@ -1,5 +1,6 @@
 import asyncio
 import os
+import secrets
 from collections.abc import Callable, Iterator
 
 import pytest
@@ -25,8 +26,9 @@ for name, value in {
     "REDOOST_JWT_SECRET": "test-jwt-secret-that-is-long-enough",
 }.items():
     os.environ.setdefault(name, value)
-# Tests start in anonymous mode; the account tests configure sign-in themselves
+# Tests use dev sign-in; the OIDC tests configure their provider themselves
 os.environ.pop("REDOOST_OIDC_ISSUER", None)
+os.environ["REDOOST_DEV_SIGN_IN"] = "true"
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -50,22 +52,32 @@ async def create_tables() -> None:
 
 
 @pytest.fixture
-def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-    from src.config import settings
+def client() -> Iterator[TestClient]:
     from src.main import app
 
-    # The limit has tests of its own; elsewhere, tests create as many as they need
-    monkeypatch.setattr(settings, "anonymous_site_limit", 1000)
     # Migrations are checked in test_migrations.py; here the models are enough
     asyncio.run(create_tables())
     with TestClient(app) as test_client:
         yield test_client
 
 
+async def create_user() -> str:
+    from src import database
+    from src.auth import create_token
+    from src.config import Provider
+    from src.models import User
+
+    async with AsyncSession(database.engine, expire_on_commit=False) as session:
+        user = User(provider=Provider.google, subject=secrets.token_hex(8))
+        session.add(user)
+        await session.commit()
+    return create_token(user).token
+
+
 @pytest.fixture
 def new_token(client: TestClient) -> Callable[[], str]:
-    """Creates an anonymous user and returns its token."""
-    return lambda: client.post("/api/auth/anonymous").json()["token"]
+    """Creates a user and returns its token."""
+    return lambda: asyncio.run(create_user())
 
 
 @pytest.fixture
@@ -74,11 +86,11 @@ def token(new_token: Callable[[], str]) -> str:
 
 
 @pytest.fixture
-def run_cleanup() -> Callable[[], tuple[int, int, int]]:
+def run_cleanup() -> Callable[[], tuple[int, int]]:
     from scripts.cleanup import cleanup
     from src.database import engine
 
-    async def run() -> tuple[int, int, int]:
+    async def run() -> tuple[int, int]:
         async with AsyncSession(engine) as session:
             return await cleanup(session)
 

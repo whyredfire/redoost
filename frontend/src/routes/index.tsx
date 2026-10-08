@@ -2,7 +2,6 @@ import { Navigate, createFileRoute } from "@tanstack/react-router";
 import { FolderDrop } from "@/components/folder-drop";
 import { RotatingWord } from "@/components/rotating-word";
 import { SignInPrompt } from "@/components/sign-in-prompt";
-import { authConfig } from "@/lib/auth";
 import { useToken } from "@/lib/session";
 import { usePageDrop, useUpload } from "@/lib/upload";
 
@@ -25,7 +24,7 @@ function LandingPage() {
   } = useUpload();
   const token = useToken();
   // Accounts can't publish until they sign in
-  const signedOut = authConfig.oidc !== null && !token;
+  const signedOut = !token;
   const dragging = usePageDrop(!signedOut);
 
   // Listed files are reviewed and published on their own page
@@ -56,10 +55,7 @@ function LandingPage() {
           </span>
         </h1>
         <p className="mt-3 text-muted-foreground">
-          Drop a built site and get a shareable address.{" "}
-          {authConfig.oidc
-            ? "No build step required."
-            : "No account or build step required."}
+          Drop a built site and get a shareable address. No build step required.
         </p>
       </div>
       {/* The drop area fills what's left of the first screen */}

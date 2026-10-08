@@ -43,16 +43,16 @@ s3:
 auth:
   # Signs the API's tokens, e.g. from openssl rand -hex 32
   jwtSecret: ""
-  # Sign-in with an OIDC provider, which replaces anonymous publishing. Register
-  # <appOrigin>/auth/callback as its redirect URI.
+  # The OIDC provider users sign in with, which needs <appOrigin>/auth/callback
+  # as a redirect URI
   oidc:
     issuer: ""
     # Shown on the sign-in button; only google for now
     provider: google
     clientId: ""
     clientSecret: ""
-  # Secret with REDOOST_JWT_SECRET and, with sign-in, REDOOST_OIDC_CLIENT_SECRET,
-  # used instead of the secrets above
+  # Secret with REDOOST_JWT_SECRET and REDOOST_OIDC_CLIENT_SECRET, used instead
+  # of the secrets above
   existingSecret: ""
 
 # Postgres database, e.g. postgresql+asyncpg://user:password@host:5432/redoost.
@@ -75,10 +75,6 @@ api:
   # Total size of each user's sites
   maxAccountSize: 1GiB
   uploadWindow: PT1H
-  # Anonymous sites stay online this long after their first publish, and each
-  # anonymous user can have this many at once; sites of signed-in users have neither
-  anonymousSiteLifetime: P7D
-  anonymousSiteLimit: 5
   persistence:
     size: 100Mi
     storageClass: ""

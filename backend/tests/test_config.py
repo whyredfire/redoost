@@ -37,3 +37,17 @@ def test_upload_window_is_capped_at_24_hours(monkeypatch: pytest.MonkeyPatch) ->
 
     with pytest.raises(ValidationError):
         Settings()  # pyright: ignore[reportCallIssue]
+
+
+@pytest.mark.parametrize("both", [False, True], ids=["neither", "both"])
+def test_sign_in_needs_exactly_one_method(
+    monkeypatch: pytest.MonkeyPatch, both: bool
+) -> None:
+    monkeypatch.setenv("REDOOST_DEV_SIGN_IN", str(both).lower())
+    if both:
+        monkeypatch.setenv("REDOOST_OIDC_ISSUER", "https://accounts.google.com")
+        monkeypatch.setenv("REDOOST_OIDC_CLIENT_ID", "redoost")
+        monkeypatch.setenv("REDOOST_OIDC_CLIENT_SECRET", "secret")
+
+    with pytest.raises(ValidationError, match="either an OIDC issuer or dev sign-in"):
+        Settings()  # pyright: ignore[reportCallIssue]

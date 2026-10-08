@@ -8,7 +8,6 @@ import { Globe } from "lucide-react";
 import { SignInPrompt } from "@/components/sign-in-prompt";
 import { SiteList } from "@/components/site-list";
 import { Button } from "@/components/ui/button";
-import { authConfig } from "@/lib/auth";
 import { ApiError, deleteDeployment, listDeployments } from "@/lib/deploy";
 import {
   clearSession,
@@ -36,7 +35,7 @@ async function loadSites() {
     const deployments = await listDeployments(token);
     return deployments;
   } catch (error) {
-    // The token is unknown to the API, so the next publish starts a new one
+    // Expired or unknown, so the page asks to sign in again
     if (error instanceof ApiError && error.status === 401) {
       clearToken();
       return [];
@@ -71,12 +70,10 @@ function SitesPage() {
       <div className="mb-8">
         <h1 className="text-2xl font-semibold tracking-tight">Your sites</h1>
         <p className="mt-1 text-muted-foreground">
-          {authConfig.oidc
-            ? "Sites published from your account."
-            : "Sites published from this browser, or from the token you imported."}
+          Sites published from your account.
         </p>
       </div>
-      {authConfig.oidc && !token ? (
+      {!token ? (
         <SignInPrompt
           title="Sign in to see your sites"
           description="Sites you publish while signed in are listed here."
@@ -93,9 +90,7 @@ function SitesPage() {
           <Globe className="mx-auto size-8 text-muted-foreground" />
           <p className="mt-4 font-medium">No sites yet</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {authConfig.oidc
-              ? "Publish your first site."
-              : "Publish your first site, or import a token from another device."}
+            Publish your first site.
           </p>
           <Button className="mt-6" asChild>
             <Link to="/">Publish a site</Link>

@@ -8,7 +8,6 @@ from fastapi.testclient import TestClient
 from httpx2 import Response
 from pydantic import ByteSize, SecretStr
 
-from scripts import cleanup
 from src import auth, deployments, oidc
 from src.config import settings
 from src.models import OidcMetadata, UserInfo
@@ -21,22 +20,29 @@ def bearer(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def test_config_without_sign_in(client: TestClient) -> None:
-    assert client.get("/api/auth/config").json() == {"oidc": None}
+def test_config_with_dev_sign_in(client: TestClient) -> None:
+    assert client.get("/api/auth/config").json() == {"oidc": None, "dev": True}
 
 
-def test_anonymous_users(client: TestClient, token: str) -> None:
-    response = client.get("/api/auth/me", headers=bearer(token))
+def test_dev_sign_in(client: TestClient) -> None:
+    response = client.post("/api/auth/dev")
 
     assert response.status_code == 200
-    assert response.json() == {
-        "id": jwt.decode(token, options={"verify_signature": False})["sub"],
-        "provider": None,
-        "email": None,
-        "name": None,
+    body = response.json()
+    assert body["user"] == {
+        "id": body["user"]["id"],
+        "provider": "google",
+        "email": "dev@localhost",
+        "name": "Dev User",
     }
-    # They have no other way back to their sites
-    assert "exp" not in jwt.decode(token, options={"verify_signature": False})
+    claims = jwt.decode(body["token"], options={"verify_signature": False})
+    expires_in = datetime.fromtimestamp(claims["exp"], UTC) - datetime.now(UTC)
+    assert timedelta(days=29) < expires_in <= timedelta(days=30)
+    # Signing in again finds the same dev user
+    again = client.post("/api/auth/dev").json()
+    assert again["user"]["id"] == body["user"]["id"]
+    me = client.get("/api/auth/me", headers=bearer(again["token"]))
+    assert me.json() == body["user"]
 
 
 def test_rejects_invalid_tokens(client: TestClient, token: str) -> None:
@@ -50,6 +56,9 @@ def test_rejects_invalid_tokens(client: TestClient, token: str) -> None:
         jwt.encode({**claims, "exp": past}, secret, algorithm="HS256"),
         jwt.encode({**claims, "sub": "missing"}, secret, algorithm="HS256"),
         jwt.encode({"sub": claims["sub"]}, secret, algorithm="HS256"),
+        jwt.encode(
+            {"sub": claims["sub"], "iat": claims["iat"]}, secret, algorithm="HS256"
+        ),
     ]
 
     for value in invalid:
@@ -62,31 +71,6 @@ def test_sign_in_is_unavailable_without_oidc(client: TestClient) -> None:
     body = {"code": "code", "code_verifier": "verifier", "redirect_uri": "uri"}
 
     assert client.post("/api/auth/token", json=body).status_code == 404
-
-
-def test_cleanup_removes_anonymous_users_without_sites(
-    client: TestClient,
-    new_token: Callable[[], str],
-    monkeypatch: pytest.MonkeyPatch,
-    run_cleanup: Callable[[], tuple[int, int, int]],
-) -> None:
-    async def list_slugs() -> list[str]:
-        return []
-
-    monkeypatch.setattr(cleanup, "list_slugs", list_slugs)
-    with_site, without_site = new_token(), new_token()
-    client.post("/api/deployments", json=MANIFEST, headers=bearer(with_site))
-
-    def signed_in(token: str) -> bool:
-        return client.get("/api/auth/me", headers=bearer(token)).status_code == 200
-
-    # New users may be about to publish
-    run_cleanup()
-    assert signed_in(without_site)
-    monkeypatch.setattr(settings, "upload_window", timedelta(seconds=-1))
-    run_cleanup()
-    assert not signed_in(without_site)
-    assert signed_in(with_site)
 
 
 def test_deleting_an_account_removes_its_sites(
@@ -164,9 +148,9 @@ def accounts(
         return METADATA
 
     monkeypatch.setattr(oidc, "read_metadata", read_metadata)
-    # The app picks its routers at import, in anonymous mode for the tests
+    # The app picks its routers at import, with dev sign-in for the tests
     app = FastAPI()
-    for router in (auth.router, auth.account_router, deployments.router):
+    for router in (auth.router, auth.oidc_router, deployments.router):
         app.include_router(router)
     with TestClient(app) as test_client:
         yield test_client
@@ -203,7 +187,8 @@ def test_config_with_sign_in(accounts: TestClient) -> None:
             "authorization_endpoint": METADATA.authorization_endpoint,
             "client_id": "redoost",
             "scope": "openid email profile",
-        }
+        },
+        "dev": False,
     }
 
 
@@ -263,16 +248,8 @@ def test_failed_sign_in(accounts: TestClient, monkeypatch: pytest.MonkeyPatch) -
     assert response.json()["detail"] == "Couldn't sign in with the provider"
 
 
-def test_accounts_replace_anonymous_users(
-    accounts: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    assert accounts.post("/api/auth/anonymous").status_code == 404
-    # Tokens from before sign-in was configured stop working
-    assert accounts.get("/api/auth/me", headers=bearer(token)).status_code == 401
-
-    account = sign_in(accounts, monkeypatch).json()["token"]
-    monkeypatch.setattr(settings, "oidc_issuer", None)
-    assert accounts.get("/api/auth/me", headers=bearer(account)).status_code == 401
+def test_dev_sign_in_is_unavailable_with_oidc(accounts: TestClient) -> None:
+    assert accounts.post("/api/auth/dev").status_code == 404
 
 
 def test_signing_in_after_deleting_starts_afresh(
@@ -306,31 +283,6 @@ def test_account_sites_count_toward_their_storage(
         headers=bearer(account),
     )
 
-    # Published account sites never expire, and still take up room
+    # Published sites take up room
     response = accounts.post("/api/deployments", json=site, headers=bearer(account))
     assert response.status_code == 403
-
-
-def test_account_sites_have_no_limit_or_lifetime(
-    accounts: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(settings, "anonymous_site_limit", 1)
-    account = sign_in(accounts, monkeypatch).json()["token"]
-
-    async def read_checksums(slug: str) -> dict[str, str | None]:
-        return {"index.html": SHA256}
-
-    monkeypatch.setattr(deployments, "read_checksums", read_checksums)
-    for _ in range(3):
-        created = accounts.post(
-            "/api/deployments", json=MANIFEST, headers=bearer(account)
-        ).json()
-        completed = accounts.post(
-            f"/api/deployments/{created['slug']}/complete",
-            json=MANIFEST,
-            headers=bearer(account),
-        )
-        assert completed.json()["available_until"] is None
-
-    listed = accounts.get("/api/deployments", headers=bearer(account)).json()
-    assert len(listed) == 3

@@ -25,7 +25,7 @@ class Settings(BaseSettings):
         min_length=32, description="Key that signs the API's tokens"
     )
 
-    # Accounts replace anonymous publishing when an OIDC issuer is set
+    # Users sign in with an OIDC provider, or locally as a dev user
     oidc_issuer: AnyHttpUrl | None = Field(
         default=None, description="OIDC issuer that users sign in with"
     )
@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     oidc_client_id: str | None = Field(default=None, description="OIDC client ID")
     oidc_client_secret: SecretStr | None = Field(
         default=None, description="OIDC client secret"
+    )
+    dev_sign_in: bool = Field(
+        default=False, description="Let anyone sign in as a dev user, for development"
     )
 
     # S3 configuration
@@ -67,19 +70,13 @@ class Settings(BaseSettings):
         le=timedelta(hours=24),
         description="How long upload policies stay valid",
     )
-    anonymous_site_lifetime: timedelta = Field(
-        default=timedelta(days=7),
-        gt=timedelta(0),
-        description="How long anonymous sites stay online after their first publish",
-    )
-    anonymous_site_limit: int = Field(
-        default=5, ge=1, description="Most sites an anonymous user can have at once"
-    )
 
     @model_validator(mode="after")
-    def validate_oidc(self) -> Self:
+    def validate_sign_in(self) -> Self:
         if self.oidc_issuer and not (self.oidc_client_id and self.oidc_client_secret):
             raise ValueError("OIDC needs a client ID and secret")
+        if bool(self.oidc_issuer) == self.dev_sign_in:
+            raise ValueError("Set either an OIDC issuer or dev sign-in, not both")
         return self
 
 
