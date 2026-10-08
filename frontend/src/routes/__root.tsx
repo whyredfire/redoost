@@ -26,6 +26,20 @@ const navClass =
 
 const footerLink = "underline-offset-4 hover:text-foreground hover:underline";
 
+const repository = "https://github.com/whyredfire/redoost";
+const version: string = import.meta.env.VITE_VERSION || "dev";
+
+// Releases link to their notes, and builds between them to their commit
+function versionUrl(version: string) {
+  if (/^\d+\.\d+\.\d+$/.test(version)) {
+    return `${repository}/releases/tag/v${version}`;
+  }
+  const commit = /^\d+\.\d+\.\d+-([0-9a-f]{7,40})$/.exec(version)?.[1];
+  return commit ? `${repository}/commit/${commit}` : null;
+}
+
+const versionLink = versionUrl(version);
+
 function Layout() {
   const { busy, startOver } = useUpload();
   const pathname = useLocation({ select: (location) => location.pathname });
@@ -110,7 +124,7 @@ function Layout() {
             Open source under the MIT license ·{" "}
             <a
               className={footerLink}
-              href="https://github.com/whyredfire/redoost"
+              href={repository}
               target="_blank"
               rel="noreferrer"
             >
@@ -124,7 +138,19 @@ function Layout() {
             <Link to="/terms" className={footerLink}>
               Terms of Service
             </Link>{" "}
-            · {import.meta.env.VITE_VERSION ?? "dev"}
+            ·{" "}
+            {versionLink ? (
+              <a
+                className={footerLink}
+                href={versionLink}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {version}
+              </a>
+            ) : (
+              version
+            )}
           </p>
           <p className="whitespace-nowrap">
             Made by{" "}
