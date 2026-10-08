@@ -186,3 +186,31 @@ class SignIn(SQLModel):
 class Token(SQLModel):
     token: str = Field(description="Bearer token for the API")
     user: UserBase = Field(description="Who the token belongs to")
+
+
+class CliLogin(SQLModel, table=True):
+    __tablename__ = "cli_login"  # pyright: ignore[reportAssignmentType]
+
+    id: str = Field(
+        default_factory=lambda: secrets.token_urlsafe(24),
+        primary_key=True,
+        description="ID in the sign-in link",
+    )
+    secret_hash: str = Field(description="SHA-256 hash of the CLI's secret")
+    user_id: str | None = Field(
+        default=None,
+        foreign_key="users.id",
+        ondelete="CASCADE",
+        description="User who approved the sign-in",
+    )
+    expires_at: datetime = Field(description="When the sign-in link stops working")
+
+
+class CliLoginStarted(SQLModel):
+    id: str = Field(description="ID for the sign-in link, <app origin>/cli/<id>")
+    secret: str = Field(description="Secret the CLI claims its token with")
+    expires_at: datetime = Field(description="When the sign-in link stops working")
+
+
+class CliLoginClaim(SQLModel):
+    secret: str = Field(description="Secret from starting the sign-in")

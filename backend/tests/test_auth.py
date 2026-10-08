@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, timedelta
 
@@ -7,10 +8,12 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx2 import Response
 from pydantic import ByteSize, SecretStr
+from sqlmodel.ext.asyncio.session import AsyncSession
 
-from src import auth, deployments, oidc
+from scripts import cleanup
+from src import auth, database, deployments, oidc
 from src.config import settings
-from src.models import OidcMetadata, UserInfo
+from src.models import CliLogin, OidcMetadata, UserInfo
 
 SHA256 = "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
 MANIFEST = {"files": [{"path": "index.html", "size": 0, "sha256": SHA256}]}
@@ -127,6 +130,100 @@ def test_failed_deletes_keep_the_account(
 
 def test_deleting_an_account_requires_a_user(client: TestClient) -> None:
     assert client.delete("/api/auth/me").status_code == 401
+
+
+def start_cli_login(client: TestClient) -> dict[str, str]:
+    return client.post("/api/auth/cli").json()
+
+
+def approve(client: TestClient, login: dict[str, str], token: str) -> Response:
+    return client.post(f"/api/auth/cli/{login['id']}", headers=bearer(token))
+
+
+def claim(client: TestClient, login: dict[str, str], secret: str = "") -> Response:
+    return client.post(
+        f"/api/auth/cli/{login['id']}/token",
+        json={"secret": secret or login["secret"]},
+    )
+
+
+def test_cli_sign_in(client: TestClient, token: str) -> None:
+    login = start_cli_login(client)
+    # Pending until it's approved in the browser
+    assert claim(client, login).status_code == 202
+
+    assert approve(client, login, token).status_code == 204
+    response = claim(client, login)
+
+    assert response.status_code == 200
+    me = client.get("/api/auth/me", headers=bearer(response.json()["token"]))
+    assert (
+        me.json()["id"] == jwt.decode(token, options={"verify_signature": False})["sub"]
+    )
+    # Each link signs in once
+    assert claim(client, login).status_code == 404
+
+
+def test_cli_sign_in_needs_the_cli_secret(client: TestClient, token: str) -> None:
+    login = start_cli_login(client)
+    approve(client, login, token)
+
+    assert claim(client, login, secret="wrong").status_code == 404
+    assert claim(client, login).status_code == 200
+
+
+def test_cli_sign_in_links_are_approved_once(
+    client: TestClient, token: str, new_token: Callable[[], str]
+) -> None:
+    login = start_cli_login(client)
+
+    assert client.post(f"/api/auth/cli/{login['id']}").status_code == 401
+    assert approve(client, login, token).status_code == 204
+    assert approve(client, login, new_token()).status_code == 404
+    claimed = claim(client, login).json()["user"]["id"]
+    assert claimed == jwt.decode(token, options={"verify_signature": False})["sub"]
+
+
+def test_cli_sign_in_links_expire(
+    client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(auth, "cli_login_lifetime", timedelta(seconds=-1))
+    login = start_cli_login(client)
+
+    assert approve(client, login, token).status_code == 404
+    assert claim(client, login).status_code == 404
+
+
+def test_cleanup_removes_expired_cli_sign_ins(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    run_cleanup: Callable[[], tuple[int, int]],
+) -> None:
+    async def list_slugs() -> list[str]:
+        return []
+
+    async def read_login(login_id: str) -> CliLogin | None:
+        async with AsyncSession(database.engine) as session:
+            return await session.get(CliLogin, login_id)
+
+    monkeypatch.setattr(cleanup, "list_slugs", list_slugs)
+    kept = start_cli_login(client)
+    monkeypatch.setattr(auth, "cli_login_lifetime", timedelta(seconds=-1))
+    expired = start_cli_login(client)
+
+    run_cleanup()
+    assert asyncio.run(read_login(expired["id"])) is None
+    assert asyncio.run(read_login(kept["id"])) is not None
+
+
+def test_deleting_an_account_removes_its_cli_sign_ins(
+    client: TestClient, token: str
+) -> None:
+    login = start_cli_login(client)
+    approve(client, login, token)
+
+    assert client.delete("/api/auth/me", headers=bearer(token)).status_code == 204
+    assert claim(client, login).status_code == 404
 
 
 METADATA = OidcMetadata(

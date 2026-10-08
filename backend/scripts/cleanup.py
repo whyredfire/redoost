@@ -2,11 +2,11 @@ import asyncio
 import logging
 from datetime import UTC, datetime
 
-from sqlmodel import col, select
+from sqlmodel import col, delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.database import engine
-from src.models import Deployment, DeploymentState
+from src.models import CliLogin, Deployment, DeploymentState
 from src.storage import delete_objects, list_slugs
 
 # Caps each run, so a large backlog is cleared over several runs
@@ -36,6 +36,10 @@ async def cleanup(session: AsyncSession) -> tuple[int, int]:
     await asyncio.gather(*deletes)
     for deployment in expired:
         await session.delete(deployment)
+    # CLI sign-ins nobody finished
+    await session.exec(
+        delete(CliLogin).where(col(CliLogin.expires_at) < datetime.now(UTC))
+    )
     await session.commit()
     return len(expired), len(orphaned)
 

@@ -15,6 +15,7 @@ import { Route as PublishRouteImport } from './routes/publish'
 import { Route as SitesRouteImport } from './routes/sites'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
+import { Route as CliIdRouteImport } from './routes/cli.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -46,6 +47,11 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
   path: '/auth/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CliIdRoute = CliIdRouteImport.update({
+  id: '/cli/$id',
+  path: '/cli/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -54,6 +60,7 @@ export interface FileRoutesByFullPath {
   '/sites': typeof SitesRoute
   '/terms': typeof TermsRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/cli/$id': typeof CliIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -62,6 +69,7 @@ export interface FileRoutesByTo {
   '/sites': typeof SitesRoute
   '/terms': typeof TermsRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/cli/$id': typeof CliIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -71,13 +79,27 @@ export interface FileRoutesById {
   '/sites': typeof SitesRoute
   '/terms': typeof TermsRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/cli/$id': typeof CliIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/privacy' | '/publish' | '/sites' | '/terms' | '/auth/callback'
+    | '/'
+    | '/privacy'
+    | '/publish'
+    | '/sites'
+    | '/terms'
+    | '/auth/callback'
+    | '/cli/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/privacy' | '/publish' | '/sites' | '/terms' | '/auth/callback'
+  to:
+    | '/'
+    | '/privacy'
+    | '/publish'
+    | '/sites'
+    | '/terms'
+    | '/auth/callback'
+    | '/cli/$id'
   id:
     | '__root__'
     | '/'
@@ -86,6 +108,7 @@ export interface FileRouteTypes {
     | '/sites'
     | '/terms'
     | '/auth/callback'
+    | '/cli/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -95,6 +118,7 @@ export interface RootRouteChildren {
   SitesRoute: typeof SitesRoute
   TermsRoute: typeof TermsRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
+  CliIdRoute: typeof CliIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -141,6 +165,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/cli/$id': {
+      id: '/cli/$id'
+      path: '/cli/$id'
+      fullPath: '/cli/$id'
+      preLoaderRoute: typeof CliIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -151,6 +182,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitesRoute: SitesRoute,
   TermsRoute: TermsRoute,
   AuthCallbackRoute: AuthCallbackRoute,
+  CliIdRoute: CliIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

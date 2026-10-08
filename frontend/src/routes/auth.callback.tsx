@@ -15,8 +15,8 @@ export const Route = createFileRoute("/auth/callback")({
   }),
   loaderDeps: ({ search }) => search,
   loader: async ({ deps }) => {
-    await finishSignIn(deps);
-    throw redirect({ to: "/", replace: true });
+    const returnTo = await finishSignIn(deps);
+    throw redirect({ href: returnTo, replace: true });
   },
   errorComponent: SignInFailed,
 });

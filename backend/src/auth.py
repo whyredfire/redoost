@@ -1,9 +1,12 @@
 import asyncio
+import hashlib
+import hmac
+import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlmodel import col, select
 
@@ -12,6 +15,9 @@ from .config import Provider, settings
 from .database import Session
 from .models import (
     AuthConfig,
+    CliLogin,
+    CliLoginClaim,
+    CliLoginStarted,
     Deployment,
     OidcConfig,
     SignIn,
@@ -28,6 +34,7 @@ oidc_router = APIRouter(prefix="/api/auth", tags=["auth"])
 dev_router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 token_lifetime = timedelta(days=30)
+cli_login_lifetime = timedelta(minutes=10)
 
 Credentials = Annotated[HTTPAuthorizationCredentials, Depends(HTTPBearer())]
 
@@ -104,6 +111,61 @@ async def delete_user(user: CurrentUser, session: Session) -> None:
         await session.delete(deployment)
     await session.delete(user)
     await session.commit()
+
+
+def hash_secret(secret: str) -> str:
+    return hashlib.sha256(secret.encode()).hexdigest()
+
+
+def expired_link() -> HTTPException:
+    return HTTPException(
+        status.HTTP_404_NOT_FOUND, "Sign-in link has expired or was already used"
+    )
+
+
+# The CLI prints a link to approve anywhere, then polls until it's approved
+@router.post("/cli", status_code=status.HTTP_201_CREATED)
+async def start_cli_login(session: Session) -> CliLoginStarted:
+    secret = secrets.token_urlsafe(32)
+    login = CliLogin(
+        secret_hash=hash_secret(secret),
+        expires_at=datetime.now(UTC) + cli_login_lifetime,
+    )
+    session.add(login)
+    await session.commit()
+    return CliLoginStarted(id=login.id, secret=secret, expires_at=login.expires_at)
+
+
+@router.post("/cli/{login_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def approve_cli_login(login_id: str, user: CurrentUser, session: Session) -> None:
+    login = await session.get(CliLogin, login_id)
+    if login is None or login.user_id or login.expires_at <= datetime.now(UTC):
+        raise expired_link()
+    login.user_id = user.id
+    session.add(login)
+    await session.commit()
+
+
+@router.post("/cli/{login_id}/token", response_model=Token)
+async def claim_cli_login(
+    login_id: str, body: CliLoginClaim, session: Session
+) -> Token | Response:
+    login = await session.get(CliLogin, login_id)
+    if (
+        login is None
+        or login.expires_at <= datetime.now(UTC)
+        or not hmac.compare_digest(login.secret_hash, hash_secret(body.secret))
+    ):
+        raise expired_link()
+    # Not approved in the browser yet
+    if login.user_id is None:
+        return Response(status_code=status.HTTP_202_ACCEPTED)
+    user = await session.get(User, login.user_id)
+    if user is None:
+        raise expired_link()
+    await session.delete(login)
+    await session.commit()
+    return create_token(user)
 
 
 @dev_router.post("/dev")

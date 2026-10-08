@@ -80,7 +80,10 @@ export async function signIn() {
     "SHA-256",
     new TextEncoder().encode(verifier),
   );
-  sessionStorage.setItem(signInKey, JSON.stringify({ state, verifier }));
+  sessionStorage.setItem(
+    signInKey,
+    JSON.stringify({ state, verifier, returnTo: location.pathname }),
+  );
 
   const url = new URL(oidc.authorization_endpoint);
   url.search = new URLSearchParams({
@@ -102,7 +105,11 @@ export async function finishSignIn({ code, state, error }: Callback) {
   sessionStorage.removeItem(signInKey);
   if (error) throw new Error("Sign-in was cancelled or denied.");
   const started = saved
-    ? (JSON.parse(saved) as { state: string; verifier: string })
+    ? (JSON.parse(saved) as {
+        state: string;
+        verifier: string;
+        returnTo: string;
+      })
     : null;
   if (!code || !started || started.state !== state) {
     throw new Error("This sign-in link has expired. Sign in again.");
@@ -121,6 +128,7 @@ export async function finishSignIn({ code, state, error }: Callback) {
   clearSession();
   user = signedIn.user;
   saveToken(signedIn.token);
+  return started.returnTo;
 }
 
 export async function signInAsDev() {
@@ -146,6 +154,15 @@ export async function deleteAccount() {
   });
   await checkResponse(response);
   signOut();
+}
+
+// Lets the CLI that started this sign-in act as the signed-in user
+export async function approveCliLogin(id: string) {
+  const response = await fetch(`/api/auth/cli/${id}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${loadToken()}` },
+  });
+  await checkResponse(response);
 }
 
 export function publishToken() {
