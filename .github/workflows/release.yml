@@ -44,7 +44,9 @@ jobs:
       set-meta-labels: true
       set-meta-annotations: true
       meta-images: ghcr.io/whyredfire/${{ matrix.image }}
-      meta-tags: type=raw,value=${{ inputs.version }}
+      meta-tags: |
+        type=raw,value=${{ inputs.version }}
+        type=raw,value=latest
     secrets:
       registry-auths: |
         - registry: ghcr.io

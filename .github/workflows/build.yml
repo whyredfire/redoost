@@ -125,7 +125,7 @@ jobs:
       meta-images: ghcr.io/whyredfire/${{ matrix.image }}
       meta-tags: |
         type=raw,value=${{ needs.version.outputs.version }}
-        type=raw,value=latest
+        type=raw,value=dev
     secrets:
       registry-auths: |
         - registry: ghcr.io

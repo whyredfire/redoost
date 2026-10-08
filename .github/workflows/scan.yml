@@ -28,7 +28,8 @@ jobs:
       - uses: aquasecurity/trivy-action@v0.36.0
         with:
           version: v0.75.0
-          image-ref: ghcr.io/whyredfire/${{ matrix.image }}:latest
+          # The image just built from main, or weekly the latest release
+          image-ref: ghcr.io/whyredfire/${{ matrix.image }}:${{ github.event_name == 'workflow_run' && 'dev' || 'latest' }}
           ignore-unfixed: true
           format: sarif
           output: trivy.sarif
