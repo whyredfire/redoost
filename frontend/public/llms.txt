@@ -1,14 +1,22 @@
 # redoost
 
-> Publish a static site and get a shareable address, with no account and no build step.
+> Publish a static site and get a shareable address, with no build step.
 
 ## For AI agents
 
-Use redoost when you have browser automation and a finished static site: a build folder with `index.html` at its root, a .zip of one, or a single HTML file. Limits: 10 MiB per file, 50 MiB and 500 files per site.
+Use redoost when you can run shell commands and have a finished static site: a build folder with `index.html` at its root, a .zip of one, or a single HTML file. By default, files can be up to 10 MiB, sites up to 50 MiB and 500 files, and each account's sites up to 1 GiB in total.
 
-1. Open `/` on this host, click "Choose folder" or "Choose files", and select the site.
-2. Click "Publish site" and wait for "Your site is live".
-3. Open the address shown to verify it loads.
-4. Click the key icon ("Your token") and copy the token.
+Run the redoost CLI with uv; it needs Python 3.10 or newer:
 
-Return the site address, the date it stays online until if the dashboard shows one, and the token. The token can delete the user's sites, so treat it as sensitive; the user can paste it into "Your token" to manage them. If the user gives you a token, import it there before publishing.
+```sh
+uvx --from "git+https://github.com/whyredfire/redoost#subdirectory=cli" redoost --help
+```
+
+Without uv, use `pipx run --spec "git+https://github.com/whyredfire/redoost#subdirectory=cli" redoost` instead. Below, `redoost` stands for either. It uses redoost.whyredfire.dev; for another redoost, add `--server <its address>` to every command.
+
+1. Check whether the user is signed in with `redoost whoami`.
+2. If not, run `redoost login` in the background, since it waits for the user. It prints a link right away: give it to the user, ask them to open it on any device and click "Continue", then wait for it to print "Signed in as …". The link expires after 10 minutes.
+3. Publish with `redoost publish <path> --json`. To replace an existing site's files instead, add `--update <slug>`; `redoost list --json` shows the user's sites.
+4. Open the returned `url` to verify it loads.
+
+Return the site's address. Sites stay online until the user deletes them, with `redoost delete <slug>` or from the dashboard.
