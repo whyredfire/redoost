@@ -564,6 +564,24 @@ def test_users_have_a_storage_limit(
     assert create(client, token, "index.html")["slug"]
 
 
+def test_read_usage(
+    client: TestClient,
+    token: str,
+    new_token: Callable[[], str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    published(client, token, monkeypatch, "index.html")
+    create(client, token, "index.html", "app.js")
+    create(client, new_token(), "index.html")
+    # Abandoned uploads don't count
+    monkeypatch.setattr(settings, "upload_window", timedelta(seconds=-1))
+    create(client, token, "index.html")
+
+    response = client.get(f"{URL}/usage", headers=bearer(token))
+    assert response.json() == {"used": 3, "limit": settings.max_account_size}
+    assert client.get(f"{URL}/usage").status_code == 401
+
+
 def test_updates_count_at_their_new_size(
     client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -11,7 +11,8 @@ export function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KiB`;
   // Number() drops a trailing .0, so 10 MiB isn't shown as 10.0 MiB
-  return `${Number((bytes / (1024 * 1024)).toFixed(1))} MiB`;
+  if (bytes < 1024 ** 3) return `${Number((bytes / 1024 ** 2).toFixed(1))} MiB`;
+  return `${Number((bytes / 1024 ** 3).toFixed(1))} GiB`;
 }
 
 export function formatDate(date: string) {

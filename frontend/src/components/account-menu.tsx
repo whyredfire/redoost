@@ -1,4 +1,4 @@
-import { LogOut, Trash2, UserRound } from "lucide-react";
+import { LogOut, Settings, Trash2, UserRound } from "lucide-react";
 import { useState, type MouseEvent } from "react";
 import {
   AlertDialog,
@@ -20,6 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { SettingsDialog } from "@/components/settings-dialog";
 import type { User } from "@/lib/auth";
 
 function initials(user: User | null) {
@@ -40,6 +41,7 @@ type AccountMenuProps = {
 
 export function AccountMenu({ user, onSignOut, onDelete }: AccountMenuProps) {
   const letters = initials(user);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
@@ -96,6 +98,10 @@ export function AccountMenu({ user, onSignOut, onDelete }: AccountMenuProps) {
               <DropdownMenuSeparator />
             </>
           )}
+          <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
+            <Settings />
+            Settings
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={onSignOut}>
             <LogOut />
             Sign out
@@ -110,6 +116,11 @@ export function AccountMenu({ user, onSignOut, onDelete }: AccountMenuProps) {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      <SettingsDialog
+        user={user}
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+      />
       <AlertDialog open={confirming} onOpenChange={closeDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>

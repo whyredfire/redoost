@@ -24,6 +24,8 @@ export type Limits = {
   max_deployment_files: number;
 };
 
+export type Usage = { used: number; limit: number };
+
 export type DeploymentUploads = Deployment & {
   upload_url: string;
   // Only new and changed files when updating a site
@@ -149,6 +151,13 @@ export async function listDeployments(token: string) {
     headers: authorization(token),
   });
   return readResponse<Deployment[]>(response);
+}
+
+export async function readUsage(token: string) {
+  const response = await fetch("/api/deployments/usage", {
+    headers: authorization(token),
+  });
+  return readResponse<Usage>(response);
 }
 
 export async function deleteDeployment(slug: string, token: string) {

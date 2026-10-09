@@ -16,6 +16,7 @@ from .models import (
     Limits,
     Manifest,
     StoredFile,
+    Usage,
     User,
 )
 from .storage import delete_objects, read_checksums, sign_uploads
@@ -40,9 +41,9 @@ def in_use() -> ColumnElement[bool]:
     )
 
 
-async def check_storage(
-    session: Session, user: User, size: int, replacing: str | None = None
-) -> None:
+async def used_storage(
+    session: Session, user: User, replacing: str | None = None
+) -> int:
     query = (
         select(func.coalesce(func.sum(Deployment.total_size), 0))
         .where(Deployment.owner_id == user.id)
@@ -52,7 +53,13 @@ async def check_storage(
     if replacing:
         query = query.where(Deployment.slug != replacing)
     result = await session.exec(query)
-    used = int(result.one())
+    return int(result.one())
+
+
+async def check_storage(
+    session: Session, user: User, size: int, replacing: str | None = None
+) -> None:
+    used = await used_storage(session, user, replacing)
     if used + size > settings.max_account_size:
         limit = settings.max_account_size.human_readable()
         raise HTTPException(
@@ -102,6 +109,12 @@ async def read_limits() -> Limits:
         max_deployment_size=settings.max_deployment_size,
         max_deployment_files=settings.max_deployment_files,
     )
+
+
+@router.get("/usage")
+async def read_usage(session: Session, user: CurrentUser) -> Usage:
+    used = await used_storage(session, user)
+    return Usage(used=used, limit=settings.max_account_size)
 
 
 @router.get("/{slug}")

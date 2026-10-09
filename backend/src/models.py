@@ -82,6 +82,11 @@ class Limits(SQLModel):
     max_deployment_files: int = Field(ge=1, description="Most files allowed in a site")
 
 
+class Usage(SQLModel):
+    used: int = Field(ge=0, description="Bytes the user's sites take up")
+    limit: int = Field(ge=0, description="Most bytes the user's sites can take up")
+
+
 class DeploymentBase(SQLModel):
     slug: str = Field(
         default_factory=lambda: f"{generate_slug(2)}-{secrets.token_hex(2)}",
