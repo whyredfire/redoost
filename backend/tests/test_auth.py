@@ -1,6 +1,7 @@
 import asyncio
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import jwt
 import pytest
@@ -12,8 +13,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from scripts import cleanup
 from src import auth, database, deployments, oidc
-from src.config import settings
-from src.models import CliLogin, OidcMetadata, UserInfo
+from src.config import Provider, settings
+from src.models import CliLogin, OidcMetadata, User, UserInfo
 
 SHA256 = "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
 MANIFEST = {"files": [{"path": "index.html", "size": 0, "sha256": SHA256}]}
@@ -68,6 +69,33 @@ def test_rejects_invalid_tokens(client: TestClient, token: str) -> None:
         response = client.get("/api/auth/me", headers=bearer(value))
         assert response.status_code == 401
         assert response.headers["WWW-Authenticate"] == "Bearer"
+
+
+def test_concurrent_first_sign_ins_find_the_same_user(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def race() -> tuple[User, User]:
+        async with (
+            AsyncSession(database.engine, expire_on_commit=False) as session,
+            AsyncSession(database.engine, expire_on_commit=False) as other,
+        ):
+            lookup = session.exec
+            first: list[User] = []
+
+            # The other sign-in creates the user right after this one's lookup misses
+            async def lookup_then_race(*args: Any, **kwargs: Any) -> Any:
+                result = await lookup(*args, **kwargs)
+                monkeypatch.setattr(session, "exec", lookup)
+                user = await auth.find_or_create_user(other, Provider.google, "race")
+                first.append(user)
+                return result
+
+            monkeypatch.setattr(session, "exec", lookup_then_race)
+            user = await auth.find_or_create_user(session, Provider.google, "race")
+            return first[0], user
+
+    first, second = asyncio.run(race())
+    assert second.id == first.id
 
 
 def test_sign_in_is_unavailable_without_oidc(client: TestClient) -> None:

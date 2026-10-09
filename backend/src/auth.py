@@ -8,6 +8,7 @@ from typing import Annotated, Any
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, select
 
 from . import oidc
@@ -168,19 +169,33 @@ async def claim_cli_login(
     return create_token(user)
 
 
+async def find_or_create_user(
+    session: Session, provider: Provider, subject: str
+) -> User:
+    query = select(User).where(
+        col(User.provider) == provider, col(User.subject) == subject
+    )
+    result = await session.exec(query)
+    user = result.first()
+    if user:
+        return user
+    user = User(provider=provider, subject=subject)
+    session.add(user)
+    try:
+        await session.commit()
+    except IntegrityError:
+        # A concurrent first sign-in created the user, so this one finds it
+        await session.rollback()
+        return await find_or_create_user(session, provider, subject)
+    return user
+
+
 @dev_router.post("/dev")
 async def sign_in_as_dev(session: Session) -> Token:
     # Google's subjects are numeric, so this can't be a real account
-    query = select(User).where(
-        col(User.provider) == Provider.google, col(User.subject) == "dev"
-    )
-    result = await session.exec(query)
-    user = result.first() or User(
-        provider=Provider.google,
-        subject="dev",
-        email="dev@localhost",
-        name="Dev User",
-    )
+    user = await find_or_create_user(session, Provider.google, "dev")
+    user.email = "dev@localhost"
+    user.name = "Dev User"
     session.add(user)
     await session.commit()
     return create_token(user)
@@ -195,11 +210,7 @@ async def sign_in(body: SignIn, session: Session) -> Token:
     except oidc.OidcError as error:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(error)) from error
 
-    query = select(User).where(
-        col(User.provider) == settings.oidc_provider, col(User.subject) == info.sub
-    )
-    result = await session.exec(query)
-    user = result.first() or User(provider=settings.oidc_provider, subject=info.sub)
+    user = await find_or_create_user(session, settings.oidc_provider, info.sub)
     # Kept current, since users can change them at the provider
     user.email = info.email
     user.name = info.name
