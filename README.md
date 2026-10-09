@@ -27,6 +27,9 @@ and get a shareable address, with no build step.
   sites stay online for as long as they keep them.
 - **Manage your sites.** Your sites are listed with their size and date, and
   can be updated or deleted.
+- **A command line too.** `redoost login` signs in through a link you can open
+  on any device, then `redoost publish ./dist` publishes a folder. See
+  [`cli/README.md`](cli/README.md).
 - **Sensible limits.** 10 MiB per file, 50 MiB and 500 files per site, and 1 GiB
   per user, all configurable. The dashboard checks the per-site limits as soon as
   files are selected.

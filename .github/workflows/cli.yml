@@ -1,0 +1,35 @@
+name: cli
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - cli/**
+      - .github/workflows/cli.yml
+  pull_request:
+    paths:
+      - cli/**
+      - .github/workflows/cli.yml
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-slim
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: cli/uv.lock
+      # Python 3.10, the oldest the CLI supports, from .python-version
+      - run: uv sync --locked
+      - run: uv run ruff format --check .
+      - run: uv run ruff check .
+      - run: uv run basedpyright src tests
+      - run: uv run pytest

@@ -1,0 +1,29 @@
+[project]
+name = "redoost"
+version = "0.1.0"
+description = "Publish static sites to redoost from the command line"
+readme = "README.md"
+authors = [
+    { name = "Karan Parashar", email = "whyredfire@gmail.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "httpx2>=2.13.1",
+]
+
+[project.scripts]
+redoost = "redoost.main:main"
+
+[build-system]
+requires = ["uv_build>=0.12.23,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.40.2",
+    "pytest>=9.1.1",
+    "ruff>=0.16.10",
+]
+
+[tool.pyright]
+typeCheckingMode = "standard"
