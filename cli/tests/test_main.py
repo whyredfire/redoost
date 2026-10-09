@@ -1,4 +1,5 @@
 import json
+from importlib.metadata import version
 from pathlib import Path
 
 import httpx2
@@ -174,6 +175,13 @@ def test_list_and_delete(
     out, _ = run(capsys, "delete", "brave-otter-1a2b")
     assert out == "Deleted brave-otter-1a2b\n"
     assert "DELETE /api/deployments/brave-otter-1a2b" in server.routes()
+
+
+def test_version(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit):
+        main.main(["--version"])
+
+    assert capsys.readouterr().out == f"redoost {version('redoost')}\n"
 
 
 def test_expired_sign_ins_need_a_new_login(server: FakeServer) -> None:

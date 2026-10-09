@@ -4,6 +4,7 @@ import os
 import sys
 import time
 from collections.abc import Callable
+from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 
@@ -135,6 +136,9 @@ def parse(argv: list[str] | None) -> argparse.Namespace:
 
     parser = argparse.ArgumentParser(
         prog="redoost", description="Publish static sites to redoost."
+    )
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {version('redoost')}"
     )
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("login", parents=[common], help="sign in through a link")
