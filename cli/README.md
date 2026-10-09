@@ -33,7 +33,7 @@ you, and last 30 days. `redoost logout` forgets the token.
 | `redoost logout` | Forget this sign-in |
 | `redoost whoami` | Show who's signed in |
 | `redoost publish <folder\|zip\|file.html>` | Publish a new site |
-| `redoost publish <path> --update <slug>` | Replace a site's files, uploading only what changed |
+| `redoost publish <path> --update <slug>` | Replace a site's files, uploading only what changed, or nothing if nothing did |
 | `redoost list` | List your sites |
 | `redoost delete <slug>` | Delete a site |
 

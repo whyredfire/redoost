@@ -11,18 +11,13 @@ from typing import Any
 from . import config
 from .api import Api, ApiError
 from .files import SiteError, compress, read_site
+from .spinner import Spinner
 
 Command = Callable[[argparse.Namespace], None]
 
 
 def output(args: argparse.Namespace, data: Any, text: str) -> None:
     print(json.dumps(data) if args.json else text)
-
-
-def note(args: argparse.Namespace, text: str) -> None:
-    # Progress goes to stderr, so --json output stays parseable
-    if not args.json:
-        print(text, file=sys.stderr)
 
 
 def signed_in(args: argparse.Namespace) -> Api:
@@ -51,12 +46,13 @@ def login(args: argparse.Namespace) -> None:
         file=sys.stderr,
     )
     claim = {"secret": started["secret"]}
-    # 202 until the link is approved; it expires with a 404
-    while response.status_code != 200:
-        time.sleep(2)
-        response = api.request(
-            "POST", f"/api/auth/cli/{started['id']}/token", json=claim
-        )
+    with Spinner("Waiting for you to continue in the browser", args.json):
+        # 202 until the link is approved; it expires with a 404
+        while response.status_code != 200:
+            time.sleep(2)
+            response = api.request(
+                "POST", f"/api/auth/cli/{started['id']}/token", json=claim
+            )
 
     signed = response.json()
     tokens = config.load_tokens()
@@ -78,28 +74,57 @@ def whoami(args: argparse.Namespace) -> None:
     output(args, user, user["email"])
 
 
+def plural(count: int, noun: str) -> str:
+    return f"{count} {noun}" if count == 1 else f"{count} {noun}s"
+
+
+def unchanged(api: Api, slug: str, manifest: dict[str, Any]) -> bool:
+    response = api.request("GET", f"/api/deployments/{slug}/files")
+    stored = {file["path"]: file["sha256"] for file in response.json()}
+    wanted = {file["path"]: file["sha256"] for file in manifest["files"]}
+    return stored == wanted
+
+
 def publish(args: argparse.Namespace) -> None:
     api = signed_in(args)
-    files = [compress(file) for file in read_site(args.path)]
+    with Spinner("Preparing files", args.json):
+        files = [compress(file) for file in read_site(args.path)]
     manifest = {"files": [file.manifest() for file in files]}
+    if args.update and unchanged(api, args.update, manifest):
+        response = api.request("GET", f"/api/deployments/{args.update}")
+        url = site_url(api, args.update)
+        output(args, {**response.json(), "url": url}, "No changes to publish")
+        return
+
     if args.update:
         response = api.request("PUT", f"/api/deployments/{args.update}", json=manifest)
     else:
         response = api.request("POST", "/api/deployments", json=manifest)
     deployment = response.json()
     slug = deployment["slug"]
+    count = len(deployment["uploads"])
 
-    note(args, f"Uploading {len(deployment['uploads'])} of {len(files)} files…")
-    try:
-        api.upload_files(deployment, files)
-        response = api.request(
-            "POST", f"/api/deployments/{slug}/complete", json=manifest
-        )
-    except BaseException:
-        # An unfinished update keeps the site locked until it's cancelled
-        if args.update:
-            api.request("POST", f"/api/deployments/{slug}/cancel")
-        raise
+    # Updates that only remove files have nothing to upload
+    text = f"Uploading {plural(count, 'file')}" if count else "Publishing"
+    status = Spinner(text, args.json)
+    with status:
+        try:
+            api.upload_files(
+                deployment,
+                files,
+                lambda done: status.update(
+                    f"Uploading {done} of {plural(count, 'file')}"
+                ),
+            )
+            status.update("Publishing")
+            response = api.request(
+                "POST", f"/api/deployments/{slug}/complete", json=manifest
+            )
+        except BaseException:
+            # An unfinished update keeps the site locked until it's cancelled
+            if args.update:
+                api.request("POST", f"/api/deployments/{slug}/cancel")
+            raise
     published = response.json()
     url = site_url(api, slug)
     output(args, {**published, "url": url}, f"Published {url or slug}")

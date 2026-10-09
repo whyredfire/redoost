@@ -7,6 +7,7 @@ import pytest
 
 from redoost import config, main
 from redoost.api import Api
+from redoost.files import compress, read_site
 
 SERVER = "https://redoost.example.com"
 UPLOAD_URL = "https://s3.example.com/sites"
@@ -20,6 +21,7 @@ class FakeServer:
         self.requests: list[httpx2.Request] = []
         self.pending_polls = 1
         self.upload_status = 204
+        self.stored: list[dict[str, str]] = []
 
     def handle(self, request: httpx2.Request) -> httpx2.Response:
         self.requests.append(request)
@@ -56,6 +58,12 @@ class FakeServer:
                     "upload_url": UPLOAD_URL,
                     "uploads": uploads,
                 },
+            )
+        if route == "GET /api/deployments/brave-otter-1a2b/files":
+            return httpx2.Response(200, json=self.stored)
+        if route == "GET /api/deployments/brave-otter-1a2b":
+            return httpx2.Response(
+                200, json={"slug": "brave-otter-1a2b", "state": "ready"}
             )
         if route == "GET /api/deployments":
             site = {
@@ -163,6 +171,39 @@ def test_failed_updates_free_the_site(server: FakeServer, tmp_path: Path) -> Non
             ]
         )
     assert "POST /api/deployments/brave-otter-1a2b/cancel" in server.routes()
+
+
+def stored_site(site: Path) -> list[dict[str, str]]:
+    files = [compress(file).manifest() for file in read_site(site)]
+    return [
+        {"path": str(file["path"]), "sha256": str(file["sha256"])} for file in files
+    ]
+
+
+def test_unchanged_updates_publish_nothing(
+    server: FakeServer, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    signed_in()
+    (tmp_path / "index.html").write_text("<h1>same</h1>")
+    server.stored = stored_site(tmp_path)
+
+    out, _ = run(capsys, "publish", str(tmp_path), "--update", "brave-otter-1a2b")
+
+    assert out == "No changes to publish\n"
+    assert "PUT /api/deployments/brave-otter-1a2b" not in server.routes()
+
+
+def test_removed_files_are_a_change(
+    server: FakeServer, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    signed_in()
+    (tmp_path / "index.html").write_text("<h1>same</h1>")
+    server.stored = [*stored_site(tmp_path), {"path": "old.html", "sha256": "x"}]
+
+    out, _ = run(capsys, "publish", str(tmp_path), "--update", "brave-otter-1a2b")
+
+    assert out == "Published https://brave-otter-1a2b.sites.test\n"
+    assert "PUT /api/deployments/brave-otter-1a2b" in server.routes()
 
 
 def test_list_and_delete(

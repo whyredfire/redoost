@@ -1,5 +1,6 @@
 import time
-from concurrent.futures import ThreadPoolExecutor
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 import httpx2
@@ -84,7 +85,12 @@ class Api:
                     f"Upload failed ({response.status_code}) for {file.path}."
                 )
 
-    def upload_files(self, deployment: dict[str, Any], files: list[SiteFile]) -> None:
+    def upload_files(
+        self,
+        deployment: dict[str, Any],
+        files: list[SiteFile],
+        on_upload: Callable[[int], None],
+    ) -> None:
         policies = {
             upload["path"]: upload["fields"] for upload in deployment["uploads"]
         }
@@ -93,11 +99,14 @@ class Api:
         pages = [file for file in pending if is_page(file)]
         assets = [file for file in pending if not is_page(file)]
         url = deployment["upload_url"]
+        done = 0
         with ThreadPoolExecutor(max_workers=16) as pool:
             for batch in (assets, pages):
                 uploads = [
                     pool.submit(self.upload, url, policies[file.path], file)
                     for file in batch
                 ]
-                for upload in uploads:
+                for upload in as_completed(uploads):
                     upload.result()
+                    done += 1
+                    on_upload(done)
