@@ -1,15 +1,5 @@
-import { LogOut, Settings, Trash2, UserRound } from "lucide-react";
-import { useState, type MouseEvent } from "react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { LogOut, Settings, UserRound } from "lucide-react";
+import { useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,28 +32,6 @@ type AccountMenuProps = {
 export function AccountMenu({ user, onSignOut, onDelete }: AccountMenuProps) {
   const letters = initials(user);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [confirming, setConfirming] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState("");
-
-  function closeDialog(open: boolean) {
-    if (open || deleting) return;
-    setConfirming(false);
-    setError("");
-  }
-
-  async function confirmDelete(event: MouseEvent) {
-    // Keep the dialog open until the request finishes
-    event.preventDefault();
-    setDeleting(true);
-    setError("");
-    try {
-      await onDelete();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-      setDeleting(false);
-    }
-  }
 
   return (
     <>
@@ -106,47 +74,14 @@ export function AccountMenu({ user, onSignOut, onDelete }: AccountMenuProps) {
             <LogOut />
             Sign out
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            variant="destructive"
-            onSelect={() => setConfirming(true)}
-          >
-            <Trash2 />
-            Delete account
-          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <SettingsDialog
         user={user}
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
+        onDelete={onDelete}
       />
-      <AlertDialog open={confirming} onOpenChange={closeDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete your account?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Your account and all your sites are deleted, and the sites go
-              offline right away. This can't be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          {error && (
-            <p role="alert" className="text-sm text-destructive">
-              {error}
-            </p>
-          )}
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              disabled={deleting}
-              onClick={confirmDelete}
-            >
-              {deleting ? "Deleting…" : "Delete account"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 }

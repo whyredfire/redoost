@@ -5,6 +5,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { DeleteAccount } from "@/components/delete-account";
 import {
   Dialog,
   DialogContent,
@@ -27,12 +28,14 @@ type SettingsDialogProps = {
   user: User | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onDelete: () => Promise<void>;
 };
 
 export function SettingsDialog({
   user,
   open,
   onOpenChange,
+  onDelete,
 }: SettingsDialogProps) {
   const [usage, setUsage] = useState<Usage | null>(null);
   const [sites, setSites] = useState<Deployment[]>([]);
@@ -97,6 +100,7 @@ export function SettingsDialog({
             )}
           </div>
         </section>
+        <DeleteAccount onDelete={onDelete} />
       </DialogContent>
     </Dialog>
   );
