@@ -65,7 +65,7 @@ database:
 api:
   image:
     repository: ghcr.io/whyredfire/redoost-api
-    tag: 0.3.0
+    tag: 0.3.1
     pullPolicy: Always
   replicas: 1
   logLevel: INFO
@@ -89,7 +89,7 @@ api:
 frontend:
   image:
     repository: ghcr.io/whyredfire/redoost-frontend
-    tag: 0.3.0
+    tag: 0.3.1
     pullPolicy: Always
   replicas: 1
   resources:
