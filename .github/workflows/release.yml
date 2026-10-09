@@ -74,6 +74,9 @@ jobs:
           # Update version in backend/pyproject.toml
           (cd backend && uv version "$VERSION" --no-sync)
 
+          # Update version in cli/pyproject.toml
+          (cd cli && uv version "$VERSION" --no-sync)
+
           # Update version in frontend/package.json
           yq -i '.version = strenv(VERSION)' frontend/package.json
 
@@ -84,6 +87,10 @@ jobs:
           yq '.api.image.tag = strenv(VERSION) | .frontend.image.tag = strenv(VERSION)' chart/values.yaml |
             diff -B chart/values.yaml - | patch chart/values.yaml
 
+      # Attached to the release, so the CLI installs from a tag without PyPI
+      - name: Build the CLI
+        run: cd cli && uv build
+
       # Commit subjects since the previous release, without automated commits
       - name: Write the changelog
         run: |
@@ -93,6 +100,12 @@ jobs:
             echo
             git log --no-merges --pretty='- %s (%h)' ${previous:+"$previous..HEAD"} |
               grep -vE '^- chore(\(chart\))?: (Update image tags|Release v)' || true
+            echo
+            echo "## CLI"
+            echo
+            echo '```sh'
+            echo "uvx --from https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}/redoost-${VERSION}-py3-none-any.whl redoost login"
+            echo '```'
             if [ -n "$previous" ]; then
               echo
               echo "**Full Changelog**: https://github.com/${GITHUB_REPOSITORY}/compare/${previous}...v${VERSION}"
@@ -109,4 +122,4 @@ jobs:
           git commit -am "chore: Release v${VERSION}"
           git tag "v${VERSION}"
           git push origin HEAD "v${VERSION}"
-          gh release create "v${VERSION}" --title "v${VERSION}" --notes-file "$RUNNER_TEMP/notes.md"
+          gh release create "v${VERSION}" --title "v${VERSION}" --notes-file "$RUNNER_TEMP/notes.md" cli/dist/*
