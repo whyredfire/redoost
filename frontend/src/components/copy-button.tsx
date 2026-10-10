@@ -1,5 +1,6 @@
 import { Check, Copy } from "lucide-react";
 import { useState } from "react";
+import { Hint } from "@/components/hint";
 import { Button } from "@/components/ui/button";
 
 export function CopyButton({ text, label }: { text: string; label: string }) {
@@ -12,14 +13,16 @@ export function CopyButton({ text, label }: { text: string; label: string }) {
   }
 
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      aria-label={copied ? "Copied" : label}
-      onClick={copy}
-    >
-      {copied ? <Check /> : <Copy />}
-    </Button>
+    <Hint label={copied ? "Copied" : "Copy address"}>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        aria-label={copied ? "Copied" : label}
+        onClick={copy}
+      >
+        {copied ? <Check /> : <Copy />}
+      </Button>
+    </Hint>
   );
 }

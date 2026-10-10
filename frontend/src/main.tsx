@@ -1,6 +1,7 @@
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { UploadProvider } from "@/lib/upload";
 import { routeTree } from "./routeTree.gen";
 import "../styles/globals.css";
@@ -16,7 +17,9 @@ declare module "@tanstack/react-router" {
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <UploadProvider>
-      <RouterProvider router={router} />
+      <TooltipProvider>
+        <RouterProvider router={router} />
+      </TooltipProvider>
     </UploadProvider>
   </StrictMode>,
 );

@@ -11,6 +11,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { CopyButton } from "@/components/copy-button";
+import { Hint } from "@/components/hint";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type { Deployment } from "@/lib/deploy";
@@ -77,38 +78,49 @@ export function SiteList({
                       text={url}
                       label={`Copy ${site.slug} address`}
                     />
-                    <Button variant="ghost" size="icon" asChild>
-                      <a
-                        href={url}
-                        target="_blank"
-                        rel="noreferrer"
-                        aria-label={`Open ${site.slug}`}
-                      >
-                        <ExternalLink />
-                      </a>
-                    </Button>
+                    <Hint label="Open site">
+                      <Button variant="ghost" size="icon" asChild>
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label={`Open ${site.slug}`}
+                        >
+                          <ExternalLink />
+                        </a>
+                      </Button>
+                    </Hint>
                   </>
                 )}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`Update ${site.slug}`}
-                  title="Update with new files"
-                  disabled={!canUpdate}
-                  onClick={() => onUpdate(site.slug)}
+                <Hint
+                  label={
+                    canUpdate
+                      ? "Update with new files"
+                      : "Wait for the current upload to finish"
+                  }
                 >
-                  <FolderUp />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`Delete ${site.slug}`}
-                  onClick={() => setTarget(site)}
-                >
-                  <Trash2 />
-                </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Update ${site.slug}`}
+                    disabled={!canUpdate}
+                    onClick={() => onUpdate(site.slug)}
+                  >
+                    <FolderUp />
+                  </Button>
+                </Hint>
+                <Hint label="Delete site">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Delete ${site.slug}`}
+                    onClick={() => setTarget(site)}
+                  >
+                    <Trash2 />
+                  </Button>
+                </Hint>
               </div>
             </li>
           );
