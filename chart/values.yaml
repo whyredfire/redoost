@@ -116,7 +116,7 @@ sites:
 
 # Removes unfinished uploads past their window, and files left without a site
 cleanup:
-  schedule: "@daily"
+  schedule: "@hourly"
   # Finished runs kept, to check their logs
   successfulJobsHistoryLimit: 10
   failedJobsHistoryLimit: 10

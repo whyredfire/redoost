@@ -108,7 +108,7 @@ reports the version it was built with, in the dashboard footer and from
 
 See [`chart/values.yaml`](chart/values.yaml) for all settings. By default the
 API uses SQLite on a volume, so it runs as a single replica with the `Recreate`
-strategy, and the daily cleanup CronJob runs on the same node. Setting
+strategy, and the hourly cleanup CronJob runs on the same node. Setting
 `database.url` (or `database.existingSecret`) switches to Postgres, with no
 volume and any number of replicas.
 
