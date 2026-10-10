@@ -8,7 +8,7 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 
-from . import config
+from . import config, preview
 from .api import Api, ApiError
 from .files import SiteError, compress, read_site
 from .spinner import Spinner
@@ -17,7 +17,8 @@ Command = Callable[[argparse.Namespace], None]
 
 
 def output(args: argparse.Namespace, data: Any, text: str) -> None:
-    print(json.dumps(data) if args.json else text)
+    # Flushed, since preview keeps running after it prints
+    print(json.dumps(data) if args.json else text, flush=True)
 
 
 def signed_in(args: argparse.Namespace) -> Api:
@@ -130,6 +131,26 @@ def publish(args: argparse.Namespace) -> None:
     output(args, {**published, "url": url}, f"Published {url or slug}")
 
 
+def preview_site(args: argparse.Namespace) -> None:
+    files = read_site(args.path)
+    try:
+        server = preview.create_server(files, args.host, args.port)
+    except OSError as error:
+        sys.exit(f"error: Couldn't listen on {args.host}:{args.port}: {error.strerror}")
+    port = server.server_address[1]
+
+    everywhere = args.host == "0.0.0.0"
+    url = f"http://{'127.0.0.1' if everywhere else args.host}:{port}"
+    address = preview.network_address() if everywhere else None
+    network_url = f"http://{address}:{port}" if address else None
+    text = f"Previewing at {url}"
+    if network_url:
+        text += f", and on your network at {network_url}"
+    output(args, {"url": url, "network_url": network_url}, f"{text} (Ctrl+C to stop)")
+    with server:
+        server.serve_forever()
+
+
 def list_sites(args: argparse.Namespace) -> None:
     api = signed_in(args)
     response = api.request("GET", "/api/deployments")
@@ -176,6 +197,20 @@ def parse(argv: list[str] | None) -> argparse.Namespace:
     publish_parser.add_argument(
         "--update", metavar="SLUG", help="replace an existing site's files"
     )
+    preview_parser = commands.add_parser(
+        "preview",
+        parents=[common],
+        help="serve a folder, zip, or HTML file locally, as it would be published",
+    )
+    preview_parser.add_argument("path", type=Path)
+    preview_parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="address to listen on; 0.0.0.0 for every network (default: %(default)s)",
+    )
+    preview_parser.add_argument(
+        "--port", type=int, default=0, help="port to listen on (default: a free one)"
+    )
     commands.add_parser("list", parents=[common], help="list your sites")
     delete_parser = commands.add_parser(
         "delete", parents=[common], help="delete a site"
@@ -192,6 +227,7 @@ commands: dict[str, Command] = {
     "logout": logout,
     "whoami": whoami,
     "publish": publish,
+    "preview": preview_site,
     "list": list_sites,
     "delete": delete,
 }
