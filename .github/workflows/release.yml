@@ -95,6 +95,7 @@ jobs:
       - name: Write the changelog
         run: |
           previous=$(git describe --tags --abbrev=0 2>/dev/null || true)
+          wheel="https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}/redoost-${VERSION}-py3-none-any.whl"
           {
             echo "## Changes"
             echo
@@ -104,7 +105,14 @@ jobs:
             echo "## CLI"
             echo
             echo '```sh'
-            echo "uvx --from https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}/redoost-${VERSION}-py3-none-any.whl redoost login"
+            echo "# Install with uv"
+            echo "uv tool install $wheel"
+            echo
+            echo "# Or with pipx"
+            echo "pipx install $wheel"
+            echo
+            echo "# Or run it once without installing"
+            echo "uvx --from $wheel redoost login"
             echo '```'
             if [ -n "$previous" ]; then
               echo

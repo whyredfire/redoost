@@ -3,18 +3,22 @@
 Publish static sites to redoost from the command line. Needs Python 3.10 or
 newer.
 
-Each release attaches the CLI as a wheel, so it runs from a release's URL:
+Install it from `main`, so `redoost` works from anywhere:
 
 ```sh
-uvx --from https://github.com/whyredfire/redoost/releases/download/v0.2.2/redoost-0.2.2-py3-none-any.whl redoost login
+# Install with uv, and update with uv tool upgrade redoost
+uv tool install "git+https://github.com/whyredfire/redoost#subdirectory=cli"
+
+# Or with pipx, and update by running this again with --force
+pipx install "git+https://github.com/whyredfire/redoost#subdirectory=cli"
+
+# Or run it once without installing
+uvx --from "git+https://github.com/whyredfire/redoost#subdirectory=cli" redoost login
 ```
 
-`pipx install <wheel URL>` works too, and so does the source at any tag or
-branch:
-
-```sh
-uvx --from "git+https://github.com/whyredfire/redoost@v0.2.2#subdirectory=cli" redoost login
-```
+`main` can be ahead of what's deployed. Each
+[release](https://github.com/whyredfire/redoost/releases) attaches the CLI as a
+wheel, with the same commands pinned to that version in its notes.
 
 ## Signing in
 
