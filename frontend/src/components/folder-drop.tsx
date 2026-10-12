@@ -26,7 +26,7 @@ type Props = {
 
 // Shared with the publish card, so the box keeps its size when files are dropped
 export const stageSize =
-  "min-h-[37rem] lg:min-h-[max(36rem,calc(100svh-14rem))]";
+  "min-h-[max(38rem,calc(100svh-8.5rem))] lg:min-h-[max(36rem,calc(100svh-14rem))]";
 
 const layer = {
   shown: { opacity: 1, filter: "blur(0px)" },

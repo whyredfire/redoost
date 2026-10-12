@@ -24,13 +24,17 @@ export function SiteList({ sites }: { sites: Deployment[] }) {
                     <LiveDot off={!site.enabled} />
                     <span className="truncate">
                       <span className="font-medium">{site.slug}</span>
-                      <span className="text-muted-foreground">{domain}</span>
+                      <span className="hidden text-muted-foreground sm:inline">
+                        {domain}
+                      </span>
                     </span>
                   </p>
                   <p className="mt-1 pl-4.5 font-mono text-xs text-muted-foreground">
                     {site.file_count} {site.file_count === 1 ? "file" : "files"}{" "}
                     · {formatBytes(site.total_size)} ·{" "}
-                    {formatDate(site.created_at)}
+                    <span className="whitespace-nowrap">
+                      {formatDate(site.created_at)}
+                    </span>
                     {!site.enabled && " · offline"}
                   </p>
                 </div>

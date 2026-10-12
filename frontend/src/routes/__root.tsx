@@ -7,6 +7,7 @@ import {
   useNavigate,
   useRouter,
 } from "@tanstack/react-router";
+import { Fragment } from "react";
 import { AccountMenu } from "@/components/account-menu";
 import { AgentPromptButton } from "@/components/agent-prompt-button";
 import { PageHeading } from "@/components/page-heading";
@@ -26,7 +27,8 @@ export const Route = createRootRoute({
 const navClass =
   "text-sm transition-colors hover:text-foreground data-[status=active]:text-foreground";
 
-const footerLink = "underline-offset-4 hover:text-foreground hover:underline";
+const footerLink =
+  "whitespace-nowrap underline-offset-4 hover:text-foreground hover:underline";
 
 const version: string = import.meta.env.VITE_VERSION || "dev";
 
@@ -48,6 +50,30 @@ function versionUrl(version: string) {
 }
 
 const versionLink = versionUrl(version);
+
+const footerLinks = [
+  <a className={footerLink} href={repository} target="_blank" rel="noreferrer">
+    Open source on GitHub
+  </a>,
+  <Link to="/privacy" className={footerLink}>
+    Privacy Policy
+  </Link>,
+  <Link to="/terms" className={footerLink}>
+    Terms of Service
+  </Link>,
+  versionLink ? (
+    <a
+      className={footerLink}
+      href={versionLink}
+      target="_blank"
+      rel="noreferrer"
+    >
+      {version}
+    </a>
+  ) : (
+    <span>{version}</span>
+  ),
+];
 
 function Layout() {
   const { busy, startOver } = useUpload();
@@ -123,38 +149,20 @@ function Layout() {
       </main>
 
       <footer className="border-t">
-        <div className="mx-auto flex max-w-7xl flex-wrap justify-between gap-x-4 gap-y-1 px-5 py-6 text-sm text-muted-foreground">
-          <p>
-            <a
-              className={footerLink}
-              href={repository}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Open source on GitHub
-            </a>{" "}
-            ·{" "}
-            <Link to="/privacy" className={footerLink}>
-              Privacy Policy
-            </Link>{" "}
-            ·{" "}
-            <Link to="/terms" className={footerLink}>
-              Terms of Service
-            </Link>{" "}
-            ·{" "}
-            {versionLink ? (
-              <a
-                className={footerLink}
-                href={versionLink}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {version}
-              </a>
-            ) : (
-              version
-            )}
-          </p>
+        <div className="mx-auto flex max-w-7xl flex-col items-center gap-3 px-5 py-6 text-sm text-muted-foreground sm:flex-row sm:justify-between">
+          {/* Phones wrap between links rather than inside them, without the dots */}
+          <nav className="flex flex-wrap justify-center gap-x-4 gap-y-1 sm:gap-x-0">
+            {footerLinks.map((link, index) => (
+              <Fragment key={index}>
+                {index > 0 && (
+                  <span aria-hidden className="hidden px-1.5 sm:inline">
+                    ·
+                  </span>
+                )}
+                {link}
+              </Fragment>
+            ))}
+          </nav>
           <p className="whitespace-nowrap">
             Made by{" "}
             <a

@@ -43,9 +43,7 @@ export function SitePreview({ url, fill = false }: SitePreviewProps) {
       aria-hidden
       className={cn(
         "block overflow-hidden rounded-xl border bg-background text-left",
-        fill
-          ? "flex flex-1 flex-col"
-          : "[mask-image:linear-gradient(to_bottom,black_55%,transparent)]",
+        fill && "flex flex-1 flex-col",
       )}
     >
       <div className="flex items-center gap-1.5 border-b px-3 py-2">
@@ -63,7 +61,7 @@ export function SitePreview({ url, fill = false }: SitePreviewProps) {
         ref={frame}
         className={cn(
           "relative bg-muted/40",
-          fill ? "min-h-64 flex-1" : "aspect-[16/9]",
+          fill ? "min-h-40 flex-1 sm:min-h-64" : "aspect-[16/9]",
         )}
       >
         {/* A page outline until the site shows, then it fades as the site fades in */}

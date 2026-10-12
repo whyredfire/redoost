@@ -24,7 +24,7 @@ export function AddressPreview({ className }: { className?: string }) {
     >
       <LiveDot pulse />
       <span className="min-w-0 truncate">
-        <span className="text-muted-foreground">
+        <span className="hidden text-muted-foreground sm:inline">
           {origin ? `${origin.protocol}//` : ""}
         </span>
         <RotatingWord words={slugs} />

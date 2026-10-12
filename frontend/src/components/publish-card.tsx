@@ -447,7 +447,7 @@ export function PublishCard() {
           </div>
 
           {/* The fade sits on the scrolling viewport, so it dissolves the rows and not the border */}
-          <div className="relative min-h-64 rounded-xl border bg-muted/30">
+          <div className="relative min-h-40 rounded-xl border bg-muted/30 md:min-h-64">
             {/* Radix pins the root to position: relative, so this div takes the space */}
             <div className="absolute inset-0">
               <ScrollArea className="h-full [&>[data-slot=scroll-area-viewport]]:scroll-fade">
