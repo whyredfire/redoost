@@ -24,16 +24,17 @@ export const Route = createRootRoute({
 });
 
 const navClass =
-  "text-sm text-muted-foreground transition-colors hover:text-foreground data-[status=active]:text-foreground";
+  "text-sm transition-colors hover:text-foreground data-[status=active]:text-foreground";
 
 const footerLink = "underline-offset-4 hover:text-foreground hover:underline";
 
 const version: string = import.meta.env.VITE_VERSION || "dev";
 
-// Dashboards use the width; pages meant for reading stay narrow
+// Pages meant for reading stay narrow; the rest use the width
 function contentWidth(pathname: string) {
-  if (pathname.startsWith("/sites")) return "max-w-6xl";
-  if (pathname === "/publish") return "max-w-5xl";
+  if (["/", "/publish"].includes(pathname) || pathname.startsWith("/sites")) {
+    return "max-w-6xl";
+  }
   return "max-w-3xl";
 }
 
@@ -91,13 +92,13 @@ function Layout() {
           <nav className="flex gap-5">
             <Link
               to="/"
-              className={`${navClass} ${pathname === "/publish" ? "text-foreground" : ""}`}
+              className={`${navClass} ${pathname === "/publish" ? "text-foreground" : "text-muted-foreground"}`}
               activeOptions={{ exact: true }}
               onClick={startFresh}
             >
               Publish
             </Link>
-            <Link to="/sites" className={navClass}>
+            <Link to="/sites" className={`${navClass} text-muted-foreground`}>
               Sites
             </Link>
           </nav>

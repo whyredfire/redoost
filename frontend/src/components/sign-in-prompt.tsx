@@ -12,15 +12,10 @@ type SignInPromptProps = {
   className?: string;
 };
 
-export function SignInPrompt({
-  title,
-  description,
-  className,
-}: SignInPromptProps) {
+export function SignInButton() {
   const router = useRouter();
   const [error, setError] = useState("");
-  const { oidc, dev } = authConfig;
-  if (!oidc && !dev) return null;
+  const { oidc } = authConfig;
 
   async function signInLocally() {
     setError("");
@@ -33,17 +28,7 @@ export function SignInPrompt({
   }
 
   return (
-    <div
-      className={cn(
-        "flex flex-col items-center justify-center rounded-xl border px-6 py-12 text-center",
-        className,
-      )}
-    >
-      <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-muted">
-        <LogIn className="size-5 text-muted-foreground" />
-      </div>
-      <p className="text-lg font-medium">{title}</p>
-      <p className="mt-1 mb-6 text-sm text-muted-foreground">{description}</p>
+    <div className="flex flex-col items-center">
       {oidc ? (
         <Button onClick={signIn}>
           <ProviderLogo provider={oidc.provider} />
@@ -74,6 +59,31 @@ export function SignInPrompt({
           {error}
         </p>
       )}
+    </div>
+  );
+}
+
+export function SignInPrompt({
+  title,
+  description,
+  className,
+}: SignInPromptProps) {
+  const { oidc, dev } = authConfig;
+  if (!oidc && !dev) return null;
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col items-center justify-center rounded-xl border px-6 py-12 text-center",
+        className,
+      )}
+    >
+      <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-muted">
+        <LogIn className="size-5 text-muted-foreground" />
+      </div>
+      <p className="text-lg font-medium">{title}</p>
+      <p className="mt-1 mb-6 text-sm text-muted-foreground">{description}</p>
+      <SignInButton />
     </div>
   );
 }

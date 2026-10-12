@@ -3,12 +3,18 @@ import { useState } from "react";
 import { Hint } from "@/components/hint";
 import { Button } from "@/components/ui/button";
 
-type CopyButtonProps = { text: string; label: string; hint?: string };
+type CopyButtonProps = {
+  text: string;
+  label: string;
+  hint?: string;
+  size?: "icon" | "icon-xs";
+};
 
 export function CopyButton({
   text,
   label,
   hint = "Copy address",
+  size = "icon",
 }: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
 
@@ -23,7 +29,7 @@ export function CopyButton({
       <Button
         type="button"
         variant="ghost"
-        size="icon"
+        size={size}
         aria-label={copied ? "Copied" : label}
         onClick={copy}
       >

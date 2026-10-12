@@ -191,7 +191,7 @@ function Sidebar({ sites, usage }: SidebarProps) {
       </section>
       <section className="space-y-3 rounded-xl border px-4 py-3">
         <h2 className="font-medium">From the terminal</h2>
-        <CliCommand command="redoost list" compact />
+        <CliCommand command="redoost list" variant="compact" />
         <a
           href={`${repository}/tree/main/cli#readme`}
           target="_blank"

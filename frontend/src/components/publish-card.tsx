@@ -1,3 +1,4 @@
+import { cn } from "cn";
 import { ChevronRight, CircleCheck, FolderOpen } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useState, type ReactNode } from "react";
@@ -7,6 +8,7 @@ import {
   SizeInfo,
   Sizes,
 } from "@/components/compression-saving";
+import { stageSize } from "@/components/folder-drop";
 import { SiteAddress } from "@/components/site-address";
 import { SitePreview } from "@/components/site-preview";
 import { Button } from "@/components/ui/button";
@@ -185,7 +187,7 @@ export function PublishCard() {
   if (stage === "ready" && session) {
     const url = siteUrl(session.deployment.slug);
     return (
-      <Card className="min-h-[max(26rem,calc(100svh-14rem))] justify-center">
+      <Card className={cn(stageSize, "justify-center")}>
         <MotionCardContent
           className="mx-auto w-full max-w-xl space-y-6 text-center"
           variants={stagger}
@@ -270,7 +272,11 @@ export function PublishCard() {
 
   return (
     <Card
-      className={`min-h-[max(26rem,calc(100svh-14rem))] transition-colors duration-300 ${dragging ? "border-foreground/20" : ""}`}
+      className={cn(
+        stageSize,
+        "transition-colors duration-300",
+        dragging && "border-foreground/20",
+      )}
     >
       <CardContent className="flex flex-1 flex-col">
         <div className="grid flex-1 gap-6 duration-300 motion-safe:animate-in motion-safe:fade-in md:grid-cols-[16rem_1fr]">
