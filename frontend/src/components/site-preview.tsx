@@ -7,7 +7,7 @@ const height = 800;
 export function SitePreview({ url }: { url: string }) {
   const frame = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0);
-  const [loaded, setLoaded] = useState(false);
+  const [shown, setShown] = useState(false);
 
   useEffect(() => {
     const element = frame.current;
@@ -17,6 +17,12 @@ export function SitePreview({ url }: { url: string }) {
     );
     observer.observe(element);
     return () => observer.disconnect();
+  }, []);
+
+  // Slow sites show while they draw in, not after every asset has loaded
+  useEffect(() => {
+    const timer = setTimeout(() => setShown(true), 1000);
+    return () => clearTimeout(timer);
   }, []);
 
   return (
@@ -40,9 +46,9 @@ export function SitePreview({ url }: { url: string }) {
         </span>
       </div>
       <div ref={frame} className="relative aspect-[16/9] bg-muted/40">
-        {/* A page outline until the site loads, then it fades as the site fades in */}
+        {/* A page outline until the site shows, then it fades as the site fades in */}
         <div
-          className={`absolute inset-0 flex flex-col gap-[6%] overflow-hidden p-[5%] transition-opacity duration-500 ${loaded ? "opacity-0" : ""}`}
+          className={`absolute inset-0 flex flex-col gap-[6%] overflow-hidden p-[5%] transition-opacity duration-500 ${shown ? "opacity-0" : ""}`}
         >
           <div className="flex items-center justify-between">
             <span className="h-2 w-12 rounded-full bg-muted-foreground/15" />
@@ -76,8 +82,8 @@ export function SitePreview({ url }: { url: string }) {
           loading="lazy"
           referrerPolicy="no-referrer"
           tabIndex={-1}
-          onLoad={() => setLoaded(true)}
-          className={`pointer-events-none absolute top-0 left-0 origin-top-left border-0 transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"}`}
+          onLoad={() => setShown(true)}
+          className={`pointer-events-none absolute top-0 left-0 origin-top-left border-0 transition-opacity duration-500 ${shown ? "opacity-100" : "opacity-0"}`}
           style={{ width, height, transform: `scale(${scale})` }}
         />
       </div>
