@@ -16,6 +16,7 @@ import { Route as SitesRouteImport } from './routes/sites'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as CliIdRouteImport } from './routes/cli.$id'
+import { Route as SitesSlugRouteImport } from './routes/sites_.$slug'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -52,6 +53,11 @@ const CliIdRoute = CliIdRouteImport.update({
   path: '/cli/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SitesSlugRoute = SitesSlugRouteImport.update({
+  id: '/sites_/$slug',
+  path: '/sites/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -61,6 +67,7 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/cli/$id': typeof CliIdRoute
+  '/sites/$slug': typeof SitesSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -70,6 +77,7 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/cli/$id': typeof CliIdRoute
+  '/sites/$slug': typeof SitesSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -80,6 +88,7 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/cli/$id': typeof CliIdRoute
+  '/sites_/$slug': typeof SitesSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -91,6 +100,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/auth/callback'
     | '/cli/$id'
+    | '/sites/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -100,6 +110,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/auth/callback'
     | '/cli/$id'
+    | '/sites/$slug'
   id:
     | '__root__'
     | '/'
@@ -109,6 +120,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/auth/callback'
     | '/cli/$id'
+    | '/sites_/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -119,6 +131,7 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   CliIdRoute: typeof CliIdRoute
+  SitesSlugRoute: typeof SitesSlugRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -172,6 +185,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CliIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sites_/$slug': {
+      id: '/sites_/$slug'
+      path: '/sites/$slug'
+      fullPath: '/sites/$slug'
+      preLoaderRoute: typeof SitesSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -183,6 +203,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   CliIdRoute: CliIdRoute,
+  SitesSlugRoute: SitesSlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

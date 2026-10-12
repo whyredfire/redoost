@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { pickedFiles, type SiteCheck, type SiteFile } from "@/lib/site-files";
 
 type Props = {
+  prompt?: string;
   dragging: boolean;
   onFiles: (files: SiteFile[]) => void;
   error: string;
@@ -20,6 +21,7 @@ const layer = {
 
 // Drops are handled page-wide by usePageDrop; this is the visible target
 export function FolderDrop({
+  prompt = "Drop your site anywhere on this page",
   dragging,
   error,
   checks,
@@ -69,9 +71,7 @@ export function FolderDrop({
                 <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-muted">
                   <Upload className="size-5 text-muted-foreground" />
                 </div>
-                <p className="text-lg font-medium text-balance">
-                  Drop your site anywhere on this page
-                </p>
+                <p className="text-lg font-medium text-balance">{prompt}</p>
                 <p className="mt-1 mb-6 text-sm text-muted-foreground">
                   A folder, a zip, or an HTML file
                 </p>

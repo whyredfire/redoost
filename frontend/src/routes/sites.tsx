@@ -1,31 +1,29 @@
-import {
-  Link,
-  createFileRoute,
-  useNavigate,
-  useRouter,
-} from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { Globe, Search } from "lucide-react";
 import { useState } from "react";
 import { CliCommand } from "@/components/cli-command";
 import { PageHeading } from "@/components/page-heading";
 import { SignInPrompt } from "@/components/sign-in-prompt";
 import { SiteList } from "@/components/site-list";
+import { StorageUsage } from "@/components/storage-usage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  ApiError,
-  changeDeployment,
-  deleteDeployment,
-  listDeployments,
-} from "@/lib/deploy";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
-  clearSession,
-  clearToken,
-  loadSession,
-  loadToken,
-  useToken,
-} from "@/lib/session";
-import { useUpload } from "@/lib/upload";
+  ApiError,
+  listDeployments,
+  readUsage,
+  type Deployment,
+  type Usage,
+} from "@/lib/deploy";
+import { repository } from "@/lib/config";
+import { clearToken, loadToken, useToken } from "@/lib/session";
 
 export const Route = createFileRoute("/sites")({
   head: () => ({ meta: [{ title: "Your sites · redoost" }] }),
@@ -40,50 +38,45 @@ export const Route = createFileRoute("/sites")({
 
 async function loadSites() {
   const token = loadToken();
-  if (!token) return [];
+  if (!token) return { sites: [], usage: null };
   try {
-    const deployments = await listDeployments(token);
-    return deployments;
+    const [sites, usage] = await Promise.all([
+      listDeployments(token),
+      readUsage(token),
+    ]);
+    return { sites, usage };
   } catch (error) {
     // Expired or unknown, so the page asks to sign in again
     if (error instanceof ApiError && error.status === 401) {
       clearToken();
-      return [];
+      return { sites: [], usage: null };
     }
     throw error;
   }
 }
 
+type Status = "all" | "online" | "offline";
+type Order = "newest" | "largest" | "name";
+
+const orders: Record<Order, (a: Deployment, b: Deployment) => number> = {
+  newest: (a, b) => b.created_at.localeCompare(a.created_at),
+  largest: (a, b) => b.total_size - a.total_size,
+  name: (a, b) => a.slug.localeCompare(b.slug),
+};
+
 function SitesPage() {
-  const sites = Route.useLoaderData();
-  const router = useRouter();
-  const navigate = useNavigate();
-  const { busy, startUpdate } = useUpload();
+  const { sites, usage } = Route.useLoaderData();
   const token = useToken();
   const [query, setQuery] = useState("");
+  const [status, setStatus] = useState<Status>("all");
+  const [order, setOrder] = useState<Order>("newest");
   const search = query.trim().toLowerCase();
-  const shown = sites.filter((site) => site.slug.includes(search));
-
-  function updateSite(slug: string) {
-    startUpdate(slug);
-    navigate({ to: "/" });
-  }
-
-  async function toggleSite(slug: string, enabled: boolean) {
-    const token = loadToken();
-    if (!token) return;
-    await changeDeployment(slug, enabled, token);
-    await router.invalidate();
-  }
-
-  async function deleteSite(slug: string) {
-    const token = loadToken();
-    if (!token) return;
-    await deleteDeployment(slug, token);
-    // The publish page would otherwise still show the deleted site as live
-    if (loadSession()?.deployment.slug === slug) clearSession();
-    await router.invalidate();
-  }
+  const shown = sites
+    .filter((site) => site.slug.includes(search))
+    .filter(
+      (site) => status === "all" || site.enabled === (status === "online"),
+    )
+    .toSorted(orders[order]);
 
   return (
     <>
@@ -95,52 +88,119 @@ function SitesPage() {
           title="Sign in to see your sites"
           description="Sites you publish while signed in are listed here."
         />
-      ) : sites.length > 0 ? (
-        <div className="space-y-4">
-          {sites.length > 5 && (
-            <div className="relative">
-              <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                type="search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search sites"
-                aria-label="Search sites"
-                className="h-10 rounded-xl pl-10 font-mono [&::-webkit-search-cancel-button]:hidden"
-              />
-            </div>
-          )}
-          {shown.length > 0 ? (
-            <SiteList
-              sites={shown}
-              canUpdate={!busy}
-              onUpdate={updateSite}
-              onToggle={toggleSite}
-              onDelete={deleteSite}
-            />
-          ) : (
-            <p className="rounded-xl border px-4 py-10 text-center text-sm text-muted-foreground">
-              No sites match <span className="font-mono">{query.trim()}</span>
-            </p>
-          )}
-        </div>
       ) : (
-        <div className="space-y-4">
-          <div className="flex flex-col items-center rounded-xl border px-6 py-12 text-center">
-            <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-muted">
-              <Globe className="size-5 text-muted-foreground" />
+        <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
+          {sites.length > 0 ? (
+            <div className="space-y-4">
+              {sites.length > 5 && (
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <div className="relative flex-1">
+                    <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      type="search"
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                      placeholder="Search sites"
+                      aria-label="Search sites"
+                      className="h-10 rounded-xl pl-10 font-mono [&::-webkit-search-cancel-button]:hidden"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Select
+                      value={status}
+                      onValueChange={(value) => setStatus(value as Status)}
+                    >
+                      <SelectTrigger
+                        className="h-10! flex-1 rounded-xl sm:w-32"
+                        aria-label="Show"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All sites</SelectItem>
+                        <SelectItem value="online">Online</SelectItem>
+                        <SelectItem value="offline">Offline</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={order}
+                      onValueChange={(value) => setOrder(value as Order)}
+                    >
+                      <SelectTrigger
+                        className="h-10! flex-1 rounded-xl sm:w-32"
+                        aria-label="Sort by"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="newest">Newest</SelectItem>
+                        <SelectItem value="largest">Largest</SelectItem>
+                        <SelectItem value="name">Name</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+              {shown.length > 0 ? (
+                <SiteList sites={shown} />
+              ) : (
+                <p className="rounded-xl border px-4 py-10 text-center text-sm text-muted-foreground">
+                  No matching sites
+                </p>
+              )}
             </div>
-            <p className="text-lg font-medium">No sites yet</p>
-            <p className="mt-1 mb-6 text-sm text-muted-foreground">
-              Publish your first site here, or from the command line.
-            </p>
-            <Button asChild>
-              <Link to="/">Publish a site</Link>
-            </Button>
-          </div>
-          <CliCommand />
+          ) : (
+            <div className="flex flex-col items-center rounded-xl border px-6 py-12 text-center">
+              <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-muted">
+                <Globe className="size-5 text-muted-foreground" />
+              </div>
+              <p className="text-lg font-medium">No sites yet</p>
+              <p className="mt-1 mb-6 text-sm text-muted-foreground">
+                Publish your first site here, or from the command line.
+              </p>
+              <Button asChild>
+                <Link to="/">Publish a site</Link>
+              </Button>
+            </div>
+          )}
+          <Sidebar sites={sites} usage={usage} />
         </div>
       )}
     </>
+  );
+}
+
+type SidebarProps = { sites: Deployment[]; usage: Usage | null };
+
+function Sidebar({ sites, usage }: SidebarProps) {
+  const offline = sites.filter((site) => !site.enabled).length;
+
+  return (
+    <aside className="space-y-4 text-sm">
+      {usage && (
+        <section className="space-y-3 rounded-xl border px-4 py-3">
+          <h2 className="font-medium">Storage</h2>
+          <StorageUsage usage={usage} />
+        </section>
+      )}
+      <section className="space-y-1 rounded-xl border px-4 py-3">
+        <h2 className="font-medium">Sites</h2>
+        <p className="font-mono text-muted-foreground">
+          {sites.length - offline} online · {offline} offline
+        </p>
+      </section>
+      <section className="space-y-3 rounded-xl border px-4 py-3">
+        <h2 className="font-medium">From the terminal</h2>
+        <CliCommand command="redoost list" compact />
+        <a
+          href={`${repository}/tree/main/cli#readme`}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-block text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        >
+          Install the CLI
+        </a>
+      </section>
+    </aside>
   );
 }

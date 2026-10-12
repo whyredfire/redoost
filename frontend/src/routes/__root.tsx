@@ -30,6 +30,13 @@ const footerLink = "underline-offset-4 hover:text-foreground hover:underline";
 
 const version: string = import.meta.env.VITE_VERSION || "dev";
 
+// Dashboards use the width; pages meant for reading stay narrow
+function contentWidth(pathname: string) {
+  if (pathname.startsWith("/sites")) return "max-w-6xl";
+  if (pathname === "/publish") return "max-w-5xl";
+  return "max-w-3xl";
+}
+
 // Releases link to their notes, and builds between them to their commit
 function versionUrl(version: string) {
   if (/^\d+\.\d+\.\d+$/.test(version)) {
@@ -109,7 +116,7 @@ function Layout() {
       </header>
 
       <main
-        className={`mx-auto w-full flex-1 px-5 py-10 sm:py-12 ${pathname === "/publish" ? "max-w-5xl" : "max-w-3xl"}`}
+        className={`mx-auto w-full flex-1 px-5 py-10 sm:py-12 ${contentWidth(pathname)}`}
       >
         <Outlet />
       </main>

@@ -209,12 +209,14 @@ function useUploadState() {
     setStage("idle");
   }
 
-  function startUpdate(slug: string) {
+  function selectUpdate(slug: string, selected: SiteFile[]) {
     startOver();
+    void selectFiles(selected);
+    // Last, since selecting files resets a finished site's target
     setTarget(slug);
   }
 
-  // Unlike startUpdate, keeps the files already picked
+  // Keeps the files already picked
   function chooseTarget(slug: string | null) {
     setStoredFiles(null);
     setTarget(slug);
@@ -364,7 +366,7 @@ function useUploadState() {
     showError,
     selectFiles,
     startOver,
-    startUpdate,
+    selectUpdate,
     chooseTarget,
     cancel,
     publish,
@@ -384,14 +386,17 @@ export function useUpload() {
 }
 
 // The whole page is the drop target, so a stray drop never opens the file
-export function usePageDrop(accepts: boolean) {
+export function usePageDrop(
+  accepts: boolean,
+  onFiles?: (files: SiteFile[]) => void,
+) {
   const { selectFiles, showError } = useUpload();
   const [dragging, setDragging] = useState(false);
 
   const receive = useEffectEvent(async (items: DataTransferItemList) => {
     try {
       const selected = await droppedFiles(items);
-      selectFiles(selected);
+      (onFiles ?? selectFiles)(selected);
     } catch (error) {
       showError(error instanceof Error ? error.message : String(error));
     }

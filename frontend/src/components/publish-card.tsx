@@ -1,9 +1,4 @@
-import {
-  ChevronRight,
-  CircleCheck,
-  ExternalLink,
-  FolderOpen,
-} from "lucide-react";
+import { ChevronRight, CircleCheck, FolderOpen } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useState, type ReactNode } from "react";
 import { ThinkingOrb } from "thinking-orbs";
@@ -12,8 +7,7 @@ import {
   SizeInfo,
   Sizes,
 } from "@/components/compression-saving";
-import { CopyButton } from "@/components/copy-button";
-import { LiveDot } from "@/components/live-dot";
+import { SiteAddress } from "@/components/site-address";
 import { SitePreview } from "@/components/site-preview";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -220,29 +214,8 @@ export function PublishCard() {
               </div>
             )}
           </motion.div>
-          <motion.div
-            variants={rise}
-            className="flex items-center gap-3 rounded-xl border bg-card py-1 pr-1 pl-4 text-left shadow-xs"
-          >
-            <LiveDot pulse />
-            <span className="min-w-0 flex-1 truncate font-mono text-sm">
-              {url ?? session.deployment.slug}
-            </span>
-            {url && (
-              <>
-                <CopyButton text={url} label="Copy address" />
-                <Button variant="ghost" size="icon" asChild>
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label="Open site"
-                  >
-                    <ExternalLink />
-                  </a>
-                </Button>
-              </>
-            )}
+          <motion.div variants={rise}>
+            <SiteAddress slug={session.deployment.slug} />
           </motion.div>
           <motion.div variants={rise}>
             <Button type="button" variant="outline" onClick={startOver}>

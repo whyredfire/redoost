@@ -12,7 +12,24 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 
-export function DeleteAccount({ onDelete }: { onDelete: () => Promise<void> }) {
+type DangerActionProps = {
+  title: string;
+  description: string;
+  question: string;
+  warning: string;
+  action: string;
+  onConfirm: () => Promise<void>;
+};
+
+// A destructive action, confirmed in a dialog before it runs
+export function DangerAction({
+  title,
+  description,
+  question,
+  warning,
+  action,
+  onConfirm,
+}: DangerActionProps) {
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
@@ -29,7 +46,7 @@ export function DeleteAccount({ onDelete }: { onDelete: () => Promise<void> }) {
     setDeleting(true);
     setError("");
     try {
-      await onDelete();
+      await onConfirm();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
       setDeleting(false);
@@ -39,10 +56,8 @@ export function DeleteAccount({ onDelete }: { onDelete: () => Promise<void> }) {
   return (
     <div className="flex items-center justify-between gap-4 rounded-lg border border-destructive/30 px-4 py-3 text-sm">
       <div>
-        <p className="font-medium">Delete account</p>
-        <p className="text-muted-foreground">
-          Deletes your account and all your sites.
-        </p>
+        <p className="font-medium">{title}</p>
+        <p className="text-muted-foreground">{description}</p>
       </div>
       <AlertDialog open={confirming} onOpenChange={changeOpen}>
         <AlertDialogTrigger asChild>
@@ -52,11 +67,8 @@ export function DeleteAccount({ onDelete }: { onDelete: () => Promise<void> }) {
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete your account?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Your account and all your sites are deleted, and the sites go
-              offline right away. This can't be undone.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{question}</AlertDialogTitle>
+            <AlertDialogDescription>{warning}</AlertDialogDescription>
           </AlertDialogHeader>
           {error && (
             <p role="alert" className="text-sm text-destructive">
@@ -70,7 +82,7 @@ export function DeleteAccount({ onDelete }: { onDelete: () => Promise<void> }) {
               disabled={deleting}
               onClick={confirmDelete}
             >
-              {deleting ? "Deleting…" : "Delete account"}
+              {deleting ? "Deleting…" : action}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
