@@ -112,6 +112,26 @@ export function SiteList({
                     className="mx-2.5"
                   />
                 </Hint>
+                <Hint
+                  label={
+                    canUpdate
+                      ? "Replace its files with a new version"
+                      : "Wait for the current upload to finish"
+                  }
+                >
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mr-1"
+                    aria-label={`Update ${site.slug}`}
+                    disabled={!canUpdate}
+                    onClick={() => onUpdate(site.slug)}
+                  >
+                    <FolderUp />
+                    Update
+                  </Button>
+                </Hint>
                 {url && (
                   <>
                     <CopyButton
@@ -132,24 +152,6 @@ export function SiteList({
                     </Hint>
                   </>
                 )}
-                <Hint
-                  label={
-                    canUpdate
-                      ? "Update with new files"
-                      : "Wait for the current upload to finish"
-                  }
-                >
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Update ${site.slug}`}
-                    disabled={!canUpdate}
-                    onClick={() => onUpdate(site.slug)}
-                  >
-                    <FolderUp />
-                  </Button>
-                </Hint>
                 <Hint label="Delete site">
                   <Button
                     type="button"

@@ -214,6 +214,14 @@ function useUploadState() {
     setTarget(slug);
   }
 
+  // Unlike startUpdate, keeps the files already picked
+  function chooseTarget(slug: string | null) {
+    setStoredFiles(null);
+    setTarget(slug);
+    setMessage("");
+    setLockedUntil(null);
+  }
+
   async function prepareUpdate(
     slug: string,
     manifest: ManifestFile[],
@@ -357,6 +365,7 @@ function useUploadState() {
     selectFiles,
     startOver,
     startUpdate,
+    chooseTarget,
     cancel,
     publish,
     takeOver,

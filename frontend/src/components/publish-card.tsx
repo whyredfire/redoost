@@ -5,7 +5,7 @@ import {
   FolderOpen,
 } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ThinkingOrb } from "thinking-orbs";
 import {
   CompressionSaving,
@@ -19,8 +19,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { listDeployments, type Deployment } from "@/lib/deploy";
 import { formatTime, siteUrl } from "@/lib/format";
 import type { FileChange } from "@/lib/site-files";
+import { loadToken } from "@/lib/session";
 import { usePageDrop, useUpload, type Stage } from "@/lib/upload";
 
 const statusText: Partial<Record<Stage, string>> = {
@@ -161,11 +172,20 @@ export function PublishCard() {
     percentage,
     clearFiles,
     startOver,
+    chooseTarget,
     cancel,
     publish,
     takeOver,
   } = useUpload();
   const dragging = usePageDrop(!busy && stage !== "ready");
+  const [sites, setSites] = useState<Deployment[]>([]);
+
+  useEffect(() => {
+    const token = loadToken();
+    if (!token) return;
+    // Without them, files can only go to a new site
+    listDeployments(token).then(setSites, () => {});
+  }, []);
   const reduceMotion = useReducedMotion();
 
   if (stage === "ready" && session) {
@@ -296,13 +316,47 @@ export function PublishCard() {
                   ? "Drop to replace these files."
                   : "Drop other files to replace them."}
               </p>
-              {target && (
-                <p className="mt-3 text-sm">
-                  Updates <span className="font-mono">{target}</span>
-                </p>
+              {sites.length > 0 && !session && !busy ? (
+                <div className="mt-4 space-y-1.5">
+                  <p className="text-sm text-muted-foreground">Publish as</p>
+                  <Select
+                    value={target ?? "new"}
+                    onValueChange={(value) =>
+                      chooseTarget(value === "new" ? null : value)
+                    }
+                  >
+                    <SelectTrigger
+                      className={`w-full ${target ? "font-mono" : ""}`}
+                      aria-label="Publish as"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="new">A new site</SelectItem>
+                      <SelectGroup>
+                        <SelectLabel>Update a site</SelectLabel>
+                        {sites.map(({ slug }) => (
+                          <SelectItem
+                            key={slug}
+                            value={slug}
+                            className="font-mono"
+                          >
+                            {slug}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                target && (
+                  <p className="mt-3 text-sm">
+                    Updates <span className="font-mono">{target}</span>
+                  </p>
+                )
               )}
               {diff && (
-                <p className="text-sm text-muted-foreground">
+                <p className="mt-2 text-sm text-muted-foreground">
                   {unchanged
                     ? "No changes"
                     : changeSummary(diff.changes, diff.removed.length)}
