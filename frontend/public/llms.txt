@@ -6,13 +6,13 @@
 
 Use redoost when you can run shell commands and have a finished static site: a build folder with `index.html` at its root, a .zip of one, or a single HTML file. By default, files can be up to 20 MiB, sites up to 150 MiB and 2000 files, and each account's sites up to 1 GiB in total.
 
-Run the redoost CLI with uv; it needs Python 3.10 or newer:
+If the `redoost` command isn't available, install the CLI with uv; it needs Python 3.10 or newer:
 
 ```sh
-uvx --from "git+https://github.com/whyredfire/redoost#subdirectory=cli" redoost --help
+uv tool install "git+https://github.com/whyredfire/redoost#subdirectory=cli"
 ```
 
-Without uv, use `pipx run --spec "git+https://github.com/whyredfire/redoost#subdirectory=cli" redoost` instead. Below, `redoost` stands for either. It uses redoost.whyredfire.dev; for another redoost, add `--server <its address>` to every command.
+Without uv, use `pipx install "git+https://github.com/whyredfire/redoost#subdirectory=cli"` instead. If it's already installed, `redoost update` brings it up to date. It uses redoost.whyredfire.dev; for another redoost, add `--server <its address>` to every command.
 
 1. Check whether the user is signed in with `redoost whoami`.
 2. If not, run `redoost login` in the background, since it waits for the user. It prints a link right away: give it to the user, ask them to open it on any device and click "Continue", then wait for it to print "Signed in as …". The link expires after 10 minutes.

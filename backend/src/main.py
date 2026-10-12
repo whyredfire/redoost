@@ -46,5 +46,15 @@ async def health() -> HealthResponse | JSONResponse:
     return HealthResponse(status="ok", version=settings.version)
 
 
+class VersionResponse(BaseModel):
+    version: str = Field(description="Deployed version, e.g. 0.1.6-abc1234")
+
+
+# The dashboard's origin only forwards /api, which is where the CLI looks
+@app.get("/api/version")
+async def read_version() -> VersionResponse:
+    return VersionResponse(version=settings.version)
+
+
 if __name__ == "__main__":
     uvicorn.run("src.main:app", host="0.0.0.0", port=8000, reload=settings.reload)

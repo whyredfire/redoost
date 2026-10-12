@@ -110,9 +110,6 @@ jobs:
             echo
             echo "# Or with pipx"
             echo "pipx install $wheel"
-            echo
-            echo "# Or run it once without installing"
-            echo "uvx --from $wheel redoost login"
             echo '```'
             if [ -n "$previous" ]; then
               echo

@@ -30,3 +30,9 @@ def test_health_when_s3_is_unavailable(
 
     assert response.status_code == 503
     assert response.json() == {"status": "unavailable", "version": "dev"}
+
+
+def test_version_without_signing_in(client: TestClient) -> None:
+    response = client.get("/api/version")
+
+    assert response.json() == {"version": "dev"}

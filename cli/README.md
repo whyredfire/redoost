@@ -6,14 +6,11 @@ newer.
 Install it from `main`, so `redoost` works from anywhere:
 
 ```sh
-# Install with uv, and update with uv tool upgrade redoost
+# Install with uv
 uv tool install "git+https://github.com/whyredfire/redoost#subdirectory=cli"
 
-# Or with pipx, and update by running this again with --force
+# Or with pipx
 pipx install "git+https://github.com/whyredfire/redoost#subdirectory=cli"
-
-# Or run it once without installing
-uvx --from "git+https://github.com/whyredfire/redoost#subdirectory=cli" redoost login
 ```
 
 `main` can be ahead of what's deployed. Each
@@ -43,6 +40,10 @@ you, and last 30 days. `redoost logout` forgets the token.
 | `redoost disable <slug>` | Take a site offline, keeping its files and address |
 | `redoost enable <slug>` | Put an offline site back online |
 | `redoost delete <slug>` | Delete a site |
+| `redoost update` | Update the CLI to the release your server runs |
+
+Once a day, commands run in a terminal check whether the server runs a newer
+release, and suggest `redoost update` if so.
 
 Every command takes `--json` to print its result as JSON, with progress on
 stderr, and `--server` (or `REDOOST_SERVER`) to use another redoost, such as

@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import subprocess
 import sys
 import time
 from collections.abc import Callable
@@ -8,7 +9,7 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 
-from . import config, preview
+from . import config, preview, updates
 from .api import Api, ApiError
 from .files import SiteError, compress, read_site
 from .spinner import Spinner
@@ -187,6 +188,36 @@ def disable(args: argparse.Namespace) -> None:
     switch(args, False)
 
 
+def update(args: argparse.Namespace) -> None:
+    available = updates.server_version(args.server)
+    if updates.release(available) is None:
+        raise ApiError(f"Couldn't tell which version {args.server} runs.")
+    newer = updates.newer_release(available)
+    current = version("redoost")
+    if newer is None:
+        output(
+            args,
+            {"version": current, "updated": False},
+            f"redoost {current} is up to date",
+        )
+        return
+
+    spec = updates.wheel_url(newer)
+    command = updates.install_command(spec)
+    if command is None:
+        choices = [f"uv tool install --force {spec}", f"pipx install --force {spec}"]
+        text = f"redoost {newer} is available. Install it with one of:"
+        output(
+            args,
+            {"version": newer, "updated": False, "install": choices},
+            "\n  ".join([text, *choices]),
+        )
+        return
+    if subprocess.run(command, check=False).returncode != 0:
+        raise ApiError(f"Couldn't install redoost {newer}.")
+    output(args, {"version": newer, "updated": True}, f"Updated to redoost {newer}")
+
+
 def delete(args: argparse.Namespace) -> None:
     signed_in(args).request("DELETE", f"/api/deployments/{args.slug}")
     output(args, {"slug": args.slug}, f"Deleted {args.slug}")
@@ -243,6 +274,9 @@ def parse(argv: list[str] | None) -> argparse.Namespace:
         "delete", parents=[common], help="delete a site"
     )
     delete_parser.add_argument("slug")
+    commands.add_parser(
+        "update", parents=[common], help="update the CLI to the server's version"
+    )
 
     args = parser.parse_args(argv)
     args.server = args.server.rstrip("/")
@@ -259,6 +293,7 @@ commands: dict[str, Command] = {
     "enable": enable,
     "disable": disable,
     "delete": delete,
+    "update": update,
 }
 
 
@@ -270,3 +305,6 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(f"error: {error}")
     except KeyboardInterrupt:
         sys.exit(130)
+    # After the output, and only for people, since scripts can't act on it
+    if args.command != "update" and not args.json and sys.stderr.isatty():
+        updates.notify(args.server)
