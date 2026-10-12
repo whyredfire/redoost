@@ -20,4 +20,4 @@ Without uv, use `pipx run --spec "git+https://github.com/whyredfire/redoost#subd
 4. Publish with `redoost publish <path> --json`. To replace an existing site's files instead, add `--update <slug>`; `redoost list --json` shows the user's sites.
 5. Open the returned `url` to verify it loads.
 
-Return the site's address. Sites stay online until the user deletes them, with `redoost delete <slug>` or from the dashboard.
+Return the site's address. Sites stay online until the user deletes them, with `redoost delete <slug>` or from the dashboard. `redoost disable <slug>` takes a site offline without deleting it, and `redoost enable <slug>` puts it back.

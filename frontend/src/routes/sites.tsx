@@ -12,7 +12,12 @@ import { SignInPrompt } from "@/components/sign-in-prompt";
 import { SiteList } from "@/components/site-list";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ApiError, deleteDeployment, listDeployments } from "@/lib/deploy";
+import {
+  ApiError,
+  changeDeployment,
+  deleteDeployment,
+  listDeployments,
+} from "@/lib/deploy";
 import {
   clearSession,
   clearToken,
@@ -64,6 +69,13 @@ function SitesPage() {
     navigate({ to: "/" });
   }
 
+  async function toggleSite(slug: string, enabled: boolean) {
+    const token = loadToken();
+    if (!token) return;
+    await changeDeployment(slug, enabled, token);
+    await router.invalidate();
+  }
+
   async function deleteSite(slug: string) {
     const token = loadToken();
     if (!token) return;
@@ -103,6 +115,7 @@ function SitesPage() {
               sites={shown}
               canUpdate={!busy}
               onUpdate={updateSite}
+              onToggle={toggleSite}
               onDelete={deleteSite}
             />
           ) : (

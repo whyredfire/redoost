@@ -103,6 +103,9 @@ class DeploymentBase(SQLModel):
     spa: bool = Field(
         default=False, description="Serve index.html for missing pages (no 404.html)"
     )
+    enabled: bool = Field(
+        default=True, description="Whether visitors can reach the site"
+    )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC), description="Creation time"
     )
@@ -110,6 +113,10 @@ class DeploymentBase(SQLModel):
         default_factory=lambda: datetime.now(UTC) + settings.upload_window,
         description="When the latest upload's policies expire; uploads are locked until then",
     )
+
+
+class DeploymentChange(SQLModel):
+    enabled: bool = Field(description="Whether visitors can reach the site")
 
 
 class Deployment(DeploymentBase, table=True):

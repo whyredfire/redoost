@@ -71,7 +71,13 @@ class FakeServer:
                 "file_count": 2,
                 "created_at": "2026-10-09T10:00:00Z",
             }
-            return httpx2.Response(200, json=[site])
+            offline = {**site, "slug": "quiet-heron-7f3c", "enabled": False}
+            return httpx2.Response(200, json=[site, offline])
+        if route == "PATCH /api/deployments/brave-otter-1a2b":
+            enabled = json.loads(request.content)["enabled"]
+            return httpx2.Response(
+                200, json={"slug": "brave-otter-1a2b", "enabled": enabled}
+            )
         if route.endswith("/complete"):
             return httpx2.Response(
                 200, json={"slug": "brave-otter-1a2b", "state": "ready"}
@@ -212,10 +218,29 @@ def test_list_and_delete(
     signed_in()
 
     out, _ = run(capsys, "list")
-    assert out == "https://brave-otter-1a2b.sites.test  2 files  2026-10-09\n"
+    assert out == (
+        "https://brave-otter-1a2b.sites.test  2 files  2026-10-09\n"
+        "https://quiet-heron-7f3c.sites.test  2 files  2026-10-09  offline\n"
+    )
     out, _ = run(capsys, "delete", "brave-otter-1a2b")
     assert out == "Deleted brave-otter-1a2b\n"
     assert "DELETE /api/deployments/brave-otter-1a2b" in server.routes()
+
+
+def test_disable_and_enable(
+    server: FakeServer, capsys: pytest.CaptureFixture[str]
+) -> None:
+    signed_in()
+
+    out, _ = run(capsys, "disable", "brave-otter-1a2b")
+    assert out.startswith("brave-otter-1a2b is offline")
+    out, _ = run(capsys, "enable", "brave-otter-1a2b", "--json")
+    assert json.loads(out) == {"slug": "brave-otter-1a2b", "enabled": True}
+    patches = [r for r in server.requests if r.method == "PATCH"]
+    assert [json.loads(r.content) for r in patches] == [
+        {"enabled": False},
+        {"enabled": True},
+    ]
 
 
 def test_version(capsys: pytest.CaptureFixture[str]) -> None:

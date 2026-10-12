@@ -40,6 +40,8 @@ you, and last 30 days. `redoost logout` forgets the token.
 | `redoost publish <folder\|zip\|file.html>` | Publish a new site |
 | `redoost publish <path> --update <slug>` | Replace a site's files, uploading only what changed, or nothing if nothing did |
 | `redoost list` | List your sites |
+| `redoost disable <slug>` | Take a site offline, keeping its files and address |
+| `redoost enable <slug>` | Put an offline site back online |
 | `redoost delete <slug>` | Delete a site |
 
 Every command takes `--json` to print its result as JSON, with progress on

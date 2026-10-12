@@ -1,12 +1,12 @@
 import { cn } from "cn";
 
+type LiveDotProps = { pulse?: boolean; off?: boolean; className?: string };
+
 export function LiveDot({
   pulse = false,
+  off = false,
   className,
-}: {
-  pulse?: boolean;
-  className?: string;
-}) {
+}: LiveDotProps) {
   return (
     <span
       aria-hidden
@@ -15,7 +15,12 @@ export function LiveDot({
       {pulse && (
         <span className="absolute size-full rounded-full bg-brand opacity-60 motion-safe:animate-ping" />
       )}
-      <span className="relative size-2 rounded-full bg-brand" />
+      <span
+        className={cn(
+          "relative size-2 rounded-full",
+          off ? "bg-muted-foreground/40" : "bg-brand",
+        )}
+      />
     </span>
   );
 }

@@ -481,6 +481,56 @@ def test_delete_requires_its_owner(
     )
 
 
+def turn(client: TestClient, created: dict[str, str], enabled: bool) -> Response:
+    return client.patch(
+        f"{URL}/{created['slug']}",
+        headers=bearer(created["token"]),
+        json={"enabled": enabled},
+    )
+
+
+def test_turn_sites_off_and_on(
+    client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    created = published(client, token, monkeypatch, "index.html")
+
+    response = turn(client, created, False)
+    assert response.status_code == 200
+    assert response.json()["enabled"] is False
+    assert resolve(client, created["slug"]).status_code == 403
+    listed = client.get(URL, headers=bearer(token)).json()
+    assert [site["enabled"] for site in listed] == [False]
+
+    assert turn(client, created, True).json()["enabled"] is True
+    assert resolve(client, created["slug"]).status_code == 204
+
+
+def test_turning_sites_off_requires_their_owner(
+    client: TestClient, token: str, new_token: Callable[[], str]
+) -> None:
+    created = create(client, token, "index.html")
+
+    assert turn(client, {**created, "token": new_token()}, False).status_code == 403
+    assert (
+        client.patch(f"{URL}/{created['slug']}", json={"enabled": False}).status_code
+        == 401
+    )
+
+
+def test_updates_keep_sites_off(
+    client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    created = published(client, token, monkeypatch, "index.html")
+    turn(client, created, False)
+
+    update(client, created, "index.html", "app.js")
+    monkeypatch.setattr(deployments, "read_checksums", stored("index.html", "app.js"))
+    response = complete(client, created, "index.html", "app.js")
+
+    assert response.json()["enabled"] is False
+    assert resolve(client, created["slug"]).status_code == 403
+
+
 def resolve(client: TestClient, slug: str) -> Response:
     return client.get(f"/internal/sites/{slug}")
 

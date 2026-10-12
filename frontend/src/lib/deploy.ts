@@ -12,6 +12,7 @@ export type Deployment = {
   state: "uploading" | "ready";
   file_count: number;
   total_size: number;
+  enabled: boolean;
   created_at: string;
   expires_at: string;
 };
@@ -158,6 +159,19 @@ export async function readUsage(token: string) {
     headers: authorization(token),
   });
   return readResponse<Usage>(response);
+}
+
+export async function changeDeployment(
+  slug: string,
+  enabled: boolean,
+  token: string,
+) {
+  const response = await fetch(`/api/deployments/${slug}`, {
+    method: "PATCH",
+    headers: { ...authorization(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ enabled }),
+  });
+  return readResponse<Deployment>(response);
 }
 
 export async function deleteDeployment(slug: string, token: string) {

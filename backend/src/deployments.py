@@ -11,6 +11,7 @@ from .database import Session
 from .models import (
     Deployment,
     DeploymentBase,
+    DeploymentChange,
     DeploymentState,
     DeploymentUploads,
     Limits,
@@ -123,6 +124,16 @@ async def read_deployment(deployment: OwnedDeployment) -> DeploymentBase:
 
 
 # Lets the frontend show what an update changes before it starts
+@router.patch("/{slug}")
+async def change_deployment(
+    change: DeploymentChange, deployment: OwnedDeployment, session: Session
+) -> DeploymentBase:
+    deployment.enabled = change.enabled
+    session.add(deployment)
+    await session.commit()
+    return deployment
+
+
 @router.get("/{slug}/files")
 async def read_files(deployment: OwnedDeployment) -> list[StoredFile]:
     checksums = await read_checksums(deployment.slug)

@@ -160,9 +160,31 @@ def list_sites(args: argparse.Namespace) -> None:
     lines = [
         f"{site['url'] or site['slug']}  {site['file_count']} files  "
         f"{site['created_at'][:10]}"
+        # Servers before this setting existed don't report it
+        f"{'' if site.get('enabled', True) else '  offline'}"
         for site in sites
     ]
     output(args, sites, "\n".join(lines) or "No sites yet")
+
+
+def switch(args: argparse.Namespace, enabled: bool) -> None:
+    response = signed_in(args).request(
+        "PATCH", f"/api/deployments/{args.slug}", json={"enabled": enabled}
+    )
+    text = (
+        f"{args.slug} is online"
+        if enabled
+        else f"{args.slug} is offline; visitors may still see it for a minute"
+    )
+    output(args, response.json(), text)
+
+
+def enable(args: argparse.Namespace) -> None:
+    switch(args, True)
+
+
+def disable(args: argparse.Namespace) -> None:
+    switch(args, False)
 
 
 def delete(args: argparse.Namespace) -> None:
@@ -212,6 +234,11 @@ def parse(argv: list[str] | None) -> argparse.Namespace:
         "--port", type=int, default=0, help="port to listen on (default: a free one)"
     )
     commands.add_parser("list", parents=[common], help="list your sites")
+    for name, help_text in [
+        ("enable", "put a site back online"),
+        ("disable", "take a site offline, keeping its files"),
+    ]:
+        commands.add_parser(name, parents=[common], help=help_text).add_argument("slug")
     delete_parser = commands.add_parser(
         "delete", parents=[common], help="delete a site"
     )
@@ -229,6 +256,8 @@ commands: dict[str, Command] = {
     "publish": publish,
     "preview": preview_site,
     "list": list_sites,
+    "enable": enable,
+    "disable": disable,
     "delete": delete,
 }
 

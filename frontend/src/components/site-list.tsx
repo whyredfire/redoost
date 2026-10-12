@@ -15,6 +15,7 @@ import { Hint } from "@/components/hint";
 import { LiveDot } from "@/components/live-dot";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import type { Deployment } from "@/lib/deploy";
 import { formatBytes, formatDate, siteUrl } from "@/lib/format";
 
@@ -23,6 +24,7 @@ type SiteListProps = {
   // Off while an upload runs, which starting an update would lose
   canUpdate: boolean;
   onUpdate: (slug: string) => void;
+  onToggle: (slug: string, enabled: boolean) => Promise<void>;
   onDelete: (slug: string) => Promise<void>;
 };
 
@@ -30,9 +32,24 @@ export function SiteList({
   sites,
   canUpdate,
   onUpdate,
+  onToggle,
   onDelete,
 }: SiteListProps) {
   const [target, setTarget] = useState<Deployment | null>(null);
+  const [switching, setSwitching] = useState<string | null>(null);
+  const [toggleError, setToggleError] = useState("");
+
+  async function toggle(slug: string, enabled: boolean) {
+    setSwitching(slug);
+    setToggleError("");
+    try {
+      await onToggle(slug, enabled);
+    } catch (cause) {
+      setToggleError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setSwitching(null);
+    }
+  }
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
 
@@ -70,15 +87,31 @@ export function SiteList({
             >
               <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-2.5 font-mono text-sm font-medium">
-                  <LiveDot />
+                  <LiveDot off={!site.enabled} />
                   <span className="truncate">{site.slug}</span>
                 </p>
                 <p className="mt-1 pl-4.5 font-mono text-xs text-muted-foreground">
                   {site.file_count} {site.file_count === 1 ? "file" : "files"} ·{" "}
                   {formatBytes(site.total_size)} · {formatDate(site.created_at)}
+                  {!site.enabled && " · offline"}
                 </p>
               </div>
               <div className="-ml-2 flex shrink-0 items-center pl-4.5 sm:ml-0 sm:pl-0">
+                <Hint
+                  label={
+                    site.enabled
+                      ? "Take offline; visitors may see it for a minute"
+                      : "Put online"
+                  }
+                >
+                  <Switch
+                    checked={site.enabled}
+                    disabled={switching === site.slug}
+                    onCheckedChange={(enabled) => toggle(site.slug, enabled)}
+                    aria-label={`${site.slug} is online`}
+                    className="mx-2.5"
+                  />
+                </Hint>
                 {url && (
                   <>
                     <CopyButton
@@ -133,6 +166,11 @@ export function SiteList({
           );
         })}
       </ul>
+      {toggleError && (
+        <p role="alert" className="border-t px-5 py-3 text-sm text-destructive">
+          {toggleError}
+        </p>
+      )}
 
       <AlertDialog open={target !== null} onOpenChange={closeDialog}>
         <AlertDialogContent>
