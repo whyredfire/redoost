@@ -25,11 +25,14 @@ and get a shareable address, with no build step.
   `index.html` for unknown pages; sites with one get their own 404 page.
 - **Sign in with Google.** People sign in through an OIDC provider, and their
   sites stay online for as long as they keep them.
-- **Manage your sites.** Your sites are listed with their size and date, and
-  can be updated or deleted.
+- **Manage your sites.** Each site has its own page, where you can update it
+  with a new version, take it offline, or delete it.
 - **A command line too.** `redoost login` signs in through a link you can open
   on any device, then `redoost publish ./dist` publishes a folder. See
   [`cli/README.md`](cli/README.md).
+- **Works with AI agents.** `npx skills add whyredfire/redoost` installs the
+  redoost skill, so agents like Claude Code, Codex, and Cursor can publish and
+  manage sites for you.
 - **Sensible limits.** 20 MiB per file, 150 MiB and 2000 files per site, and
   1 GiB per user, all configurable. The dashboard checks the per-site limits as
   soon as files are selected.

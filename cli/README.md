@@ -17,6 +17,15 @@ pipx install "git+https://github.com/whyredfire/redoost#subdirectory=cli"
 [release](https://github.com/whyredfire/redoost/releases) attaches the CLI as a
 wheel, with the same commands pinned to that version in its notes.
 
+## For AI agents
+
+The redoost skill teaches agents like Claude Code, Codex, and Cursor to install
+the CLI, sign in, and publish and manage sites:
+
+```sh
+npx skills add whyredfire/redoost
+```
+
 ## Signing in
 
 `redoost login` prints a link. Open it on any device, sign in to the dashboard,

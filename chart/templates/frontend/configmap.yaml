@@ -30,6 +30,11 @@ data:
             return 200 '{{ dict "sitesOrigin" .Values.sitesOrigin | toJson }}';
         }
 
+        # Agents fetch these setup steps, so serve them as text
+        location = /agent-setup.md {
+            default_type text/markdown;
+        }
+
         # Assets have hashed names, but the page pointing at them must stay fresh
         location = /index.html {
             add_header_inherit merge;

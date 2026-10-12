@@ -1,29 +1,47 @@
 import { Bot, Check } from "lucide-react";
 import { useState } from "react";
+import { AgentLogos } from "@/components/agent-logos";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
-// Agents read the publishing steps from llms.txt, so the prompt only points there
+// The prompt only points at the setup steps, which agents fetch and follow
 export function AgentPromptButton() {
   const [copied, setCopied] = useState(false);
 
   async function copy() {
-    await navigator.clipboard.writeText(`Fetch ${location.origin}/llms.txt`);
+    await navigator.clipboard.writeText(
+      `Fetch and follow the instructions to set me up for redoost from ${location.origin}/agent-setup.md`,
+    );
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
 
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      className="text-muted-foreground"
-      aria-label={copied ? "Copied" : "Copy AI agent prompt to clipboard"}
-      onClick={copy}
-    >
-      {copied ? <Check /> : <Bot />}
-      <span className="hidden sm:inline">
-        {copied ? "Copied" : "Copy for your agent"}
-      </span>
-    </Button>
+    <Tooltip open={copied}>
+      <TooltipTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          className="text-muted-foreground"
+          aria-label={
+            copied ? "Copied" : "Copy a prompt that sets up your agent"
+          }
+          onClick={copy}
+        >
+          {copied ? (
+            <Check className="sm:hidden" />
+          ) : (
+            <Bot className="sm:hidden" />
+          )}
+          <span className="hidden sm:inline">Set up your agent</span>
+          <AgentLogos className="hidden sm:flex" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>Copied</TooltipContent>
+    </Tooltip>
   );
 }

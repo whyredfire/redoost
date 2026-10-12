@@ -4,20 +4,12 @@
 
 ## For AI agents
 
-Use redoost when you can run shell commands and have a finished static site: a build folder with `index.html` at its root, a .zip of one, or a single HTML file. By default, files can be up to 20 MiB, sites up to 150 MiB and 2000 files, and each account's sites up to 1 GiB in total.
+Use redoost when you can run shell commands and have a finished static site: a build folder with `index.html` at its root, a .zip of one, or a single HTML file.
 
-If the `redoost` command isn't available, install the CLI with uv; it needs Python 3.10 or newer:
+Follow the redoost skill, which covers installing the CLI, signing in, previewing, publishing, and managing sites:
 
-```sh
-uv tool install "git+https://github.com/whyredfire/redoost#subdirectory=cli"
-```
+https://raw.githubusercontent.com/whyredfire/redoost/main/skills/redoost/SKILL.md
 
-Without uv, use `pipx install "git+https://github.com/whyredfire/redoost#subdirectory=cli"` instead. If it's already installed, `redoost update` brings it up to date. It uses redoost.whyredfire.dev; for another redoost, add `--server <its address>` to every command.
+To keep it for later, install it with `npx skills add whyredfire/redoost`.
 
-1. Check whether the user is signed in with `redoost whoami`.
-2. If not, run `redoost login` in the background, since it waits for the user. It prints a link right away: give it to the user, ask them to open it on any device and click "Continue", then wait for it to print "Signed in as …". The link expires after 10 minutes.
-3. Optionally, check the site first with `redoost preview <path> --json` in the background: it serves the site locally as it would be published, without signing in, and prints its `url`. Stop it when you're done.
-4. Publish with `redoost publish <path> --json`. To replace an existing site's files instead, add `--update <slug>`; `redoost list --json` shows the user's sites.
-5. Open the returned `url` to verify it loads.
-
-Return the site's address. Sites stay online until the user deletes them, with `redoost delete <slug>` or from the dashboard. `redoost disable <slug>` takes a site offline without deleting it, and `redoost enable <slug>` puts it back.
+To set the user up for later, with the skill, the CLI, and a sign-in, follow /agent-setup.md on this site.

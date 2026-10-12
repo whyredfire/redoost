@@ -25,7 +25,7 @@ export function CopyButton({
   }
 
   return (
-    <Hint label={copied ? "Copied" : hint}>
+    <Hint label={copied ? "Copied" : hint} open={copied}>
       <Button
         type="button"
         variant="ghost"
