@@ -35,7 +35,7 @@ export function SitePreview({ url }: { url: string }) {
             className="size-2 rounded-full bg-muted-foreground/25"
           />
         ))}
-        <span className="ml-2 truncate text-xs text-muted-foreground">
+        <span className="ml-2 truncate font-mono text-xs text-muted-foreground">
           {new URL(url).host}
         </span>
       </div>

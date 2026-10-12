@@ -1,4 +1,4 @@
-import { useRouter } from "@tanstack/react-router";
+import { Link, useRouter } from "@tanstack/react-router";
 import { cn } from "cn";
 import { LogIn } from "lucide-react";
 import { useState } from "react";
@@ -35,7 +35,7 @@ export function SignInPrompt({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center rounded-xl border-2 px-6 py-12 text-center",
+        "flex flex-col items-center justify-center rounded-xl border px-6 py-12 text-center",
         className,
       )}
     >
@@ -52,6 +52,23 @@ export function SignInPrompt({
       ) : (
         <Button onClick={signInLocally}>Sign in as dev user</Button>
       )}
+      <p className="mt-4 max-w-xs text-xs text-balance text-muted-foreground">
+        By signing in, you agree to the{" "}
+        <Link
+          to="/terms"
+          className="underline underline-offset-4 hover:text-foreground"
+        >
+          Terms of Service
+        </Link>{" "}
+        and{" "}
+        <Link
+          to="/privacy"
+          className="underline underline-offset-4 hover:text-foreground"
+        >
+          Privacy Policy
+        </Link>
+        .
+      </p>
       {error && (
         <p role="alert" className="mt-3 text-sm text-destructive">
           {error}

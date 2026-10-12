@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { PageHeading } from "@/components/page-heading";
 
 export const contact = "whyredfire@gmail.com";
 
@@ -17,11 +18,8 @@ type LegalPageProps = { title: string; updated: string; children: ReactNode };
 
 export function LegalPage({ title, updated, children }: LegalPageProps) {
   return (
-    <article className="mx-auto max-w-2xl">
-      <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Last updated {updated}
-      </p>
+    <article>
+      <PageHeading title={title}>Last updated {updated}</PageHeading>
       {children}
     </article>
   );
@@ -35,7 +33,7 @@ export function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="mt-8">
+    <section className="mt-8 first-of-type:mt-0">
       <h2 className="font-semibold">{title}</h2>
       <div className="mt-2 space-y-2 text-muted-foreground">{children}</div>
     </section>

@@ -98,7 +98,7 @@ function StorageUsage({ usage }: { usage: Usage }) {
 
   return (
     <>
-      <div className="flex justify-between gap-4 tabular-nums">
+      <div className="flex justify-between gap-4 font-mono">
         <span>
           {formatBytes(usage.used)}{" "}
           <span className="text-muted-foreground">

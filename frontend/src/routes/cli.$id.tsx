@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { CircleCheck, Terminal } from "lucide-react";
+import { CircleCheck } from "lucide-react";
 import { useState } from "react";
 import { SignInPrompt } from "@/components/sign-in-prompt";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { useToken } from "@/lib/session";
 
 // Opened from the link `redoost login` prints
 export const Route = createFileRoute("/cli/$id")({
+  head: () => ({ meta: [{ title: "Sign in to the CLI · redoost" }] }),
   component: CliLoginPage,
 });
 
@@ -21,10 +22,17 @@ function CliLoginPage() {
 
   if (!token) {
     return (
-      <SignInPrompt
-        title="Sign in to continue"
-        description="Then you can sign in to the redoost CLI."
-      />
+      <div className="mx-auto flex max-w-md flex-col items-center gap-3 py-16 text-center">
+        <LoginCommand />
+        <h1 className="mt-3 mb-3 text-2xl font-semibold tracking-tighter">
+          Sign in to the redoost CLI
+        </h1>
+        <SignInPrompt
+          className="w-full"
+          title="Sign in to continue"
+          description="Then you can let the CLI act as your account."
+        />
+      </div>
     );
   }
 
@@ -48,8 +56,10 @@ function CliLoginPage() {
   if (approved) {
     return (
       <div className="mx-auto flex max-w-md flex-col items-center gap-3 py-16 text-center">
-        <CircleCheck className="size-8 text-muted-foreground" />
-        <h1 className="text-xl font-semibold">You're signed in</h1>
+        <CircleCheck className="size-8 text-emerald-600 dark:text-emerald-500" />
+        <h1 className="text-2xl font-semibold tracking-tighter">
+          You're signed in
+        </h1>
         <p className="text-sm text-muted-foreground">
           The CLI finishes signing in by itself. You can close this tab.
         </p>
@@ -60,8 +70,10 @@ function CliLoginPage() {
   const email = signedInUser()?.email;
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-3 py-16 text-center">
-      <Terminal className="size-8 text-muted-foreground" />
-      <h1 className="text-xl font-semibold">Sign in to the redoost CLI?</h1>
+      <LoginCommand />
+      <h1 className="mt-3 text-2xl font-semibold tracking-tighter">
+        Sign in to the redoost CLI?
+      </h1>
       <p className="text-sm text-muted-foreground">
         The CLI will act as{" "}
         <span className="font-medium text-foreground">
@@ -79,5 +91,13 @@ function CliLoginPage() {
         </p>
       )}
     </div>
+  );
+}
+
+function LoginCommand() {
+  return (
+    <p className="rounded-lg border bg-muted/40 px-3 py-1.5 font-mono text-sm">
+      <span className="text-brand select-none">$ </span>redoost login
+    </p>
   );
 }

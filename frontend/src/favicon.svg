@@ -2,11 +2,13 @@
   <style>
     rect { fill: #171717; }
     text { fill: #fafafa; }
+    .dot { fill: #ee560c; }
     @media (prefers-color-scheme: dark) {
       rect { fill: #ebebeb; }
       text { fill: #171717; }
+      .dot { fill: #f97c3d; }
     }
   </style>
   <rect width="32" height="32" rx="8" />
-  <text x="16" y="23" font-family="ui-sans-serif, system-ui, sans-serif" font-size="23" font-weight="600" text-anchor="middle">r.</text>
+  <text x="16" y="23" font-family="ui-sans-serif, system-ui, sans-serif" font-size="23" font-weight="600" text-anchor="middle">r<tspan class="dot">.</tspan></text>
 </svg>

@@ -13,6 +13,7 @@ import {
   Sizes,
 } from "@/components/compression-saving";
 import { CopyButton } from "@/components/copy-button";
+import { LiveDot } from "@/components/live-dot";
 import { SitePreview } from "@/components/site-preview";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -47,12 +48,19 @@ function FileRow({
   change,
   compressed,
 }: ListedFile & { compressed: number | null }) {
+  const slash = path.lastIndexOf("/") + 1;
   return (
     <li className="flex justify-between gap-4 px-4 py-2">
       <span
-        className={`truncate ${file ? "" : "text-muted-foreground line-through"}`}
+        title={path}
+        className={`flex min-w-0 ${file ? "" : "text-muted-foreground line-through"}`}
       >
-        {path}
+        <span className="min-w-0 truncate text-muted-foreground">
+          {path.slice(0, slash)}
+        </span>
+        <span className="max-w-full shrink-0 break-all">
+          {path.slice(slash)}
+        </span>
       </span>
       <span className="flex shrink-0 gap-3">
         {change && <span className={changeColor[change]}>{change}</span>}
@@ -176,7 +184,7 @@ export function PublishCard() {
             </motion.div>
           )}
           <motion.div variants={rise}>
-            <p className="flex items-center justify-center gap-2 text-xl font-semibold">
+            <p className="flex items-center justify-center gap-2 text-2xl font-semibold tracking-tighter">
               <CircleCheck className="size-5 text-emerald-600 dark:text-emerald-500" />
               {target ? "Your site is updated" : "Your site is live"}
             </p>
@@ -194,8 +202,9 @@ export function PublishCard() {
           </motion.div>
           <motion.div
             variants={rise}
-            className="flex items-center gap-1 rounded-xl border bg-muted/40 py-1 pr-1 pl-4 text-left"
+            className="flex items-center gap-3 rounded-xl border bg-card py-1 pr-1 pl-4 text-left shadow-xs"
           >
+            <LiveDot pulse />
             <span className="min-w-0 flex-1 truncate font-mono text-sm">
               {url ?? session.deployment.slug}
             </span>
@@ -236,6 +245,10 @@ export function PublishCard() {
       change: "removed" as const,
     })),
   ];
+  const compressedCount = Object.keys(compressed).length;
+  const compressedPercentage = Math.floor(
+    (compressedCount / files.length) * 100,
+  );
   const compared = diff !== null && compressedSize !== null;
   // Split once every file is compared, so rows don't jump between sections
   const split = compared && !unchanged;
@@ -271,7 +284,7 @@ export function PublishCard() {
           <div className="flex flex-col gap-5">
             <div>
               <FolderOpen className="size-6 text-muted-foreground" />
-              <p className="mt-3 text-2xl font-semibold tracking-tight">
+              <p className="mt-3 text-2xl font-semibold tracking-tighter">
                 {files.length} {files.length === 1 ? "file" : "files"}
               </p>
               <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -285,7 +298,7 @@ export function PublishCard() {
               </p>
               {target && (
                 <p className="mt-3 text-sm">
-                  Updates <span className="font-medium">{target}</span>
+                  Updates <span className="font-mono">{target}</span>
                 </p>
               )}
               {diff && (
@@ -296,6 +309,23 @@ export function PublishCard() {
                 </p>
               )}
             </div>
+
+            {compressedSize === null && stage === "idle" && !message && (
+              <div className="space-y-2 text-sm" aria-live="polite">
+                <div className="flex justify-between gap-2">
+                  <Working>
+                    Compressing {compressedCount} of {files.length}
+                  </Working>
+                  <span className="text-muted-foreground">
+                    {compressedPercentage}%
+                  </span>
+                </div>
+                <Progress
+                  value={compressedPercentage}
+                  aria-label="Compression progress"
+                />
+              </div>
+            )}
 
             {stage === "uploading" && (
               <div className="space-y-2 text-sm" aria-live="polite">
@@ -338,7 +368,7 @@ export function PublishCard() {
               <Button
                 type="button"
                 className="flex-1"
-                disabled={busy || unchanged}
+                disabled={busy || unchanged || compressedSize === null}
                 onClick={publish}
               >
                 {busy

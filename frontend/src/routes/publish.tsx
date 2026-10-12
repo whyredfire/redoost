@@ -3,6 +3,7 @@ import { PublishCard } from "@/components/publish-card";
 import { useUpload } from "@/lib/upload";
 
 export const Route = createFileRoute("/publish")({
+  head: () => ({ meta: [{ title: "Publish · redoost" }] }),
   component: PublishPage,
 });
 

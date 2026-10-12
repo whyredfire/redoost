@@ -166,14 +166,27 @@ function useUploadState() {
       setFiles(selected);
     }
 
-    const run = prepareFiles(selected, (file) => {
+    let batch: Record<string, UploadFile> = {};
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    function flush() {
+      clearTimeout(timer);
+      timer = undefined;
+      const prepared = batch;
+      batch = {};
       if (preparation.current === run) {
-        setCompressed((current) => ({ ...current, [file.path]: file }));
+        setCompressed((current) => ({ ...current, ...prepared }));
       }
+    }
+
+    // Batched, since each update re-renders every listed file
+    const run = prepareFiles(selected, (file) => {
+      batch[file.path] = file;
+      timer ??= setTimeout(flush, 100);
     });
     preparation.current = run;
     try {
       const uploads = await run;
+      flush();
       if (preparation.current === run) rejected(uploads);
     } catch (error) {
       if (preparation.current !== run) return;
@@ -323,6 +336,7 @@ function useUploadState() {
   return {
     files,
     compressed,
+    limits,
     session,
     stage,
     message,

@@ -1,7 +1,6 @@
 import { Check, Upload } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useRef, type ChangeEvent } from "react";
-import { DotField } from "@/components/dot-field";
 import { Button } from "@/components/ui/button";
 import { pickedFiles, type SiteCheck, type SiteFile } from "@/lib/site-files";
 
@@ -51,16 +50,8 @@ export function FolderDrop({
 
   return (
     <div
-      className={`relative isolate flex flex-1 flex-col items-center justify-center overflow-hidden rounded-xl border-2 px-6 py-12 text-center transition-colors duration-300 motion-safe:animate-in motion-safe:fade-in ${dragging ? "border-foreground/20 bg-muted" : "border-border"}`}
+      className={`relative flex flex-col items-center justify-center rounded-xl border-2 px-6 py-12 text-center transition-colors duration-300 motion-safe:animate-in motion-safe:fade-in ${dragging ? "border-solid border-foreground/20 bg-muted" : "border-dashed border-border"}`}
     >
-      <DotField
-        aria-hidden
-        dotRadius={3}
-        dotSpacing={20}
-        glowRadius={80}
-        glowColor="var(--foreground)"
-        className={`pointer-events-none absolute inset-0 -z-10 text-muted-foreground/40 transition-opacity duration-300 ${view === "error" ? "opacity-0" : ""}`}
-      />
       {/* The prompt, drop hint and error blur into each other in one spot */}
       <div className="grid w-full max-w-md place-items-center">
         <AnimatePresence initial={false}>
@@ -78,7 +69,7 @@ export function FolderDrop({
                 <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-muted">
                   <Upload className="size-5 text-muted-foreground" />
                 </div>
-                <p className="text-lg font-medium">
+                <p className="text-lg font-medium text-balance">
                   Drop your site anywhere on this page
                 </p>
                 <p className="mt-1 mb-6 text-sm text-muted-foreground">

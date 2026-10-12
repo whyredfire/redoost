@@ -9,6 +9,9 @@ export function ThemeToggle() {
 
   function toggle() {
     document.documentElement.classList.toggle("dark", !dark);
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", dark ? "#ffffff" : "#0a0a0a");
     localStorage.setItem("theme", dark ? "light" : "dark");
     setDark(!dark);
   }

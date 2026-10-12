@@ -2,12 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ContactLink, LegalPage, Section } from "@/components/legal-page";
 
 export const Route = createFileRoute("/privacy")({
+  head: () => ({ meta: [{ title: "Privacy Policy · redoost" }] }),
   component: PrivacyPage,
 });
 
 function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Policy" updated="9 October 2026">
+    <LegalPage title="Privacy Policy" updated="13 October 2026">
       <Section title="What we store">
         <p>
           When you sign in with Google, we store your Google account ID, email
@@ -41,8 +42,8 @@ function PrivacyPage() {
       <Section title="Deleting your data">
         <p>
           You can delete your sites at any time from Your sites, and your
-          account with everything stored with it from the account menu. For
-          anything else, email <ContactLink />.
+          account with everything stored with it from Settings, in the account
+          menu. For anything else, email <ContactLink />.
         </p>
       </Section>
     </LegalPage>

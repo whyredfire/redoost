@@ -4,10 +4,14 @@ import {
   useNavigate,
   useRouter,
 } from "@tanstack/react-router";
-import { Globe } from "lucide-react";
+import { Globe, Search } from "lucide-react";
+import { useState } from "react";
+import { CliCommand } from "@/components/cli-command";
+import { PageHeading } from "@/components/page-heading";
 import { SignInPrompt } from "@/components/sign-in-prompt";
 import { SiteList } from "@/components/site-list";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ApiError, deleteDeployment, listDeployments } from "@/lib/deploy";
 import {
   clearSession,
@@ -19,6 +23,7 @@ import {
 import { useUpload } from "@/lib/upload";
 
 export const Route = createFileRoute("/sites")({
+  head: () => ({ meta: [{ title: "Your sites · redoost" }] }),
   loader: loadSites,
   component: SitesPage,
   errorComponent: () => (
@@ -50,6 +55,9 @@ function SitesPage() {
   const navigate = useNavigate();
   const { busy, startUpdate } = useUpload();
   const token = useToken();
+  const [query, setQuery] = useState("");
+  const search = query.trim().toLowerCase();
+  const shown = sites.filter((site) => site.slug.includes(search));
 
   function updateSite(slug: string) {
     startUpdate(slug);
@@ -67,34 +75,57 @@ function SitesPage() {
 
   return (
     <>
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight">Your sites</h1>
-        <p className="mt-1 text-muted-foreground">
-          Sites published from your account.
-        </p>
-      </div>
+      <PageHeading title="Your sites">
+        Everything you've published, live until you delete it.
+      </PageHeading>
       {!token ? (
         <SignInPrompt
           title="Sign in to see your sites"
           description="Sites you publish while signed in are listed here."
         />
       ) : sites.length > 0 ? (
-        <SiteList
-          sites={sites}
-          canUpdate={!busy}
-          onUpdate={updateSite}
-          onDelete={deleteSite}
-        />
+        <div className="space-y-4">
+          {sites.length > 5 && (
+            <div className="relative">
+              <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search sites"
+                aria-label="Search sites"
+                className="h-10 rounded-xl pl-10 font-mono [&::-webkit-search-cancel-button]:hidden"
+              />
+            </div>
+          )}
+          {shown.length > 0 ? (
+            <SiteList
+              sites={shown}
+              canUpdate={!busy}
+              onUpdate={updateSite}
+              onDelete={deleteSite}
+            />
+          ) : (
+            <p className="rounded-xl border px-4 py-10 text-center text-sm text-muted-foreground">
+              No sites match <span className="font-mono">{query.trim()}</span>
+            </p>
+          )}
+        </div>
       ) : (
-        <div className="rounded-xl border px-6 py-14 text-center">
-          <Globe className="mx-auto size-8 text-muted-foreground" />
-          <p className="mt-4 font-medium">No sites yet</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Publish your first site.
-          </p>
-          <Button className="mt-6" asChild>
-            <Link to="/">Publish a site</Link>
-          </Button>
+        <div className="space-y-4">
+          <div className="flex flex-col items-center rounded-xl border px-6 py-12 text-center">
+            <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-muted">
+              <Globe className="size-5 text-muted-foreground" />
+            </div>
+            <p className="text-lg font-medium">No sites yet</p>
+            <p className="mt-1 mb-6 text-sm text-muted-foreground">
+              Publish your first site here, or from the command line.
+            </p>
+            <Button asChild>
+              <Link to="/">Publish a site</Link>
+            </Button>
+          </div>
+          <CliCommand />
         </div>
       )}
     </>

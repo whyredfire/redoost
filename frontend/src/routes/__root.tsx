@@ -1,4 +1,5 @@
 import {
+  HeadContent,
   Link,
   Outlet,
   createRootRoute,
@@ -8,23 +9,25 @@ import {
 } from "@tanstack/react-router";
 import { AccountMenu } from "@/components/account-menu";
 import { AgentPromptButton } from "@/components/agent-prompt-button";
+import { PageHeading } from "@/components/page-heading";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { deleteAccount, signOut, signedInUser } from "@/lib/auth";
+import { repository } from "@/lib/config";
 import { useToken } from "@/lib/session";
 import { useUpload } from "@/lib/upload";
 
 export const Route = createRootRoute({
+  head: () => ({ meta: [{ title: "redoost" }] }),
   component: Layout,
   notFoundComponent: NotFound,
 });
 
 const navClass =
-  "text-sm text-muted-foreground transition-colors hover:text-foreground data-[status=active]:font-medium data-[status=active]:text-foreground";
+  "text-sm text-muted-foreground transition-colors hover:text-foreground data-[status=active]:text-foreground";
 
 const footerLink = "underline-offset-4 hover:text-foreground hover:underline";
 
-const repository = "https://github.com/whyredfire/redoost";
 const version: string = import.meta.env.VITE_VERSION || "dev";
 
 // Releases link to their notes, and builds between them to their commit
@@ -64,6 +67,7 @@ function Layout() {
 
   return (
     <div className="flex min-h-screen flex-col">
+      <HeadContent />
       <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-5 sm:gap-6">
           <Link
@@ -72,7 +76,7 @@ function Layout() {
             onClick={startFresh}
           >
             <span className="flex size-7 items-center justify-center rounded-lg bg-primary text-xs text-primary-foreground">
-              r.
+              r<span className="text-brand">.</span>
             </span>
             {/* Phones show only the mark, so the header fits */}
             <span className="sr-only sm:not-sr-only">redoost</span>
@@ -80,7 +84,7 @@ function Layout() {
           <nav className="flex gap-5">
             <Link
               to="/"
-              className={`${navClass} ${pathname === "/publish" ? "font-medium text-foreground" : ""}`}
+              className={`${navClass} ${pathname === "/publish" ? "text-foreground" : ""}`}
               activeOptions={{ exact: true }}
               onClick={startFresh}
             >
@@ -104,21 +108,22 @@ function Layout() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-5 py-10 sm:py-12">
+      <main
+        className={`mx-auto w-full flex-1 px-5 py-10 sm:py-12 ${pathname === "/publish" ? "max-w-5xl" : "max-w-3xl"}`}
+      >
         <Outlet />
       </main>
 
       <footer className="border-t">
         <div className="mx-auto flex max-w-7xl flex-wrap justify-between gap-x-4 gap-y-1 px-5 py-6 text-sm text-muted-foreground">
           <p>
-            Open source under the MIT license ·{" "}
             <a
               className={footerLink}
               href={repository}
               target="_blank"
               rel="noreferrer"
             >
-              GitHub
+              Open source on GitHub
             </a>{" "}
             ·{" "}
             <Link to="/privacy" className={footerLink}>
@@ -160,15 +165,18 @@ function Layout() {
 }
 
 function NotFound() {
+  const pathname = useLocation({ select: (location) => location.pathname });
   return (
-    <div className="py-14 text-center">
-      <p className="font-medium">Page not found</p>
-      <p className="mt-1 text-sm text-muted-foreground">
+    <>
+      <PageHeading title="Page not found">
         There's nothing at this address.
+      </PageHeading>
+      <p className="truncate rounded-xl border bg-muted/40 px-4 py-3 font-mono text-sm">
+        <span className="text-brand">404</span> {pathname}
       </p>
       <Button className="mt-6" asChild>
         <Link to="/">Publish a site</Link>
       </Button>
-    </div>
+    </>
   );
 }

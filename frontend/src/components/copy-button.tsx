@@ -3,7 +3,13 @@ import { useState } from "react";
 import { Hint } from "@/components/hint";
 import { Button } from "@/components/ui/button";
 
-export function CopyButton({ text, label }: { text: string; label: string }) {
+type CopyButtonProps = { text: string; label: string; hint?: string };
+
+export function CopyButton({
+  text,
+  label,
+  hint = "Copy address",
+}: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
 
   async function copy() {
@@ -13,7 +19,7 @@ export function CopyButton({ text, label }: { text: string; label: string }) {
   }
 
   return (
-    <Hint label={copied ? "Copied" : "Copy address"}>
+    <Hint label={copied ? "Copied" : hint}>
       <Button
         type="button"
         variant="ghost"

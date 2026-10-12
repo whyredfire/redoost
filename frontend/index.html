@@ -10,7 +10,10 @@
     />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="redoost" />
-    <meta property="og:title" content="redoost · A home for your static site" />
+    <meta
+      property="og:title"
+      content="redoost · Drop a folder, get an address"
+    />
     <meta
       property="og:description"
       content="Drop a built site folder, a zip, or an HTML file and get a shareable address. No build step required."
@@ -20,7 +23,23 @@
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" type="image/svg+xml" href="/src/favicon.svg" />
+    <link
+      rel="preload"
+      href="/fonts/InterVariable.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/GeistMonoVariable.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
     <link rel="alternate" type="text/plain" title="llms.txt" href="/llms.txt" />
+    <!-- Matches the page background, so mobile browsers tint to fit -->
+    <meta name="theme-color" content="#ffffff" />
     <!-- Apply the theme before first paint to avoid a light flash -->
     <script>
       if (
@@ -29,6 +48,9 @@
           matchMedia("(prefers-color-scheme: dark)").matches)
       ) {
         document.documentElement.classList.add("dark");
+        document
+          .querySelector('meta[name="theme-color"]')
+          .setAttribute("content", "#0a0a0a");
       }
     </script>
     <script type="module" src="/src/main.tsx"></script>

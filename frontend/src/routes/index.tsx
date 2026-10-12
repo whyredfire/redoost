@@ -1,7 +1,9 @@
 import { Navigate, createFileRoute } from "@tanstack/react-router";
+import { AddressPreview } from "@/components/address-preview";
+import { CliCommand } from "@/components/cli-command";
 import { FolderDrop } from "@/components/folder-drop";
-import { RotatingWord } from "@/components/rotating-word";
 import { SignInPrompt } from "@/components/sign-in-prompt";
+import { formatBytes } from "@/lib/format";
 import { useToken } from "@/lib/session";
 import { usePageDrop, useUpload } from "@/lib/upload";
 
@@ -17,6 +19,7 @@ function LandingPage() {
     message,
     target,
     checks,
+    limits,
     selectFiles,
     showError,
     clearFiles,
@@ -32,38 +35,21 @@ function LandingPage() {
 
   return (
     <>
-      <div className="pb-8 text-center">
-        <h1
-          className="text-3xl font-semibold tracking-tight sm:text-4xl"
-          aria-label="A home for your static site"
-        >
-          <span aria-hidden>
-            A home for your{" "}
-            {/* Phones would wrap only the longer words, so the height would jump;
-                on its own line, the word is centered */}
-            <br className="sm:hidden" />
-            <RotatingWord
-              className="text-center sm:text-left"
-              words={[
-                "static site",
-                "portfolio",
-                "landing page",
-                "docs",
-                "side project",
-              ]}
-            />
-          </span>
-        </h1>
-        <p className="mt-3 text-muted-foreground">
-          Drop a built site and get a shareable address. No build step required.
-        </p>
-      </div>
-      {/* The drop area fills what's left of the first screen */}
-      <div className="flex min-h-[max(26rem,calc(100svh-21rem))] flex-col gap-5">
+      <h1 className="text-4xl font-semibold tracking-tighter text-balance sm:text-6xl">
+        Drop a folder.
+        <br />
+        <span className="text-muted-foreground">Get an address.</span>
+      </h1>
+      <p className="mt-4 max-w-xl text-muted-foreground sm:text-lg">
+        Publish a built site, a zip, or a single HTML file. No build step, no
+        config, and it stays online until you delete it.
+      </p>
+      <AddressPreview className="mt-10" />
+      <div className="mt-4 flex flex-col gap-4">
         {session && stage !== "ready" && (
           <p className="rounded-xl bg-muted/60 px-4 py-3 text-sm">
             Select the same files to resume{" "}
-            <span className="font-medium">{session.deployment.slug}</span>, or{" "}
+            <span className="font-mono">{session.deployment.slug}</span>, or{" "}
             <button
               type="button"
               className="underline underline-offset-4"
@@ -77,7 +63,7 @@ function LandingPage() {
         {target && !session && (
           <p className="rounded-xl bg-muted/60 px-4 py-3 text-sm">
             Select the new version of{" "}
-            <span className="font-medium">{target}</span> to update it, or{" "}
+            <span className="font-mono">{target}</span> to update it, or{" "}
             <button
               type="button"
               className="underline underline-offset-4"
@@ -90,7 +76,6 @@ function LandingPage() {
         )}
         {signedOut ? (
           <SignInPrompt
-            className="flex-1"
             title="Sign in to publish"
             description="Your sites stay online for as long as you keep them."
           />
@@ -103,6 +88,14 @@ function LandingPage() {
             onError={showError}
             onDismiss={clearFiles}
           />
+        )}
+        <CliCommand />
+        {limits && (
+          <p className="font-mono text-xs text-muted-foreground">
+            Up to {formatBytes(limits.max_file_size)} per file ·{" "}
+            {formatBytes(limits.max_deployment_size)} and{" "}
+            {limits.max_deployment_files} files per site
+          </p>
         )}
       </div>
     </>

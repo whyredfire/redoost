@@ -1,3 +1,5 @@
+export const repository = "https://github.com/whyredfire/redoost";
+
 type Config = { sitesOrigin: string | null };
 
 // Loaded at runtime so the same build works on any domain

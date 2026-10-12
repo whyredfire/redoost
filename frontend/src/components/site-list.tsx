@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { CopyButton } from "@/components/copy-button";
 import { Hint } from "@/components/hint";
+import { LiveDot } from "@/components/live-dot";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type { Deployment } from "@/lib/deploy";
@@ -63,15 +64,21 @@ export function SiteList({
         {sites.map((site) => {
           const url = siteUrl(site.slug);
           return (
-            <li className="flex items-center gap-4 px-5 py-4" key={site.slug}>
-              <div className="min-w-0 flex-1 md:flex md:items-center md:justify-between md:gap-6">
-                <p className="truncate font-medium">{site.slug}</p>
-                <p className="mt-0.5 shrink-0 text-sm text-muted-foreground md:mt-0">
+            <li
+              className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:gap-4"
+              key={site.slug}
+            >
+              <div className="min-w-0 flex-1">
+                <p className="flex items-center gap-2.5 font-mono text-sm font-medium">
+                  <LiveDot />
+                  <span className="truncate">{site.slug}</span>
+                </p>
+                <p className="mt-1 pl-4.5 font-mono text-xs text-muted-foreground">
                   {site.file_count} {site.file_count === 1 ? "file" : "files"} ·{" "}
                   {formatBytes(site.total_size)} · {formatDate(site.created_at)}
                 </p>
               </div>
-              <div className="flex shrink-0 items-center">
+              <div className="-ml-2 flex shrink-0 items-center pl-4.5 sm:ml-0 sm:pl-0">
                 {url && (
                   <>
                     <CopyButton
