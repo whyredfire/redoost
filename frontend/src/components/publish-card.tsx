@@ -1,5 +1,6 @@
 import { cn } from "cn";
-import { ChevronRight, CircleCheck, FolderOpen } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { ChevronRight, ExternalLink, FolderOpen } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useState, type ReactNode } from "react";
 import { ThinkingOrb } from "thinking-orbs";
@@ -185,45 +186,64 @@ export function PublishCard() {
   const reduceMotion = useReducedMotion();
 
   if (stage === "ready" && session) {
-    const url = siteUrl(session.deployment.slug);
+    const slug = session.deployment.slug;
+    const url = siteUrl(slug);
     return (
-      <Card className={cn(stageSize, "justify-center")}>
+      <Card className={cn(stageSize, "py-0")}>
         <MotionCardContent
-          className="mx-auto w-full max-w-xl space-y-6 text-center"
+          className="flex flex-1 flex-col gap-6 py-6 lg:px-8 lg:py-8"
           variants={stagger}
           initial={reduceMotion ? false : "hidden"}
           animate="shown"
         >
-          {url && (
-            <motion.div variants={rise}>
-              <SitePreview url={url} />
-            </motion.div>
-          )}
-          <motion.div variants={rise}>
-            <p className="flex items-center justify-center gap-2 text-2xl font-semibold tracking-tighter">
-              <CircleCheck className="size-5 text-emerald-600 dark:text-emerald-500" />
-              {target ? "Your site is updated" : "Your site is live"}
-            </p>
-            <p className="mt-1 text-muted-foreground">
-              Share this address with anyone.
-            </p>
-            {session.originalSize !== undefined && (
-              <div className="mt-2">
+          <motion.div
+            variants={rise}
+            className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"
+          >
+            <div className="min-w-0 space-y-3 lg:max-w-xl lg:flex-1">
+              <h1 className="text-3xl font-semibold tracking-tighter text-balance sm:text-4xl">
+                {target ? "It's updated." : "It's live."}{" "}
+                <span className="text-muted-foreground">
+                  {target
+                    ? "Same address, new files."
+                    : "Share it with anyone."}
+                </span>
+              </h1>
+              <SiteAddress slug={slug} />
+              {session.originalSize !== undefined && (
                 <CompressionSaving
                   original={session.originalSize}
                   uploaded={session.deployment.total_size}
                 />
-              </div>
-            )}
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              {url && (
+                <Button asChild>
+                  <a href={url} target="_blank" rel="noreferrer">
+                    <ExternalLink />
+                    Open site
+                  </a>
+                </Button>
+              )}
+              <Button variant="outline" asChild>
+                <Link to="/sites/$slug" params={{ slug }}>
+                  Manage site
+                </Link>
+              </Button>
+              <Button type="button" variant="ghost" onClick={startOver}>
+                Publish another site
+              </Button>
+            </div>
           </motion.div>
-          <motion.div variants={rise}>
-            <SiteAddress slug={session.deployment.slug} />
-          </motion.div>
-          <motion.div variants={rise}>
-            <Button type="button" variant="outline" onClick={startOver}>
-              Publish another site
-            </Button>
-          </motion.div>
+          {url && (
+            <motion.div
+              variants={rise}
+              className="flex min-h-0 flex-1 flex-col"
+            >
+              <SitePreview url={url} fill />
+            </motion.div>
+          )}
         </MotionCardContent>
       </Card>
     );
