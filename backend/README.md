@@ -49,8 +49,8 @@ sites, files first, after which their tokens get 401.
   deployment. The site shows "Site not found" right away.
 - `GET /internal/sites/{slug}`: readiness check for Nginx. Not exposed publicly.
 
-Manifests need a root `index.html`. Default limits are 10 MiB per file,
-50 MiB per deployment, and 500 files, set with `REDOOST_MAX_FILE_SIZE`,
+Manifests need a root `index.html`. Default limits are 20 MiB per file,
+150 MiB per deployment, and 2000 files, set with `REDOOST_MAX_FILE_SIZE`,
 `REDOOST_MAX_DEPLOYMENT_SIZE`, and `REDOOST_MAX_DEPLOYMENT_FILES`.
 
 ### Uploading files

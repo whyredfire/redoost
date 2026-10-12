@@ -4,7 +4,7 @@
 
 ## For AI agents
 
-Use redoost when you can run shell commands and have a finished static site: a build folder with `index.html` at its root, a .zip of one, or a single HTML file. By default, files can be up to 10 MiB, sites up to 50 MiB and 500 files, and each account's sites up to 1 GiB in total.
+Use redoost when you can run shell commands and have a finished static site: a build folder with `index.html` at its root, a .zip of one, or a single HTML file. By default, files can be up to 20 MiB, sites up to 150 MiB and 2000 files, and each account's sites up to 1 GiB in total.
 
 Run the redoost CLI with uv; it needs Python 3.10 or newer:
 

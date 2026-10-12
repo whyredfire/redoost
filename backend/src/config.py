@@ -52,13 +52,13 @@ class Settings(BaseSettings):
 
     # File size limits
     max_file_size: ByteSize = Field(
-        default=ByteSize(10 * 1024**2), description="Maximum size of one file"
+        default=ByteSize(20 * 1024**2), description="Maximum size of one file"
     )
     max_deployment_size: ByteSize = Field(
-        default=ByteSize(50 * 1024**2), description="Maximum size of a deployment"
+        default=ByteSize(150 * 1024**2), description="Maximum size of a deployment"
     )
     max_deployment_files: int = Field(
-        default=500, description="Maximum number of files in a deployment"
+        default=2000, description="Maximum number of files in a deployment"
     )
     max_account_size: ByteSize = Field(
         default=ByteSize(1024**3), description="Maximum total size of a user's sites"

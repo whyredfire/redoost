@@ -69,9 +69,9 @@ api:
     pullPolicy: Always
   replicas: 1
   logLevel: INFO
-  maxFileSize: 10MiB
-  maxDeploymentSize: 50MiB
-  maxDeploymentFiles: 500
+  maxFileSize: 20MiB
+  maxDeploymentSize: 150MiB
+  maxDeploymentFiles: 2000
   # Total size of each user's sites
   maxAccountSize: 1GiB
   uploadWindow: PT1H

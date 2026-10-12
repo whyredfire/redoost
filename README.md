@@ -30,9 +30,9 @@ and get a shareable address, with no build step.
 - **A command line too.** `redoost login` signs in through a link you can open
   on any device, then `redoost publish ./dist` publishes a folder. See
   [`cli/README.md`](cli/README.md).
-- **Sensible limits.** 10 MiB per file, 50 MiB and 500 files per site, and 1 GiB
-  per user, all configurable. The dashboard checks the per-site limits as soon as
-  files are selected.
+- **Sensible limits.** 20 MiB per file, 150 MiB and 2000 files per site, and
+  1 GiB per user, all configurable. The dashboard checks the per-site limits as
+  soon as files are selected.
 
 ## How it works
 
@@ -163,9 +163,9 @@ values.
 | `REDOOST_S3_BUCKET` | | Bucket that stores the sites |
 | `REDOOST_S3_ACCESS_KEY_ID` | | S3 access key ID |
 | `REDOOST_S3_SECRET_ACCESS_KEY` | | S3 secret access key |
-| `REDOOST_MAX_FILE_SIZE` | `10MiB` | Largest allowed file |
-| `REDOOST_MAX_DEPLOYMENT_SIZE` | `50MiB` | Largest allowed site |
-| `REDOOST_MAX_DEPLOYMENT_FILES` | `500` | Most files allowed in a site |
+| `REDOOST_MAX_FILE_SIZE` | `20MiB` | Largest allowed file |
+| `REDOOST_MAX_DEPLOYMENT_SIZE` | `150MiB` | Largest allowed site |
+| `REDOOST_MAX_DEPLOYMENT_FILES` | `2000` | Most files allowed in a site |
 | `REDOOST_MAX_ACCOUNT_SIZE` | `1GiB` | Largest total size of a user's sites, counting uploads in progress |
 | `REDOOST_UPLOAD_WINDOW` | `PT1H` | How long upload policies stay valid (at most 24 hours) |
 | `REDOOST_JWT_SECRET` | | Signs the API's tokens, e.g. from `openssl rand -hex 32` |
