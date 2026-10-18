@@ -159,9 +159,18 @@ def preview_site(args: argparse.Namespace) -> None:
     text = f"Previewing at {url}"
     if network_url:
         text += f", and on your network at {network_url}"
-    output(args, {"url": url, "network_url": network_url}, f"{text} (Ctrl+C to stop)")
+    # Only people at a terminal can press Enter; scripts and agents just get the URL
+    interactive = not args.json and sys.stdin.isatty()
+    if interactive:
+        text += "\nPress Enter to open it in your browser, or Ctrl+C to stop."
+    else:
+        text += " (Ctrl+C to stop)"
+    output(args, {"url": url, "network_url": network_url}, text)
     with server:
-        server.serve_forever()
+        if interactive:
+            preview.serve_and_open(server, url)
+        else:
+            server.serve_forever()
 
 
 def list_sites(args: argparse.Namespace) -> None:

@@ -1,4 +1,6 @@
+import io
 import json
+import sys
 import threading
 from pathlib import Path
 
@@ -91,6 +93,53 @@ def test_preview_command(
         "url": f"http://127.0.0.1:{port}",
         "network_url": f"http://192.168.1.5:{port}",
     }
+
+
+class Terminal(io.StringIO):
+    def isatty(self) -> bool:
+        return True
+
+
+@pytest.mark.parametrize("opens", [True, False])
+def test_preview_opens_the_browser_on_enter(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    opens: bool,
+) -> None:
+    (tmp_path / "index.html").write_text("<h1>Home</h1>")
+    monkeypatch.setattr(preview.ThreadingHTTPServer, "serve_forever", lambda self: None)
+    monkeypatch.setattr(sys, "stdin", Terminal("\n\n"))
+    opened: list[str] = []
+
+    def open_browser(url: str) -> bool:
+        opened.append(url)
+        return opens
+
+    monkeypatch.setattr(preview.webbrowser, "open", open_browser)
+
+    main.main(["preview", str(tmp_path)])
+
+    out, err = capsys.readouterr()
+    url = out.split()[2]
+    assert out.endswith("Press Enter to open it in your browser, or Ctrl+C to stop.\n")
+    assert opened == [url, url]
+    assert ("Couldn't open a browser" in err) is not opens
+
+
+def test_preview_without_a_terminal_only_prints(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    (tmp_path / "index.html").write_text("<h1>Home</h1>")
+    monkeypatch.setattr(preview.ThreadingHTTPServer, "serve_forever", lambda self: None)
+    monkeypatch.setattr(sys, "stdin", io.StringIO("\n"))
+    monkeypatch.setattr(preview.webbrowser, "open", pytest.fail)
+
+    main.main(["preview", str(tmp_path)])
+
+    assert capsys.readouterr().out.endswith("(Ctrl+C to stop)\n")
 
 
 def test_ports_in_use(tmp_path: Path) -> None:

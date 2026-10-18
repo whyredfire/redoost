@@ -1,5 +1,8 @@
 import mimetypes
 import socket
+import sys
+import threading
+import webbrowser
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import unquote, urlsplit
@@ -90,3 +93,16 @@ def network_address() -> str | None:
         except OSError:
             return None
         return probe.getsockname()[0]
+
+
+def serve_and_open(server: ThreadingHTTPServer, url: str) -> None:
+    """Serves until Ctrl+C, opening url in a browser each time Enter is pressed."""
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    # Input can end, as with Ctrl+D, without stopping the preview
+    for _ in sys.stdin:
+        if not webbrowser.open(url):
+            print(f"Couldn't open a browser. Open {url} yourself.", file=sys.stderr)
+    # In steps, since Ctrl+C can't interrupt a plain join on Windows
+    while thread.is_alive():
+        thread.join(0.5)

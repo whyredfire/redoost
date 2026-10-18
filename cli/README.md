@@ -42,7 +42,7 @@ you, and last 30 days. `redoost logout` forgets the token.
 | `redoost login` | Sign in through a link |
 | `redoost logout` | Forget this sign-in |
 | `redoost whoami` | Show who's signed in and how much storage their sites use |
-| `redoost preview <folder\|zip\|file.html>` | Serve a site locally as it would be published, on a free port; `--port` picks one, `--host 0.0.0.0` shares it on your network |
+| `redoost preview <folder\|zip\|file.html>` | Serve a site locally as it would be published, on a free port, and press Enter to open it; `--port` picks one, `--host 0.0.0.0` shares it on your network |
 | `redoost publish <folder\|zip\|file.html>` | Publish a new site |
 | `redoost publish <path> --update <slug>` | Replace a site's files, uploading only what changed, or nothing if nothing did |
 | `redoost list` | List your sites |
