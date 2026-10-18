@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from redoost.files import SiteError, SiteFile, compress, read_site
+from redoost.files import SiteError, SiteFile, compress, format_bytes, read_site
 
 
 def write(root: Path, files: dict[str, bytes]) -> None:
@@ -87,3 +87,17 @@ def test_manifest_describes_the_uploaded_bytes() -> None:
         "sha256": digest,
         "gzip": True,
     }
+
+
+@pytest.mark.parametrize(
+    ("size", "shown"),
+    [
+        (900, "900 B"),
+        (1025, "2 KiB"),
+        (3565158, "3.4 MiB"),
+        (10 * 1024**2, "10 MiB"),
+        (1024**3, "1 GiB"),
+    ],
+)
+def test_format_bytes(size: int, shown: str) -> None:
+    assert format_bytes(size) == shown

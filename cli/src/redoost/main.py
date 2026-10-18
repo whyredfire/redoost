@@ -11,7 +11,7 @@ from typing import Any
 
 from . import config, preview, updates
 from .api import Api, ApiError
-from .files import SiteError, compress, read_site
+from .files import SiteError, check_limits, compress, format_bytes, read_site
 from .spinner import Spinner
 
 Command = Callable[[argparse.Namespace], None]
@@ -71,9 +71,20 @@ def logout(args: argparse.Namespace) -> None:
 
 
 def whoami(args: argparse.Namespace) -> None:
-    response = signed_in(args).request("GET", "/api/auth/me")
-    user = response.json()
-    output(args, user, user["email"])
+    api = signed_in(args)
+    user = api.request("GET", "/api/auth/me").json()
+    lines = [user["email"]]
+    # Servers before 0.3.1 don't report it
+    try:
+        usage = api.request("GET", "/api/deployments/usage").json()
+    except ApiError:
+        usage = None
+    if usage:
+        user["usage"] = usage
+        lines.append(
+            f"{format_bytes(usage['used'])} of {format_bytes(usage['limit'])} used"
+        )
+    output(args, user, "\n".join(lines))
 
 
 def plural(count: int, noun: str) -> str:
@@ -91,6 +102,7 @@ def publish(args: argparse.Namespace) -> None:
     api = signed_in(args)
     with Spinner("Preparing files", args.json):
         files = [compress(file) for file in read_site(args.path)]
+    check_limits(files, api.request("GET", "/api/deployments/limits").json())
     manifest = {"files": [file.manifest() for file in files]}
     if args.update and unchanged(api, args.update, manifest):
         response = api.request("GET", f"/api/deployments/{args.update}")
@@ -159,8 +171,8 @@ def list_sites(args: argparse.Namespace) -> None:
     for site in sites:
         site["url"] = site_url(api, site["slug"])
     lines = [
-        f"{site['url'] or site['slug']}  {site['file_count']} files  "
-        f"{site['created_at'][:10]}"
+        f"{site['url'] or site['slug']}  {plural(site['file_count'], 'file')}  "
+        f"{format_bytes(site['total_size'])}  {site['created_at'][:10]}"
         # Servers before this setting existed don't report it
         f"{'' if site.get('enabled', True) else '  offline'}"
         for site in sites

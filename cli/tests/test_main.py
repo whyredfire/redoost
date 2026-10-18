@@ -22,6 +22,13 @@ class FakeServer:
         self.pending_polls = 1
         self.upload_status = 204
         self.stored: list[dict[str, str]] = []
+        self.limits = {
+            "max_file_size": 20 * 1024**2,
+            "max_deployment_size": 150 * 1024**2,
+            "max_deployment_files": 2000,
+        }
+        # None for servers from before usage was reported
+        self.usage: dict[str, int] | None = {"used": 3565158, "limit": 1024**3}
 
     def handle(self, request: httpx2.Request) -> httpx2.Response:
         self.requests.append(request)
@@ -43,6 +50,12 @@ class FakeServer:
     def signed_in(self, request: httpx2.Request, route: str) -> httpx2.Response:
         if route == "GET /api/auth/me":
             return httpx2.Response(200, json=USER)
+        if route == "GET /api/deployments/usage":
+            if self.usage is None:
+                return httpx2.Response(404, json={"detail": "Not Found"})
+            return httpx2.Response(200, json=self.usage)
+        if route == "GET /api/deployments/limits":
+            return httpx2.Response(200, json=self.limits)
         if route == "GET /config.json":
             return httpx2.Response(200, json={"sitesOrigin": "https://sites.test"})
         if route in ("POST /api/deployments", "PUT /api/deployments/brave-otter-1a2b"):
@@ -69,9 +82,16 @@ class FakeServer:
             site = {
                 "slug": "brave-otter-1a2b",
                 "file_count": 2,
+                "total_size": 3565158,
                 "created_at": "2026-10-09T10:00:00Z",
             }
-            offline = {**site, "slug": "quiet-heron-7f3c", "enabled": False}
+            offline = {
+                **site,
+                "slug": "quiet-heron-7f3c",
+                "file_count": 1,
+                "total_size": 900,
+                "enabled": False,
+            }
             return httpx2.Response(200, json=[site, offline])
         if route == "PATCH /api/deployments/brave-otter-1a2b":
             enabled = json.loads(request.content)["enabled"]
@@ -130,6 +150,27 @@ def test_tokens_belong_to_their_server(server: FakeServer) -> None:
         main.main(["whoami", "--server", SERVER])
 
 
+def test_whoami_shows_storage_use(
+    server: FakeServer, capsys: pytest.CaptureFixture[str]
+) -> None:
+    signed_in()
+
+    out, _ = run(capsys, "whoami")
+    assert out == "ada@example.com\n3.4 MiB of 1 GiB used\n"
+    out, _ = run(capsys, "whoami", "--json")
+    assert json.loads(out) == {**USER, "usage": server.usage}
+
+
+def test_whoami_on_servers_without_usage(
+    server: FakeServer, capsys: pytest.CaptureFixture[str]
+) -> None:
+    signed_in()
+    server.usage = None
+
+    out, _ = run(capsys, "whoami")
+    assert out == "ada@example.com\n"
+
+
 def test_logout_forgets_the_token(
     server: FakeServer, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -179,6 +220,38 @@ def test_failed_updates_free_the_site(server: FakeServer, tmp_path: Path) -> Non
     assert "POST /api/deployments/brave-otter-1a2b/cancel" in server.routes()
 
 
+@pytest.mark.parametrize(
+    ("limit", "value", "error"),
+    [
+        (
+            "max_file_size",
+            2048,
+            "photo.png is 3 KiB \\(and 1 more\\); files can be up to 2 KiB",
+        ),
+        ("max_deployment_files", 2, "The site has 3 files; sites can have up to 2"),
+        (
+            "max_deployment_size",
+            4096,
+            "The site is 6 KiB once compressed; sites can be up to 4 KiB",
+        ),
+    ],
+)
+def test_publish_checks_limits_before_uploading(
+    server: FakeServer, tmp_path: Path, limit: str, value: int, error: str
+) -> None:
+    signed_in()
+    server.limits[limit] = value
+    site = tmp_path / "site"
+    site.mkdir()
+    (site / "index.html").write_text("<h1>hello</h1>")
+    (site / "photo.png").write_bytes(b"p" * 3000)
+    (site / "video.webm").write_bytes(b"v" * 2500)
+
+    with pytest.raises(SystemExit, match=error):
+        main.main(["publish", str(site), "--server", SERVER])
+    assert "POST /api/deployments" not in server.routes()
+
+
 def stored_site(site: Path) -> list[dict[str, str]]:
     files = [compress(file).manifest() for file in read_site(site)]
     return [
@@ -219,8 +292,8 @@ def test_list_and_delete(
 
     out, _ = run(capsys, "list")
     assert out == (
-        "https://brave-otter-1a2b.sites.test  2 files  2026-10-09\n"
-        "https://quiet-heron-7f3c.sites.test  2 files  2026-10-09  offline\n"
+        "https://brave-otter-1a2b.sites.test  2 files  3.4 MiB  2026-10-09\n"
+        "https://quiet-heron-7f3c.sites.test  1 file  900 B  2026-10-09  offline\n"
     )
     out, _ = run(capsys, "delete", "brave-otter-1a2b")
     assert out == "Deleted brave-otter-1a2b\n"

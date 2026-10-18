@@ -5,6 +5,7 @@ import re
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 # The same files the dashboard uploads gzipped
 compressible = re.compile(
@@ -94,3 +95,41 @@ def compress(file: SiteFile) -> SiteFile:
     if len(packed) >= len(file.content):
         return file
     return SiteFile(file.path, packed, gzip=True)
+
+
+def format_bytes(size: int) -> str:
+    """Sizes as the dashboard shows them, like 3.4 MiB."""
+    if size < 1024:
+        return f"{size} B"
+    if size < 1024**2:
+        return f"{-(-size // 1024)} KiB"
+    # :g drops a trailing .0, so 10 MiB isn't shown as 10.0 MiB
+    if size < 1024**3:
+        return f"{round(size / 1024**2, 1):g} MiB"
+    return f"{round(size / 1024**3, 1):g} GiB"
+
+
+def check_limits(files: list[SiteFile], limits: dict[str, Any]) -> None:
+    """Fail before uploading, as the server would, but naming what's too big."""
+    largest = limits["max_file_size"]
+    too_big = [file for file in files if len(file.content) > largest]
+    if too_big:
+        file = too_big[0]
+        size = format_bytes(len(file.content))
+        compressed = " compressed" if file.gzip else ""
+        others = f" (and {len(too_big) - 1} more)" if len(too_big) > 1 else ""
+        raise SiteError(
+            f"{file.path} is {size}{compressed}{others}; "
+            f"files can be up to {format_bytes(largest)}."
+        )
+    if len(files) > limits["max_deployment_files"]:
+        raise SiteError(
+            f"The site has {len(files)} files; "
+            f"sites can have up to {limits['max_deployment_files']}."
+        )
+    total = sum(len(file.content) for file in files)
+    if total > limits["max_deployment_size"]:
+        raise SiteError(
+            f"The site is {format_bytes(total)} once compressed; "
+            f"sites can be up to {format_bytes(limits['max_deployment_size'])}."
+        )
