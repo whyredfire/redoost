@@ -248,6 +248,7 @@ def parse(argv: list[str] | None) -> argparse.Namespace:
     # Accepted after the command too, as in redoost list --json
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument(
+        "-s",
         "--server",
         default=os.environ.get("REDOOST_SERVER", config.default_server),
         help="redoost dashboard URL (default: %(default)s, or REDOOST_SERVER)",
@@ -258,7 +259,10 @@ def parse(argv: list[str] | None) -> argparse.Namespace:
         prog="redoost", description="Publish static sites to redoost."
     )
     parser.add_argument(
-        "--version", action="version", version=f"%(prog)s {version('redoost')}"
+        "-v",
+        "--version",
+        action="version",
+        version=f"%(prog)s {version('redoost')}",
     )
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("login", parents=[common], help="sign in through a link")
@@ -269,7 +273,7 @@ def parse(argv: list[str] | None) -> argparse.Namespace:
     )
     publish_parser.add_argument("path", type=Path)
     publish_parser.add_argument(
-        "--update", metavar="SLUG", help="replace an existing site's files"
+        "-u", "--update", metavar="SLUG", help="replace an existing site's files"
     )
     preview_parser = commands.add_parser(
         "preview",
@@ -283,7 +287,11 @@ def parse(argv: list[str] | None) -> argparse.Namespace:
         help="address to listen on; 0.0.0.0 for every network (default: %(default)s)",
     )
     preview_parser.add_argument(
-        "--port", type=int, default=0, help="port to listen on (default: a free one)"
+        "-p",
+        "--port",
+        type=int,
+        default=0,
+        help="port to listen on (default: a free one)",
     )
     commands.add_parser("list", parents=[common], help="list your sites")
     for name, help_text in [

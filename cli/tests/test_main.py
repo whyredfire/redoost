@@ -279,7 +279,7 @@ def test_removed_files_are_a_change(
     (tmp_path / "index.html").write_text("<h1>same</h1>")
     server.stored = [*stored_site(tmp_path), {"path": "old.html", "sha256": "x"}]
 
-    out, _ = run(capsys, "publish", str(tmp_path), "--update", "brave-otter-1a2b")
+    out, _ = run(capsys, "publish", str(tmp_path), "-u", "brave-otter-1a2b")
 
     assert out == "Published https://brave-otter-1a2b.sites.test\n"
     assert "PUT /api/deployments/brave-otter-1a2b" in server.routes()
@@ -316,9 +316,10 @@ def test_disable_and_enable(
     ]
 
 
-def test_version(capsys: pytest.CaptureFixture[str]) -> None:
+@pytest.mark.parametrize("flag", ["--version", "-v"])
+def test_version(capsys: pytest.CaptureFixture[str], flag: str) -> None:
     with pytest.raises(SystemExit):
-        main.main(["--version"])
+        main.main([flag])
 
     assert capsys.readouterr().out == f"redoost {version('redoost')}\n"
 
