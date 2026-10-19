@@ -1,10 +1,10 @@
 import secrets
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Self
+from typing import Annotated, Self
 
 from coolname import generate_slug
-from pydantic import field_validator, model_validator
+from pydantic import StringConstraints, field_validator, model_validator
 from sqlalchemy import BigInteger, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
@@ -45,11 +45,19 @@ class ManifestFile(SQLModel):
         return path
 
 
+# Short enough to show in a list next to the site's address
+Description = Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)]
+
+
 class Manifest(SQLModel):
     files: list[ManifestFile] = Field(
         min_length=1,
         max_length=settings.max_deployment_files,
         description="Files to upload, including a root index.html",
+    )
+    description: Description | None = Field(
+        default=None,
+        description="Note to tell the site apart; kept as it is when missing",
     )
 
     @model_validator(mode="after")
@@ -106,6 +114,9 @@ class DeploymentBase(SQLModel):
     enabled: bool = Field(
         default=True, description="Whether visitors can reach the site"
     )
+    description: str = Field(
+        default="", max_length=200, description="Note to tell the site apart"
+    )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC), description="Creation time"
     )
@@ -116,7 +127,12 @@ class DeploymentBase(SQLModel):
 
 
 class DeploymentChange(SQLModel):
-    enabled: bool = Field(description="Whether visitors can reach the site")
+    enabled: bool | None = Field(
+        default=None, description="Whether visitors can reach the site"
+    )
+    description: Description | None = Field(
+        default=None, description="Note to tell the site apart"
+    )
 
 
 class Deployment(DeploymentBase, table=True):

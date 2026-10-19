@@ -103,11 +103,23 @@ def publish(args: argparse.Namespace) -> None:
     with Spinner("Preparing files", args.json):
         files = [compress(file) for file in read_site(args.path)]
     check_limits(files, api.request("GET", "/api/deployments/limits").json())
-    manifest = {"files": [file.manifest() for file in files]}
+    manifest: dict[str, Any] = {"files": [file.manifest() for file in files]}
+    # Left out, an update keeps the site's description
+    if args.description is not None:
+        manifest["description"] = args.description
     if args.update and unchanged(api, args.update, manifest):
-        response = api.request("GET", f"/api/deployments/{args.update}")
         url = site_url(api, args.update)
-        output(args, {**response.json(), "url": url}, "No changes to publish")
+        if args.description is None:
+            response = api.request("GET", f"/api/deployments/{args.update}")
+            output(args, {**response.json(), "url": url}, "No changes to publish")
+        else:
+            response = api.request(
+                "PATCH",
+                f"/api/deployments/{args.update}",
+                json={"description": args.description},
+            )
+            text = "No changes to publish, but updated the description"
+            output(args, {**response.json(), "url": url}, text)
         return
 
     if args.update:
@@ -173,19 +185,28 @@ def preview_site(args: argparse.Namespace) -> None:
             server.serve_forever()
 
 
+def site_line(site: dict[str, Any]) -> str:
+    parts = [
+        site["url"] or site["slug"],
+        plural(site["file_count"], "file"),
+        format_bytes(site["total_size"]),
+        site["created_at"][:10],
+    ]
+    # Servers before these settings existed don't report them
+    if not site.get("enabled", True):
+        parts.append("offline")
+    if site.get("description"):
+        parts.append(site["description"])
+    return "  ".join(parts)
+
+
 def list_sites(args: argparse.Namespace) -> None:
     api = signed_in(args)
     response = api.request("GET", "/api/deployments")
     sites = response.json()
     for site in sites:
         site["url"] = site_url(api, site["slug"])
-    lines = [
-        f"{site['url'] or site['slug']}  {plural(site['file_count'], 'file')}  "
-        f"{format_bytes(site['total_size'])}  {site['created_at'][:10]}"
-        # Servers before this setting existed don't report it
-        f"{'' if site.get('enabled', True) else '  offline'}"
-        for site in sites
-    ]
+    lines = [site_line(site) for site in sites]
     output(args, sites, "\n".join(lines) or "No sites yet")
 
 
@@ -239,6 +260,20 @@ def update(args: argparse.Namespace) -> None:
     output(args, {"version": newer, "updated": True}, f"Updated to redoost {newer}")
 
 
+def describe(args: argparse.Namespace) -> None:
+    response = signed_in(args).request(
+        "PATCH",
+        f"/api/deployments/{args.slug}",
+        json={"description": args.description},
+    )
+    text = (
+        f"Described {args.slug}"
+        if args.description.strip()
+        else f"Cleared {args.slug}'s description"
+    )
+    output(args, response.json(), text)
+
+
 def delete(args: argparse.Namespace) -> None:
     signed_in(args).request("DELETE", f"/api/deployments/{args.slug}")
     output(args, {"slug": args.slug}, f"Deleted {args.slug}")
@@ -275,6 +310,11 @@ def parse(argv: list[str] | None) -> argparse.Namespace:
     publish_parser.add_argument(
         "-u", "--update", metavar="SLUG", help="replace an existing site's files"
     )
+    publish_parser.add_argument(
+        "-d",
+        "--description",
+        help="a note to tell the site apart (updates keep the current one without it)",
+    )
     preview_parser = commands.add_parser(
         "preview",
         parents=[common],
@@ -299,6 +339,13 @@ def parse(argv: list[str] | None) -> argparse.Namespace:
         ("disable", "take a site offline, keeping its files"),
     ]:
         commands.add_parser(name, parents=[common], help=help_text).add_argument("slug")
+    describe_parser = commands.add_parser(
+        "describe", parents=[common], help="change a site's description"
+    )
+    describe_parser.add_argument("slug")
+    describe_parser.add_argument(
+        "description", help='the new description, or "" to clear it'
+    )
     delete_parser = commands.add_parser(
         "delete", parents=[common], help="delete a site"
     )
@@ -321,6 +368,7 @@ commands: dict[str, Command] = {
     "list": list_sites,
     "enable": enable,
     "disable": disable,
+    "describe": describe,
     "delete": delete,
     "update": update,
 }

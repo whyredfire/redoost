@@ -11,6 +11,7 @@ import { DangerAction } from "@/components/danger-action";
 import { FolderDrop } from "@/components/folder-drop";
 import { SignInPrompt } from "@/components/sign-in-prompt";
 import { SiteAddress } from "@/components/site-address";
+import { SiteDescription } from "@/components/site-description";
 import { SitePreview } from "@/components/site-preview";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -92,13 +93,20 @@ function SitePage() {
     setSwitching(true);
     setSwitchError("");
     try {
-      await changeDeployment(site.slug, enabled, token);
+      await changeDeployment(site.slug, { enabled }, token);
       await router.invalidate();
     } catch (cause) {
       setSwitchError(cause instanceof Error ? cause.message : String(cause));
     } finally {
       setSwitching(false);
     }
+  }
+
+  async function describe(description: string) {
+    const token = loadToken();
+    if (!token || !site) return;
+    await changeDeployment(site.slug, { description }, token);
+    await router.invalidate();
   }
 
   async function remove() {
@@ -133,6 +141,9 @@ function SitePage() {
       <h1 className="mt-6 font-mono text-2xl font-semibold tracking-tight break-all sm:text-3xl">
         {site.slug}
       </h1>
+      <div className="mt-2">
+        <SiteDescription description={site.description} onSave={describe} />
+      </div>
 
       <div className="mt-8 grid grid-cols-[minmax(0,1fr)] items-start gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="space-y-4">

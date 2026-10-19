@@ -531,6 +531,55 @@ def test_updates_keep_sites_off(
     assert resolve(client, created["slug"]).status_code == 403
 
 
+def describe(client: TestClient, created: dict[str, str], description: str) -> Response:
+    return client.patch(
+        f"{URL}/{created['slug']}",
+        headers=bearer(created["token"]),
+        json={"description": description},
+    )
+
+
+def test_describe_sites(client: TestClient, token: str) -> None:
+    body = {**manifest("index.html"), "description": "  Portfolio draft  "}
+    created = client.post(URL, json=body, headers=bearer(token)).json()
+    assert created["description"] == "Portfolio draft"
+    assert create(client, token, "index.html")["description"] == ""
+
+    created["token"] = token
+    response = describe(client, created, "Portfolio, final")
+    assert response.json()["description"] == "Portfolio, final"
+    assert response.json()["enabled"] is True
+    assert describe(client, created, "").json()["description"] == ""
+
+
+def test_descriptions_have_a_limit(client: TestClient, token: str) -> None:
+    body = {**manifest("index.html"), "description": "x" * 201}
+    assert client.post(URL, json=body, headers=bearer(token)).status_code == 422
+    created = create(client, token, "index.html")
+    assert describe(client, created, "x" * 201).status_code == 422
+    assert describe(client, created, "x" * 200).status_code == 200
+
+
+def test_updates_describe_sites_once_complete(
+    client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    created = published(client, token, monkeypatch, "index.html")
+    describe(client, created, "First draft")
+    url = f"{URL}/{created['slug']}"
+    body = {**manifest("index.html"), "description": "Second draft"}
+
+    client.put(url, json=body, headers=bearer(token))
+    assert client.get(url, headers=bearer(token)).json()["description"] == (
+        "First draft"
+    )
+    response = client.post(f"{url}/complete", json=body, headers=bearer(token))
+    assert response.json()["description"] == "Second draft"
+
+    # Updates without one keep the description
+    update(client, created, "index.html")
+    assert complete(client, created).json()["description"] == "Second draft"
+
+
 def resolve(client: TestClient, slug: str) -> Response:
     return client.get(f"/internal/sites/{slug}")
 

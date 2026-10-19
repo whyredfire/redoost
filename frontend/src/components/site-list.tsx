@@ -29,6 +29,11 @@ export function SiteList({ sites }: { sites: Deployment[] }) {
                       </span>
                     </span>
                   </p>
+                  {site.description && (
+                    <p className="mt-1 truncate pl-4.5 text-sm text-muted-foreground">
+                      {site.description}
+                    </p>
+                  )}
                   <p className="mt-1 pl-4.5 font-mono text-xs text-muted-foreground">
                     {site.file_count} {site.file_count === 1 ? "file" : "files"}{" "}
                     · {formatBytes(site.total_size)} ·{" "}

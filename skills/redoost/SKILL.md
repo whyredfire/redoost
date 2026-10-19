@@ -39,8 +39,10 @@ It uses redoost.whyredfire.dev. For another redoost, add
 3. Optionally, check the site first with `redoost preview <path> --json` in the
    background. It serves the site locally as it would be published, without
    signing in, and prints its `url`. Stop it when you're done.
-4. Publish with `redoost publish <path> --json`. It prints the site, including
-   its `url` and `slug`.
+4. Publish with `redoost publish <path> --description "<what it is>" --json`.
+   The description is a short note, like "Pricing page draft", that helps the
+   user tell their sites apart. It prints the site, including its `url` and
+   `slug`.
 5. Open the `url` to verify the site loads, then give the user its address.
 
 Sites without a `404.html` are treated as single-page apps: missing paths
@@ -49,10 +51,14 @@ without a file extension serve `index.html`.
 ## Manage sites
 
 - `redoost list --json` lists the user's sites, with each one's `slug`, `url`,
-  and whether it's `enabled`.
+  `description`, and whether it's `enabled`. Use the descriptions to find the
+  site the user means.
 - `redoost publish <path> --update <slug> --json` replaces a site's files at
   the same address, uploading only what changed. If nothing changed, it says
-  so and publishes nothing.
+  so and publishes nothing. Without `--description`, the site keeps its
+  description.
+- `redoost describe <slug> "<text>"` changes a site's description, and `""`
+  clears it.
 - `redoost disable <slug>` takes a site offline without deleting it, and
   `redoost enable <slug>` puts it back. Taking a site offline can take up to a
   minute to reach visitors.

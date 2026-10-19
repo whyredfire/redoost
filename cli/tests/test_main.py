@@ -1,6 +1,7 @@
 import json
 from importlib.metadata import version
 from pathlib import Path
+from typing import Any
 
 import httpx2
 import pytest
@@ -83,6 +84,7 @@ class FakeServer:
                 "slug": "brave-otter-1a2b",
                 "file_count": 2,
                 "total_size": 3565158,
+                "description": "Portfolio draft",
                 "created_at": "2026-10-09T10:00:00Z",
             }
             offline = {
@@ -90,14 +92,13 @@ class FakeServer:
                 "slug": "quiet-heron-7f3c",
                 "file_count": 1,
                 "total_size": 900,
+                "description": "",
                 "enabled": False,
             }
             return httpx2.Response(200, json=[site, offline])
         if route == "PATCH /api/deployments/brave-otter-1a2b":
-            enabled = json.loads(request.content)["enabled"]
-            return httpx2.Response(
-                200, json={"slug": "brave-otter-1a2b", "enabled": enabled}
-            )
+            change = json.loads(request.content)
+            return httpx2.Response(200, json={"slug": "brave-otter-1a2b", **change})
         if route.endswith("/complete"):
             return httpx2.Response(
                 200, json={"slug": "brave-otter-1a2b", "state": "ready"}
@@ -201,6 +202,72 @@ def test_publish(
     assert json.loads(out)["url"] == "https://brave-otter-1a2b.sites.test"
 
 
+def sent(server: FakeServer, route: str) -> list[Any]:
+    return [
+        json.loads(request.content)
+        for request in server.requests
+        if f"{request.method} {request.url.path}" == route
+    ]
+
+
+def test_publish_with_a_description(
+    server: FakeServer, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    signed_in()
+    (tmp_path / "index.html").write_text("<h1>hello</h1>")
+
+    run(capsys, "publish", str(tmp_path / "index.html"), "-d", "Portfolio draft")
+
+    for route in (
+        "POST /api/deployments",
+        "POST /api/deployments/brave-otter-1a2b/complete",
+    ):
+        assert sent(server, route)[0]["description"] == "Portfolio draft"
+
+
+def test_updates_keep_the_description_without_one(
+    server: FakeServer, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    signed_in()
+    (tmp_path / "index.html").write_text("<h1>new</h1>")
+
+    run(capsys, "publish", str(tmp_path / "index.html"), "-u", "brave-otter-1a2b")
+
+    completed = sent(server, "POST /api/deployments/brave-otter-1a2b/complete")
+    assert "description" not in completed[0]
+
+
+def test_unchanged_updates_still_change_the_description(
+    server: FakeServer, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    signed_in()
+    site = tmp_path / "site"
+    site.mkdir()
+    (site / "index.html").write_text("<h1>same</h1>")
+    server.stored = stored_site(site)
+
+    out, _ = run(capsys, "publish", str(site), "-u", "brave-otter-1a2b", "-d", "Final")
+
+    assert out == "No changes to publish, but updated the description\n"
+    assert sent(server, "PATCH /api/deployments/brave-otter-1a2b") == [
+        {"description": "Final"}
+    ]
+    assert "PUT /api/deployments/brave-otter-1a2b" not in server.routes()
+
+
+def test_describe(server: FakeServer, capsys: pytest.CaptureFixture[str]) -> None:
+    signed_in()
+
+    out, _ = run(capsys, "describe", "brave-otter-1a2b", "Portfolio, final")
+    assert out == "Described brave-otter-1a2b\n"
+    out, _ = run(capsys, "describe", "brave-otter-1a2b", "")
+    assert out == "Cleared brave-otter-1a2b's description\n"
+    assert sent(server, "PATCH /api/deployments/brave-otter-1a2b") == [
+        {"description": "Portfolio, final"},
+        {"description": ""},
+    ]
+
+
 def test_failed_updates_free_the_site(server: FakeServer, tmp_path: Path) -> None:
     signed_in()
     server.upload_status = 403
@@ -292,7 +359,8 @@ def test_list_and_delete(
 
     out, _ = run(capsys, "list")
     assert out == (
-        "https://brave-otter-1a2b.sites.test  2 files  3.4 MiB  2026-10-09\n"
+        "https://brave-otter-1a2b.sites.test  2 files  3.4 MiB  2026-10-09"
+        "  Portfolio draft\n"
         "https://quiet-heron-7f3c.sites.test  1 file  900 B  2026-10-09  offline\n"
     )
     out, _ = run(capsys, "delete", "brave-otter-1a2b")

@@ -72,7 +72,11 @@ function SitesPage() {
   const [order, setOrder] = useState<Order>("newest");
   const search = query.trim().toLowerCase();
   const shown = sites
-    .filter((site) => site.slug.includes(search))
+    .filter(
+      (site) =>
+        site.slug.includes(search) ||
+        site.description.toLowerCase().includes(search),
+    )
     .filter(
       (site) => status === "all" || site.enabled === (status === "online"),
     )

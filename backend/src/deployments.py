@@ -81,6 +81,7 @@ async def create_deployment(
         file_count=len(manifest.files),
         total_size=manifest.total_size,
         spa=manifest.spa,
+        description=manifest.description or "",
     )
     upload_url, uploads = await sign_uploads(deployment.slug, manifest.files)
     session.add(deployment)
@@ -128,7 +129,10 @@ async def read_deployment(deployment: OwnedDeployment) -> DeploymentBase:
 async def change_deployment(
     change: DeploymentChange, deployment: OwnedDeployment, session: Session
 ) -> DeploymentBase:
-    deployment.enabled = change.enabled
+    if change.enabled is not None:
+        deployment.enabled = change.enabled
+    if change.description is not None:
+        deployment.description = change.description
     session.add(deployment)
     await session.commit()
     return deployment
@@ -204,6 +208,9 @@ async def complete_deployment(
     deployment.file_count = len(manifest.files)
     deployment.total_size = manifest.total_size
     deployment.spa = manifest.spa
+    # Set here rather than when the update starts, so a failed update keeps the old one
+    if manifest.description is not None:
+        deployment.description = manifest.description
     # Frees the site for its next update
     deployment.expires_at = now
     session.add(deployment)

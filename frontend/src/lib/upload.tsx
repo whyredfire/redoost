@@ -71,6 +71,8 @@ function useUploadState() {
   const [lockedUntil, setLockedUntil] = useState<string | null>(null);
   // The target's files, to show what the update changes
   const [storedFiles, setStoredFiles] = useState<StoredFile[] | null>(null);
+  // Null leaves an updated site's description as it is, as when it couldn't be read
+  const [description, setDescription] = useState<string | null>(null);
   const [checks, setChecks] = useState<SiteCheck[]>([]);
   const [progress, setProgress] = useState<Record<string, number>>({});
   const [uploaded, setUploaded] = useState(0);
@@ -110,6 +112,12 @@ function useUploadState() {
         if (current) setStoredFiles(files);
       })
       // Without them, the files are listed without changes
+      .catch(() => {});
+    // Filled in, so the update can change it
+    readDeployment(target, token)
+      .then((site) => {
+        if (current) setDescription(site.description);
+      })
       .catch(() => {});
     return () => {
       current = false;
@@ -158,6 +166,7 @@ function useUploadState() {
       setSession(null);
       setTarget(null);
       setStoredFiles(null);
+      setDescription(null);
     }
     clearFiles();
     setStage("idle");
@@ -205,6 +214,7 @@ function useUploadState() {
     setSession(null);
     setTarget(null);
     setStoredFiles(null);
+    setDescription(null);
     clearFiles();
     setStage("idle");
   }
@@ -219,6 +229,7 @@ function useUploadState() {
   // Keeps the files already picked
   function chooseTarget(slug: string | null) {
     setStoredFiles(null);
+    setDescription(null);
     setTarget(slug);
     setMessage("");
     setLockedUntil(null);
@@ -287,9 +298,19 @@ function useUploadState() {
           deployment = await prepareUpdate(target, manifest, abort.signal);
         } else {
           const token = publishToken();
-          deployment = await createDeployment(manifest, token, abort.signal);
+          deployment = await createDeployment(
+            manifest,
+            description ?? undefined,
+            token,
+            abort.signal,
+          );
         }
-        active = { deployment, manifest, originalSize: totalSize };
+        active = {
+          deployment,
+          manifest,
+          originalSize: totalSize,
+          description: description ?? undefined,
+        };
         saveSession(active);
         setSession(active);
       } else if (Date.now() >= Date.parse(active.deployment.expires_at)) {
@@ -321,6 +342,7 @@ function useUploadState() {
       const result = await completeDeployment(
         active.deployment.slug,
         active.manifest,
+        active.description,
         token,
         abort.signal,
       );
@@ -352,6 +374,7 @@ function useUploadState() {
     message,
     target,
     lockedUntil,
+    description,
     diff,
     unchanged,
     checks,
@@ -368,6 +391,7 @@ function useUploadState() {
     startOver,
     selectUpdate,
     chooseTarget,
+    setDescription,
     cancel,
     publish,
     takeOver,

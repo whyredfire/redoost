@@ -14,6 +14,7 @@ import { SiteAddress } from "@/components/site-address";
 import { SitePreview } from "@/components/site-preview";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -160,6 +161,7 @@ export function PublishCard() {
     message,
     target,
     lockedUntil,
+    description,
     diff,
     unchanged,
     uploaded,
@@ -170,6 +172,7 @@ export function PublishCard() {
     clearFiles,
     startOver,
     chooseTarget,
+    setDescription,
     cancel,
     publish,
     takeOver,
@@ -210,6 +213,11 @@ export function PublishCard() {
                 </span>
               </h1>
               <SiteAddress slug={slug} />
+              {session.deployment.description && (
+                <p className="text-sm break-words text-muted-foreground">
+                  {session.deployment.description}
+                </p>
+              )}
               {session.originalSize !== undefined && (
                 <CompressionSaving
                   original={session.originalSize}
@@ -328,19 +336,23 @@ export function PublishCard() {
                       className={`w-full ${target ? "font-mono" : ""}`}
                       aria-label="Publish as"
                     >
-                      <SelectValue />
+                      {/* Only the slug, while the options also show descriptions */}
+                      <SelectValue>{target ?? "A new site"}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="new">A new site</SelectItem>
                       <SelectGroup>
                         <SelectLabel>Update a site</SelectLabel>
-                        {sites.map(({ slug }) => (
-                          <SelectItem
-                            key={slug}
-                            value={slug}
-                            className="font-mono"
-                          >
-                            {slug}
+                        {sites.map(({ slug, description }) => (
+                          <SelectItem key={slug} value={slug}>
+                            <span className="flex min-w-0 flex-col">
+                              <span className="font-mono">{slug}</span>
+                              {description && (
+                                <span className="max-w-64 truncate text-xs text-muted-foreground">
+                                  {description}
+                                </span>
+                              )}
+                            </span>
                           </SelectItem>
                         ))}
                       </SelectGroup>
@@ -360,6 +372,30 @@ export function PublishCard() {
                     ? "No changes"
                     : changeSummary(diff.changes, diff.removed.length)}
                 </p>
+              )}
+              {!session ? (
+                <div className="mt-4 space-y-1.5">
+                  <label
+                    htmlFor="site-description"
+                    className="text-sm text-muted-foreground"
+                  >
+                    Description (optional)
+                  </label>
+                  <Input
+                    id="site-description"
+                    value={description ?? ""}
+                    onChange={(event) => setDescription(event.target.value)}
+                    placeholder="What's this site for?"
+                    maxLength={200}
+                    disabled={busy}
+                  />
+                </div>
+              ) : (
+                session.description && (
+                  <p className="mt-3 text-sm break-words text-muted-foreground">
+                    {session.description}
+                  </p>
+                )
               )}
             </div>
 

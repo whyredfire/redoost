@@ -26,7 +26,7 @@ and get a shareable address, with no build step.
 - **Sign in with Google.** People sign in through an OIDC provider, and their
   sites stay online for as long as they keep them.
 - **Manage your sites.** Each site has its own page, where you can update it
-  with a new version, take it offline, or delete it.
+  with a new version, describe it, take it offline, or delete it.
 - **A command line too.** `redoost login` signs in through a link you can open
   on any device, then `redoost publish ./dist` publishes a folder. See
   [`cli/README.md`](cli/README.md).

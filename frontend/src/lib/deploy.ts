@@ -13,6 +13,7 @@ export type Deployment = {
   file_count: number;
   total_size: number;
   enabled: boolean;
+  description: string;
   created_at: string;
   expires_at: string;
 };
@@ -38,7 +39,11 @@ export type UploadSession = {
   manifest: ManifestFile[];
   // Size before compression; missing in sessions saved by older versions
   originalSize?: number;
+  // Left out to keep an updated site's description as it is
+  description?: string;
 };
+
+export type DeploymentChange = { enabled?: boolean; description?: string };
 
 export class ApiError extends Error {
   constructor(
@@ -82,13 +87,14 @@ function authorization(token: string) {
 
 export async function createDeployment(
   files: ManifestFile[],
+  description: string | undefined,
   token: string,
   signal: AbortSignal,
 ) {
   const response = await fetch("/api/deployments", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authorization(token) },
-    body: JSON.stringify({ files }),
+    body: JSON.stringify({ files, description }),
     signal,
   });
   return readResponse<DeploymentUploads>(response);
@@ -116,16 +122,18 @@ export async function updateDeployment(
   return readResponse<DeploymentUploads>(response);
 }
 
+// Updates take the description here, so a failed update keeps the old one
 export async function completeDeployment(
   slug: string,
   files: ManifestFile[],
+  description: string | undefined,
   token: string,
   signal: AbortSignal,
 ) {
   const response = await fetch(`/api/deployments/${slug}/complete`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authorization(token) },
-    body: JSON.stringify({ files }),
+    body: JSON.stringify({ files, description }),
     signal,
   });
   return readResponse<Deployment>(response);
@@ -163,13 +171,13 @@ export async function readUsage(token: string) {
 
 export async function changeDeployment(
   slug: string,
-  enabled: boolean,
+  change: DeploymentChange,
   token: string,
 ) {
   const response = await fetch(`/api/deployments/${slug}`, {
     method: "PATCH",
     headers: { ...authorization(token), "Content-Type": "application/json" },
-    body: JSON.stringify({ enabled }),
+    body: JSON.stringify(change),
   });
   return readResponse<Deployment>(response);
 }
