@@ -49,7 +49,9 @@ def storage(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, ...]]:
 
     for module in (deployments, cleanup):
         monkeypatch.setattr(module, "delete_folder", delete_folder)
-        monkeypatch.setattr(module, "delete_site", delete_site)
+    monkeypatch.setattr(deployments, "delete_site", delete_site)
+    # Cleanup deletes sites through storage.delete_sites
+    monkeypatch.setattr("src.storage.delete_site", delete_site)
     monkeypatch.setattr(deployments, "delete_paths", delete_paths)
     monkeypatch.setattr(deployments, "copy_files", copy_files)
     monkeypatch.setattr(cleanup, "slug_pages", slug_pages)

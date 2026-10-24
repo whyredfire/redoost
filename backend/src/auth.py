@@ -1,4 +1,3 @@
-import asyncio
 import hashlib
 import hmac
 import secrets
@@ -26,7 +25,7 @@ from .models import (
     User,
     UserBase,
 )
-from .storage import delete_site
+from .storage import delete_sites
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -106,8 +105,7 @@ async def delete_user(user: CurrentUser, session: Session) -> None:
     result = await session.exec(query)
     deployments = result.all()
     # Files go first, so a failed delete leaves the account in place to retry
-    deletes = [delete_site(deployment.slug) for deployment in deployments]
-    await asyncio.gather(*deletes)
+    await delete_sites(deployment.slug for deployment in deployments)
     for deployment in deployments:
         await session.delete(deployment)
     await session.delete(user)

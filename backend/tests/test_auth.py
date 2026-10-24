@@ -12,7 +12,7 @@ from pydantic import ByteSize, SecretStr
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from scripts import cleanup
-from src import auth, database, deployments, oidc
+from src import auth, database, deployments, oidc, storage
 from src.config import Provider, settings
 from src.models import CliLogin, OidcMetadata, User, UserInfo
 from src.storage import StoredObject
@@ -120,7 +120,7 @@ def test_deleting_an_account_removes_its_sites(
         deleted.append(slug)
 
     monkeypatch.setattr(deployments, "read_objects", read_objects)
-    monkeypatch.setattr(auth, "delete_site", delete_site)
+    monkeypatch.setattr(storage, "delete_site", delete_site)
     published = client.post("/api/deployments", json=MANIFEST, headers=bearer(token))
     client.post(
         f"/api/deployments/{published.json()['slug']}/complete",
@@ -149,7 +149,7 @@ def test_failed_deletes_keep_the_account(
     async def delete_site(slug: str) -> None:
         raise RuntimeError("S3 is unavailable")
 
-    monkeypatch.setattr(auth, "delete_site", delete_site)
+    monkeypatch.setattr(storage, "delete_site", delete_site)
     client.post("/api/deployments", json=MANIFEST, headers=bearer(token))
 
     with pytest.raises(RuntimeError):

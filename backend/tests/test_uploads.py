@@ -130,6 +130,22 @@ def test_uploads_gzipped_files(client: TestClient, token: str, s3: Any) -> None:
         s3.delete_object(Bucket=settings.s3_bucket, Key=key(deployment, "index.html"))
 
 
+def test_reading_skips_files_deleted_since_listing(
+    deployment: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    upload(deployment, "index.html", FILES["index.html"])
+    folder = key(deployment, "")
+    list_files = storage.list_files
+
+    # As if another request deleted it between the listing and reading it
+    async def listed(s3: Any, prefix: str) -> list[str]:
+        return [*await list_files(s3, prefix), f"{prefix}gone.html"]
+
+    monkeypatch.setattr(storage, "list_files", listed)
+    objects = asyncio.run(storage.read_objects(folder))
+    assert list(objects) == ["index.html"]
+
+
 def test_replaying_a_policy_is_harmless(deployment: dict[str, Any]) -> None:
     content = FILES["index.html"]
 

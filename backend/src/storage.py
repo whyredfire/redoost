@@ -2,12 +2,13 @@ import asyncio
 import mimetypes
 import re
 import secrets
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Iterable
 from dataclasses import dataclass
 from typing import Any
 
 import aioboto3
 from aiobotocore.config import AioConfig
+from botocore.exceptions import ClientError
 from pydantic import AnyHttpUrl
 
 from .config import settings
@@ -15,6 +16,10 @@ from .models import ManifestFile, UploadPolicy
 
 session = aioboto3.Session()
 mime_types = mimetypes.MimeTypes()
+
+# Requests a client sends at once; the rest wait their turn rather than for a
+# connection, which would count against the timeouts
+concurrency = 32
 
 
 def client(endpoint: AnyHttpUrl) -> Any:
@@ -24,8 +29,29 @@ def client(endpoint: AnyHttpUrl) -> Any:
         region_name=settings.s3_region,
         aws_access_key_id=settings.s3_access_key_id,
         aws_secret_access_key=settings.s3_secret_access_key.get_secret_value(),
-        config=AioConfig(signature_version="s3v4", s3={"addressing_style": "path"}),
+        config=AioConfig(
+            signature_version="s3v4",
+            s3={"addressing_style": "path"},
+            max_pool_connections=concurrency,
+            # Fails within the gateway's 60 seconds rather than hanging on S3
+            connect_timeout=5,
+            read_timeout=15,
+            retries={"mode": "standard", "total_max_attempts": 3},
+        ),
     )
+
+
+async def limited[T](
+    calls: Iterable[Awaitable[T]], limit: int = concurrency
+) -> list[T]:
+    """Like asyncio.gather, with at most `limit` running at once."""
+    semaphore = asyncio.Semaphore(limit)
+
+    async def run(call: Awaitable[T]) -> T:
+        async with semaphore:
+            return await call
+
+    return await asyncio.gather(*(run(call) for call in calls))
 
 
 def content_type(path: str) -> str:
@@ -84,23 +110,29 @@ class StoredObject:
     size: int
 
 
+async def read_head(s3: Any, key: str) -> dict[str, Any] | None:
+    try:
+        return await s3.head_object(
+            Bucket=settings.s3_bucket, Key=key, ChecksumMode="ENABLED"
+        )
+    except ClientError as error:
+        # Deleted since it was listed, like by a cancelled upload
+        if error.response.get("Error", {}).get("Code") in ("404", "NoSuchKey"):
+            return None
+        raise
+
+
 # Listings leave out checksums, so every object is read on its own
 async def read_objects(folder: str) -> dict[str, StoredObject]:
     async with client(settings.s3_endpoint) as s3:
         keys = await list_files(s3, folder)
-        heads = await asyncio.gather(
-            *(
-                s3.head_object(
-                    Bucket=settings.s3_bucket, Key=key, ChecksumMode="ENABLED"
-                )
-                for key in keys
-            )
-        )
+        heads = await limited(read_head(s3, key) for key in keys)
     return {
         key.removeprefix(folder): StoredObject(
             sha256=head.get("ChecksumSHA256"), size=head["ContentLength"]
         )
         for key, head in zip(keys, heads, strict=True)
+        if head is not None
     }
 
 
@@ -131,18 +163,21 @@ async def delete_site(slug: str) -> None:
         await delete_keys(s3, await list_keys(s3, f"{slug}/"))
 
 
+async def delete_sites(slugs: Iterable[str]) -> None:
+    # Each has a client of its own, so only a few go at once
+    await limited((delete_site(slug) for slug in slugs), limit=4)
+
+
 # Copies keep their checksum, type, and encoding, so they check out like uploads
 async def copy_files(source: str, target: str, paths: list[str]) -> None:
     async with client(settings.s3_endpoint) as s3:
-        await asyncio.gather(
-            *(
-                s3.copy_object(
-                    Bucket=settings.s3_bucket,
-                    Key=f"{target}{path}",
-                    CopySource={"Bucket": settings.s3_bucket, "Key": f"{source}{path}"},
-                )
-                for path in paths
+        await limited(
+            s3.copy_object(
+                Bucket=settings.s3_bucket,
+                Key=f"{target}{path}",
+                CopySource={"Bucket": settings.s3_bucket, "Key": f"{source}{path}"},
             )
+            for path in paths
         )
 
 

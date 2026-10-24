@@ -8,7 +8,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from src.database import engine
 from src.deployments import discard_retired, retire_after
 from src.models import CliLogin, Deployment, DeploymentState
-from src.storage import delete_folder, delete_site, slug_pages
+from src.storage import delete_folder, delete_sites, slug_pages
 
 # Caps each run, so a large backlog is cleared over several runs
 batch_size = 100
@@ -36,9 +36,7 @@ async def cleanup(session: AsyncSession) -> tuple[int, int, int]:
             break
     orphaned = orphaned[:batch_size]
 
-    stale = [*orphaned, *(deployment.slug for deployment in expired)]
-    deletes = [delete_site(slug) for slug in stale]
-    await asyncio.gather(*deletes)
+    await delete_sites([*orphaned, *(deployment.slug for deployment in expired)])
     for deployment in expired:
         await session.delete(deployment)
 
