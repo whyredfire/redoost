@@ -74,6 +74,12 @@ expects:
   upload to it directly,
 - a Gateway listener and wildcard certificate covering `*.<sites host>`.
 
+The chart also needs `auth` values: a JWT secret, and the OIDC issuer, client ID,
+and client secret users sign in with. To use an existing secret instead of the
+secret values, set `auth.existingSecret` to one containing
+`REDOOST_JWT_SECRET` and `REDOOST_OIDC_CLIENT_SECRET`; the issuer and client ID
+are still required.
+
 ```yaml
 # values.yaml
 appOrigin: https://redoost.example.com
@@ -94,6 +100,13 @@ s3:
   publicEndpoint: https://s3.example.com
   websiteUpstream: garage.garage.svc.cluster.local:3902
   existingSecret: redoost-s3
+auth:
+  # openssl rand -hex 32
+  jwtSecret: 3f7c2a9e5b1d8c4f6a0e3d7b9c2f5a8e
+  oidc:
+    issuer: https://accounts.google.com
+    clientId: 1234567890.apps.googleusercontent.com
+    clientSecret: GOCSPX-example
 ```
 
 ```sh
