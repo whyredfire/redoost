@@ -4,6 +4,7 @@ import json
 import re
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -22,6 +23,42 @@ OTHER_SHA256 = base64.b64encode(hashlib.sha256(b"other").digest()).decode()
 
 def manifest(*paths: str, size: int = 1) -> dict[str, list[dict[str, str | int]]]:
     return {"files": [{"path": path, "size": size, "sha256": SHA256} for path in paths]}
+
+
+# Records what would change in storage; test_uploads.py covers Garage itself
+@pytest.fixture(autouse=True)
+def storage(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, ...]]:
+    calls: list[tuple[str, ...]] = []
+
+    async def delete_folder(folder: str) -> None:
+        calls.append(("delete folder", folder))
+
+    async def delete_paths(folder: str, paths: list[str]) -> None:
+        if paths:
+            calls.append(("delete paths", folder, *paths))
+
+    async def copy_files(source: str, target: str, paths: list[str]) -> None:
+        calls.append(("copy", source, target, *paths))
+
+    async def delete_site(slug: str) -> None:
+        calls.append(("delete site", slug))
+
+    async def list_slugs() -> list[str]:
+        return []
+
+    for module in (deployments, cleanup):
+        monkeypatch.setattr(module, "delete_folder", delete_folder)
+        monkeypatch.setattr(module, "delete_site", delete_site)
+    monkeypatch.setattr(deployments, "delete_paths", delete_paths)
+    monkeypatch.setattr(deployments, "copy_files", copy_files)
+    monkeypatch.setattr(cleanup, "list_slugs", list_slugs)
+    return calls
+
+
+def folder_of(response: dict[str, Any]) -> str:
+    """The version folder a response's uploads go to."""
+    upload = response["uploads"][0]
+    return upload["fields"]["key"].removesuffix(upload["path"])
 
 
 def bearer(token: str) -> dict[str, str]:
@@ -73,7 +110,9 @@ def test_create_deployment_signs_one_policy_per_file(
     ]
 
     fields = body["uploads"][1]["fields"]
-    assert fields["key"] == f"{body['slug']}/assets/app.js"
+    assert re.fullmatch(
+        rf"{body['slug']}/v-[0-9a-f]{{12}}/assets/app.js", fields["key"]
+    )
     assert fields["Content-Type"] == "text/javascript"
     assert fields["x-amz-checksum-sha256"] == SHA256
 
@@ -402,7 +441,9 @@ def test_update_signs_only_new_and_changed_files(
         "about.html",
         "new.js",
     ]
-    assert body["uploads"][0]["fields"]["key"] == f"{created['slug']}/app.js"
+    # Into a folder of its own, while the site keeps serving its current one
+    key = body["uploads"][0]["fields"]["key"]
+    assert key == f"{folder_of(body)}app.js" and folder_of(body) != folder_of(created)
     assert datetime.fromisoformat(body["expires_at"]) > datetime.now(UTC)
     assert "token" not in body
 
@@ -442,28 +483,114 @@ def test_update_requires_its_owner(
     assert cancel(client, other).status_code == 403
 
 
-def test_completing_an_update_replaces_the_site(
-    client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
+def by_folder(
+    folders: dict[str, dict[str, int]],
+) -> Callable[[str], Awaitable[dict[str, StoredObject]]]:
+    """Stored files per folder, by path and size."""
+
+    async def read_objects(folder: str) -> dict[str, StoredObject]:
+        files = folders.get(folder, {})
+        return {
+            path: StoredObject(sha256=SHA256, size=size) for path, size in files.items()
+        }
+
+    return read_objects
+
+
+def usage(client: TestClient, token: str) -> int:
+    return client.get(f"{URL}/usage", headers=bearer(token)).json()["used"]
+
+
+def test_completing_an_update_switches_folders(
+    client: TestClient,
+    token: str,
+    monkeypatch: pytest.MonkeyPatch,
+    storage: list[tuple[str, ...]],
+    run_cleanup: Callable[[], tuple[int, int, int]],
 ) -> None:
     created = published(client, token, monkeypatch, "index.html", "old.html")
-    update(client, created, "index.html", "404.html")
+    served = folder_of(created)
+    assert resolve(client, created["slug"]).headers["X-Site-Root"] == (
+        "/" + served.removesuffix("/")
+    )
+    updated = update(client, created, "index.html", "404.html").json()
+    folder = folder_of(updated)
+    # Only the new file is uploaded, and it counts until the update finishes
+    assert [upload["path"] for upload in updated["uploads"]] == ["404.html"]
+    assert usage(client, token) == 3
 
-    deleted: list[tuple[str, list[str] | None]] = []
-
-    async def delete_objects(slug: str, paths: list[str] | None = None) -> None:
-        deleted.append((slug, paths))
-
-    stored_files = stored("index.html", "old.html", "404.html")
-    monkeypatch.setattr(deployments, "read_objects", stored_files)
-    monkeypatch.setattr(deployments, "delete_objects", delete_objects)
+    files = {"index.html": 1, "old.html": 1}
+    monkeypatch.setattr(
+        deployments, "read_objects", by_folder({served: files, folder: {"404.html": 1}})
+    )
     response = complete(client, created, "index.html", "404.html")
 
     assert response.status_code == 200
     body = response.json()
-    assert deleted == [(created["slug"], ["old.html"])]
     assert body["file_count"] == 2
     assert body["spa"] is False
-    assert resolve(client, created["slug"]).headers["X-Site-Spa"] == "0"
+    assert ("copy", served, folder, "index.html") in storage
+    site = resolve(client, created["slug"])
+    assert site.headers["X-Site-Root"] == "/" + folder.removesuffix("/")
+    assert site.headers["X-Site-Spa"] == "0"
+    # The old version stays while Nginx may still serve it; only old.html isn't shared
+    assert ("delete folder", served) not in storage
+    assert usage(client, token) == 3
+
+    monkeypatch.setattr(cleanup, "retire_after", timedelta(0))
+    run_cleanup()
+    assert ("delete folder", served) in storage
+    assert usage(client, token) == 2
+
+
+def test_cancelling_an_update_deletes_its_files(
+    client: TestClient,
+    token: str,
+    monkeypatch: pytest.MonkeyPatch,
+    storage: list[tuple[str, ...]],
+) -> None:
+    created = published(client, token, monkeypatch, "index.html")
+    served = folder_of(created)
+    monkeypatch.setattr(
+        deployments, "read_objects", by_folder({served: {"index.html": 1}})
+    )
+    updated = update(client, created, "index.html", "big.bin").json()
+    assert usage(client, token) == 2
+
+    assert cancel(client, created).status_code == 204
+    assert ("delete folder", folder_of(updated)) in storage
+    assert ("delete folder", served) not in storage
+    assert usage(client, token) == 1
+    assert resolve(client, created["slug"]).headers["X-Site-Root"] == (
+        "/" + served.removesuffix("/")
+    )
+
+
+def test_abandoned_updates_are_deleted(
+    client: TestClient,
+    token: str,
+    monkeypatch: pytest.MonkeyPatch,
+    storage: list[tuple[str, ...]],
+    run_cleanup: Callable[[], tuple[int, int, int]],
+) -> None:
+    created = published(client, token, monkeypatch, "index.html")
+    served = folder_of(created)
+    monkeypatch.setattr(
+        deployments, "read_objects", by_folder({served: {"index.html": 1}})
+    )
+    # Neither finished nor cancelled, so its window closes on its own
+    monkeypatch.setattr(settings, "upload_window", timedelta(seconds=-1))
+    first = folder_of(update(client, created, "index.html", "a.bin").json())
+
+    # The next update deletes it
+    second = folder_of(update(client, created, "index.html", "b.bin").json())
+    assert ("delete folder", first) in storage
+
+    # And otherwise cleanup does
+    run_cleanup()
+    assert ("delete folder", second) in storage
+    assert ("delete folder", served) not in storage
+    assert usage(client, token) == 1
 
 
 def test_list_ready_deployments_for_its_owner(
@@ -495,20 +622,17 @@ def test_list_deployments_requires_a_user(client: TestClient) -> None:
 
 
 def test_delete_deployment(
-    client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
+    client: TestClient,
+    token: str,
+    monkeypatch: pytest.MonkeyPatch,
+    storage: list[tuple[str, ...]],
 ) -> None:
-    deleted: list[str] = []
-
-    async def delete_objects(slug: str) -> None:
-        deleted.append(slug)
-
     created = published(client, token, monkeypatch, "index.html")
-    monkeypatch.setattr(deployments, "delete_objects", delete_objects)
     url = f"{URL}/{created['slug']}"
 
     response = client.delete(url, headers=bearer(token))
     assert response.status_code == 204
-    assert deleted == [created["slug"]]
+    assert storage == [("delete site", created["slug"])]
     assert client.get(url, headers=bearer(token)).status_code == 404
     assert resolve(client, created["slug"]).status_code == 403
 
@@ -660,14 +784,9 @@ def test_cleanup_removes_expired_uploads_and_orphans(
     client: TestClient,
     token: str,
     monkeypatch: pytest.MonkeyPatch,
-    run_cleanup: Callable[[], tuple[int, int]],
+    run_cleanup: Callable[[], tuple[int, int, int]],
+    storage: list[tuple[str, ...]],
 ) -> None:
-    deleted: list[str] = []
-
-    async def delete_objects(slug: str) -> None:
-        deleted.append(slug)
-
-    monkeypatch.setattr(cleanup, "delete_objects", delete_objects)
     ready = published(client, token, monkeypatch, "index.html")
     pending = create(client, token, "index.html")
     monkeypatch.setattr(settings, "upload_window", timedelta(seconds=-1))
@@ -677,7 +796,8 @@ def test_cleanup_removes_expired_uploads_and_orphans(
         return [ready["slug"], pending["slug"], "orphan-slug-0000"]
 
     monkeypatch.setattr(cleanup, "list_slugs", list_slugs)
-    _, orphaned = run_cleanup()
+    _, orphaned, _ = run_cleanup()
+    deleted = [call[1] for call in storage if call[0] == "delete site"]
 
     assert orphaned == 1
     assert "orphan-slug-0000" in deleted

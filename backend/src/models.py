@@ -139,6 +139,30 @@ class Deployment(DeploymentBase, table=True):
     owner_id: str = Field(
         foreign_key="users.id", index=True, description="User who owns the site"
     )
+    folder: str | None = Field(
+        default=None, description="Storage prefix of the files being served"
+    )
+    pending_folder: str | None = Field(
+        default=None, description="Storage prefix the current upload goes to"
+    )
+    pending_size: int = Field(
+        default=0,
+        sa_type=BigInteger,
+        description="Bytes an update uploads next to the files being served",
+    )
+    retired_folder: str | None = Field(
+        default=None,
+        description="Storage prefix of the files served before the last update, kept "
+        "while Nginx may still have the old one cached",
+    )
+    retired_at: datetime | None = Field(
+        default=None, description="When the last update switched folders"
+    )
+    retired_size: int = Field(
+        default=0,
+        sa_type=BigInteger,
+        description="Bytes of the retired folder that the new one doesn't share",
+    )
 
 
 class StoredFile(SQLModel):

@@ -26,7 +26,7 @@ from .models import (
     User,
     UserBase,
 )
-from .storage import delete_objects
+from .storage import delete_site
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -106,7 +106,7 @@ async def delete_user(user: CurrentUser, session: Session) -> None:
     result = await session.exec(query)
     deployments = result.all()
     # Files go first, so a failed delete leaves the account in place to retry
-    deletes = [delete_objects(deployment.slug) for deployment in deployments]
+    deletes = [delete_site(deployment.slug) for deployment in deployments]
     await asyncio.gather(*deletes)
     for deployment in deployments:
         await session.delete(deployment)

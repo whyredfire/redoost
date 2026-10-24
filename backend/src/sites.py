@@ -18,3 +18,6 @@ async def resolve_site(slug: str, session: Session, response: Response) -> None:
     ):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Site not available")
     response.headers["X-Site-Spa"] = "1" if deployment.spa else "0"
+    # The folder being served, which changes when an update completes
+    folder = deployment.folder or f"{slug}/"
+    response.headers["X-Site-Root"] = "/" + folder.removesuffix("/")

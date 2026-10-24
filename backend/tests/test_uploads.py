@@ -70,6 +70,12 @@ def deployment(client: TestClient, token: str, s3: Any) -> Iterator[dict[str, An
         s3.delete_object(Bucket=settings.s3_bucket, Key=item["Key"])
 
 
+def key(deployment: dict[str, Any], path: str) -> str:
+    """Where a file goes, in the version folder the deployment's uploads go to."""
+    upload = deployment["uploads"][0]
+    return upload["fields"]["key"].removesuffix(upload["path"]) + path
+
+
 def upload(
     deployment: dict[str, Any], path: str, content: bytes, **overrides: str
 ) -> httpx2.Response:
@@ -94,7 +100,7 @@ def test_uploads_matching_files(deployment: dict[str, Any], s3: Any) -> None:
     for path, content in FILES.items():
         assert upload(deployment, path, content).status_code == 204
 
-        head = stored(s3, f"{deployment['slug']}/{path}")
+        head = stored(s3, key(deployment, path))
         assert head is not None
         assert head["ContentLength"] == len(content)
         assert head["ContentType"] == content_type(path)
@@ -116,14 +122,12 @@ def test_uploads_gzipped_files(client: TestClient, token: str, s3: Any) -> None:
         assert without.status_code == 400
         assert upload(deployment, "index.html", content).status_code == 204
 
-        head = stored(s3, f"{deployment['slug']}/index.html")
+        head = stored(s3, key(deployment, "index.html"))
         assert head is not None
         assert head["ContentEncoding"] == "gzip"
         assert head["ContentLength"] == len(content)
     finally:
-        s3.delete_object(
-            Bucket=settings.s3_bucket, Key=f"{deployment['slug']}/index.html"
-        )
+        s3.delete_object(Bucket=settings.s3_bucket, Key=key(deployment, "index.html"))
 
 
 def test_replaying_a_policy_is_harmless(deployment: dict[str, Any]) -> None:
@@ -138,16 +142,21 @@ def test_rejects_different_content(deployment: dict[str, Any], s3: Any) -> None:
     response = upload(deployment, "index.html", content)
 
     assert response.status_code == 400
-    assert stored(s3, f"{deployment['slug']}/index.html") is None
+    assert stored(s3, key(deployment, "index.html")) is None
 
 
 def test_rejects_other_keys(deployment: dict[str, Any], s3: Any) -> None:
     content = FILES["index.html"]
-    for key in (f"{deployment['slug']}/other.html", "other-slug/index.html"):
-        response = upload(deployment, "index.html", content, key=key)
+    for other in (
+        key(deployment, "other.html"),
+        # The folder older sites are served from
+        f"{deployment['slug']}/index.html",
+        "other-slug/index.html",
+    ):
+        response = upload(deployment, "index.html", content, key=other)
 
         assert response.status_code == 400
-        assert stored(s3, key) is None
+        assert stored(s3, other) is None
 
 
 def test_rejects_changed_content_type(deployment: dict[str, Any]) -> None:
@@ -174,7 +183,7 @@ def test_rejects_expired_policies(
     ).json()
 
     assert upload(created, "index.html", content).status_code == 400
-    assert stored(s3, f"{created['slug']}/index.html") is None
+    assert stored(s3, key(created, "index.html")) is None
 
 
 def test_completes_once_every_file_is_uploaded(
@@ -215,14 +224,34 @@ def test_completion_counts_the_stored_sizes(
     assert response.json()["total_size"] == sum(map(len, FILES.values()))
 
 
-def test_updates_only_changed_files(
-    client: TestClient, deployment: dict[str, Any], s3: Any
+def keys(s3: Any, prefix: str) -> list[str]:
+    objects = s3.list_objects_v2(Bucket=settings.s3_bucket, Prefix=prefix)
+    return sorted(item["Key"] for item in objects.get("Contents", []))
+
+
+def only_sites(monkeypatch: pytest.MonkeyPatch, *slugs: str) -> None:
+    """Keeps cleanup to these sites, as other sites in the bucket look orphaned here."""
+
+    async def list_slugs() -> list[str]:
+        return [slug for slug in await storage.list_slugs() if slug in slugs]
+
+    monkeypatch.setattr(cleanup, "list_slugs", list_slugs)
+
+
+def test_updates_switch_folders_once_complete(
+    client: TestClient,
+    deployment: dict[str, Any],
+    s3: Any,
+    run_cleanup: Callable[[], tuple[int, int, int]],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    url = f"/api/deployments/{deployment['slug']}"
+    slug = deployment["slug"]
+    url = f"/api/deployments/{slug}"
     headers = {"Authorization": f"Bearer {deployment['token']}"}
     for path, content in FILES.items():
         upload(deployment, path, content)
     client.post(f"{url}/complete", headers=headers, json=manifest(FILES))
+    served = key(deployment, "")
     stored_files = client.get(f"{url}/files", headers=headers).json()
     assert {file["path"]: file["sha256"] for file in stored_files} == {
         path: digest(content) for path, content in FILES.items()
@@ -243,18 +272,51 @@ def test_updates_only_changed_files(
 
     for path in ("index.html", "new.txt"):
         assert upload(updated, path, files[path]).status_code == 204
+    # Visitors still get the old files until the update completes
+    head = stored(s3, f"{served}index.html")
+    assert head is not None and head["ChecksumSHA256"] == digest(FILES["index.html"])
+
     response = client.post(f"{url}/complete", headers=headers, json=manifest(files))
     assert response.status_code == 200
     assert response.json()["file_count"] == 3
-
-    objects = s3.list_objects_v2(
-        Bucket=settings.s3_bucket, Prefix=f"{deployment['slug']}/"
-    )
-    assert sorted(item["Key"] for item in objects["Contents"]) == sorted(
-        f"{deployment['slug']}/{path}" for path in files
-    )
-    head = stored(s3, f"{deployment['slug']}/index.html")
+    folder = key(updated, "")
+    # The unchanged file is copied into the new version
+    assert keys(s3, folder) == sorted(f"{folder}{path}" for path in files)
+    head = stored(s3, f"{folder}index.html")
     assert head is not None and head["ChecksumSHA256"] == digest(files["index.html"])
+    root = client.get(f"/internal/sites/{slug}").headers["X-Site-Root"]
+    assert root == "/" + folder.removesuffix("/")
+
+    # The old version goes once Nginx can no longer have it cached
+    assert keys(s3, served)
+    only_sites(monkeypatch, slug)
+    monkeypatch.setattr(cleanup, "retire_after", timedelta(0))
+    run_cleanup()
+    assert keys(s3, served) == []
+    assert keys(s3, f"{slug}/") == keys(s3, folder)
+
+
+def test_cancelled_updates_leave_nothing_behind(
+    client: TestClient, deployment: dict[str, Any], s3: Any
+) -> None:
+    slug = deployment["slug"]
+    url = f"/api/deployments/{slug}"
+    headers = {"Authorization": f"Bearer {deployment['token']}"}
+    for path, content in FILES.items():
+        upload(deployment, path, content)
+    client.post(f"{url}/complete", headers=headers, json=manifest(FILES))
+    before = keys(s3, f"{slug}/")
+
+    files = {**FILES, "index.html": b"<h1>Never finished</h1>", "big.bin": b"x" * 4096}
+    updated = client.put(url, headers=headers, json=manifest(files)).json()
+    for path in ("index.html", "big.bin"):
+        assert upload(updated, path, files[path]).status_code == 204
+    assert keys(s3, f"{slug}/") != before
+
+    assert client.post(f"{url}/cancel", headers=headers).status_code == 204
+    assert keys(s3, f"{slug}/") == before
+    head = stored(s3, key(deployment, "index.html"))
+    assert head is not None and head["ChecksumSHA256"] == digest(FILES["index.html"])
 
 
 def test_delete_removes_uploaded_files(
@@ -285,14 +347,7 @@ def test_cleanup_removes_orphaned_files(
         Bucket=settings.s3_bucket, Key="orphan-test-0000/index.html", Body=b""
     )
 
-    # The test database is empty, so every other site in the bucket looks orphaned
-    async def list_slugs() -> list[str]:
-        slugs = await storage.list_slugs()
-        return [
-            slug for slug in slugs if slug in {deployment["slug"], "orphan-test-0000"}
-        ]
-
-    monkeypatch.setattr(cleanup, "list_slugs", list_slugs)
+    only_sites(monkeypatch, deployment["slug"], "orphan-test-0000")
     run_cleanup()
     assert stored(s3, "orphan-test-0000/index.html") is None
-    assert stored(s3, f"{deployment['slug']}/index.html") is not None
+    assert stored(s3, key(deployment, "index.html")) is not None

@@ -1,5 +1,7 @@
 import asyncio
 import mimetypes
+import re
+import secrets
 from dataclasses import dataclass
 from typing import Any
 
@@ -36,14 +38,42 @@ async def check_storage() -> None:
         await s3.head_bucket(Bucket=settings.s3_bucket)
 
 
-async def list_keys(s3: Any, slug: str) -> list[str]:
+# Each publish or update uploads into its own folder, like brave-otter-1a2b/v-0123456789ab/,
+# so a site switches to it in one step. Sites from before versions keep their files at
+# the slug's root, next to their newer versions' folders.
+version_folder = re.compile(r"v-[0-9a-f]{12}/")
+
+
+def new_folder(slug: str) -> str:
+    return f"{slug}/v-{secrets.token_hex(6)}/"
+
+
+async def list_keys(s3: Any, prefix: str) -> list[str]:
     keys: list[str] = []
     pages = s3.get_paginator("list_objects_v2").paginate(
-        Bucket=settings.s3_bucket, Prefix=f"{slug}/"
+        Bucket=settings.s3_bucket, Prefix=prefix
     )
     async for page in pages:
         keys.extend(item["Key"] for item in page.get("Contents", []))
     return keys
+
+
+async def list_files(s3: Any, folder: str) -> list[str]:
+    keys = await list_keys(s3, folder)
+    return [key for key in keys if not version_folder.match(key.removeprefix(folder))]
+
+
+async def delete_keys(s3: Any, keys: list[str]) -> None:
+    # DeleteObjects takes up to 1000 keys at a time
+    for start in range(0, len(keys), 1000):
+        batch = [{"Key": key} for key in keys[start : start + 1000]]
+        result = await s3.delete_objects(
+            Bucket=settings.s3_bucket, Delete={"Objects": batch, "Quiet": True}
+        )
+        # Failures for individual keys still come back as a 200
+        errors = result.get("Errors", [])
+        if errors:
+            raise RuntimeError(f"Could not delete {len(errors)} objects")
 
 
 @dataclass
@@ -54,9 +84,9 @@ class StoredObject:
 
 
 # Listings leave out checksums, so every object is read on its own
-async def read_objects(slug: str) -> dict[str, StoredObject]:
+async def read_objects(folder: str) -> dict[str, StoredObject]:
     async with client(settings.s3_endpoint) as s3:
-        keys = await list_keys(s3, slug)
+        keys = await list_files(s3, folder)
         heads = await asyncio.gather(
             *(
                 s3.head_object(
@@ -66,7 +96,7 @@ async def read_objects(slug: str) -> dict[str, StoredObject]:
             )
         )
     return {
-        key.removeprefix(f"{slug}/"): StoredObject(
+        key.removeprefix(folder): StoredObject(
             sha256=head.get("ChecksumSHA256"), size=head["ContentLength"]
         )
         for key, head in zip(keys, heads, strict=True)
@@ -85,27 +115,39 @@ async def list_slugs() -> list[str]:
     return slugs
 
 
-async def delete_objects(slug: str, paths: list[str] | None = None) -> None:
+async def delete_folder(folder: str) -> None:
     async with client(settings.s3_endpoint) as s3:
-        # Without paths, every file of the site is deleted
-        if paths is None:
-            keys = await list_keys(s3, slug)
-        else:
-            keys = [f"{slug}/{path}" for path in paths]
-        # DeleteObjects takes up to 1000 keys at a time
-        for start in range(0, len(keys), 1000):
-            batch = [{"Key": key} for key in keys[start : start + 1000]]
-            result = await s3.delete_objects(
-                Bucket=settings.s3_bucket, Delete={"Objects": batch, "Quiet": True}
+        await delete_keys(s3, await list_files(s3, folder))
+
+
+async def delete_paths(folder: str, paths: list[str]) -> None:
+    if paths:
+        async with client(settings.s3_endpoint) as s3:
+            await delete_keys(s3, [f"{folder}{path}" for path in paths])
+
+
+async def delete_site(slug: str) -> None:
+    async with client(settings.s3_endpoint) as s3:
+        await delete_keys(s3, await list_keys(s3, f"{slug}/"))
+
+
+# Copies keep their checksum, type, and encoding, so they check out like uploads
+async def copy_files(source: str, target: str, paths: list[str]) -> None:
+    async with client(settings.s3_endpoint) as s3:
+        await asyncio.gather(
+            *(
+                s3.copy_object(
+                    Bucket=settings.s3_bucket,
+                    Key=f"{target}{path}",
+                    CopySource={"Bucket": settings.s3_bucket, "Key": f"{source}{path}"},
+                )
+                for path in paths
             )
-            # Failures for individual keys still come back as a 200
-            errors = result.get("Errors", [])
-            if errors:
-                raise RuntimeError(f"Could not delete {len(errors)} objects of {slug}")
+        )
 
 
 async def sign_uploads(
-    slug: str, files: list[ManifestFile]
+    folder: str, files: list[ManifestFile]
 ) -> tuple[str, list[UploadPolicy]]:
     url = ""
     uploads: list[UploadPolicy] = []
@@ -121,7 +163,7 @@ async def sign_uploads(
                 fields["Content-Encoding"] = "gzip"
             post = await s3.generate_presigned_post(
                 Bucket=settings.s3_bucket,
-                Key=f"{slug}/{file.path}",
+                Key=f"{folder}{file.path}",
                 Fields=fields,
                 Conditions=[
                     *({name: value} for name, value in fields.items()),

@@ -86,11 +86,11 @@ def token(new_token: Callable[[], str]) -> str:
 
 
 @pytest.fixture
-def run_cleanup() -> Callable[[], tuple[int, int]]:
+def run_cleanup() -> Callable[[], tuple[int, int, int]]:
     from scripts.cleanup import cleanup
     from src.database import engine
 
-    async def run() -> tuple[int, int]:
+    async def run() -> tuple[int, int, int]:
         async with AsyncSession(engine) as session:
             return await cleanup(session)
 

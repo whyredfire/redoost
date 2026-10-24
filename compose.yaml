@@ -83,6 +83,9 @@ services:
         - action: sync
           path: ./backend/tests
           target: /app/tests
+        - action: sync
+          path: ./backend/scripts
+          target: /app/scripts
         - action: rebuild
           path: ./backend/uv.lock
 

@@ -116,11 +116,11 @@ def test_deleting_an_account_removes_its_sites(
 
     deleted: list[str] = []
 
-    async def delete_objects(slug: str) -> None:
+    async def delete_site(slug: str) -> None:
         deleted.append(slug)
 
     monkeypatch.setattr(deployments, "read_objects", read_objects)
-    monkeypatch.setattr(auth, "delete_objects", delete_objects)
+    monkeypatch.setattr(auth, "delete_site", delete_site)
     published = client.post("/api/deployments", json=MANIFEST, headers=bearer(token))
     client.post(
         f"/api/deployments/{published.json()['slug']}/complete",
@@ -146,10 +146,10 @@ def test_deleting_an_account_removes_its_sites(
 def test_failed_deletes_keep_the_account(
     client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    async def delete_objects(slug: str) -> None:
+    async def delete_site(slug: str) -> None:
         raise RuntimeError("S3 is unavailable")
 
-    monkeypatch.setattr(auth, "delete_objects", delete_objects)
+    monkeypatch.setattr(auth, "delete_site", delete_site)
     client.post("/api/deployments", json=MANIFEST, headers=bearer(token))
 
     with pytest.raises(RuntimeError):
@@ -226,7 +226,7 @@ def test_cli_sign_in_links_expire(
 def test_cleanup_removes_expired_cli_sign_ins(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
-    run_cleanup: Callable[[], tuple[int, int]],
+    run_cleanup: Callable[[], tuple[int, int, int]],
 ) -> None:
     async def list_slugs() -> list[str]:
         return []
