@@ -8,7 +8,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from src.database import engine
 from src.deployments import discard_retired, retire_after
 from src.models import CliLogin, Deployment, DeploymentState
-from src.storage import delete_folder, delete_site, list_slugs
+from src.storage import delete_folder, delete_site, slug_pages
 
 # Caps each run, so a large backlog is cleared over several runs
 batch_size = 100
@@ -22,15 +22,19 @@ async def cleanup(session: AsyncSession) -> tuple[int, int, int]:
         .where(col(Deployment.expires_at) < datetime.now(UTC))
         .limit(batch_size)
     )
-    slugs, result = await asyncio.gather(list_slugs(), session.exec(expired_query))
-    expired = result.all()
+    expired = (await session.exec(expired_query)).all()
 
     # Rows are committed before any upload, so a folder without one is leftover.
-    # Listing the bucket before querying for its slugs keeps that true here.
-    query = select(Deployment.slug).where(col(Deployment.slug).in_(slugs))
-    result = await session.exec(query)
-    known = set(result.all())
-    orphaned = [slug for slug in slugs if slug not in known][:batch_size]
+    # Listing each page before querying for its slugs keeps that true here, and
+    # going a page at a time keeps memory and query size flat however many sites there are.
+    orphaned: list[str] = []
+    async for slugs in slug_pages():
+        query = select(Deployment.slug).where(col(Deployment.slug).in_(slugs))
+        known = set((await session.exec(query)).all())
+        orphaned.extend(slug for slug in slugs if slug not in known)
+        if len(orphaned) >= batch_size:
+            break
+    orphaned = orphaned[:batch_size]
 
     stale = [*orphaned, *(deployment.slug for deployment in expired)]
     deletes = [delete_site(slug) for slug in stale]

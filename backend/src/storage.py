@@ -2,6 +2,7 @@ import asyncio
 import mimetypes
 import re
 import secrets
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
 
@@ -103,16 +104,15 @@ async def read_objects(folder: str) -> dict[str, StoredObject]:
     }
 
 
-async def list_slugs() -> list[str]:
-    slugs: list[str] = []
+async def slug_pages() -> AsyncIterator[list[str]]:
+    """The bucket's site folders, a listing page (up to 1000) at a time."""
     async with client(settings.s3_endpoint) as s3:
         pages = s3.get_paginator("list_objects_v2").paginate(
             Bucket=settings.s3_bucket, Delimiter="/"
         )
         async for page in pages:
             prefixes = page.get("CommonPrefixes", [])
-            slugs.extend(prefix["Prefix"].removesuffix("/") for prefix in prefixes)
-    return slugs
+            yield [prefix["Prefix"].removesuffix("/") for prefix in prefixes]
 
 
 async def delete_folder(folder: str) -> None:

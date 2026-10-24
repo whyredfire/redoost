@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import Callable, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -228,14 +228,14 @@ def test_cleanup_removes_expired_cli_sign_ins(
     monkeypatch: pytest.MonkeyPatch,
     run_cleanup: Callable[[], tuple[int, int, int]],
 ) -> None:
-    async def list_slugs() -> list[str]:
-        return []
+    async def slug_pages() -> AsyncIterator[list[str]]:
+        yield []
 
     async def read_login(login_id: str) -> CliLogin | None:
         async with AsyncSession(database.engine) as session:
             return await session.get(CliLogin, login_id)
 
-    monkeypatch.setattr(cleanup, "list_slugs", list_slugs)
+    monkeypatch.setattr(cleanup, "slug_pages", slug_pages)
     kept = start_cli_login(client)
     monkeypatch.setattr(auth, "cli_login_lifetime", timedelta(seconds=-1))
     expired = start_cli_login(client)

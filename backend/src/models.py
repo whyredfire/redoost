@@ -5,7 +5,7 @@ from typing import Annotated, Self
 
 from coolname import generate_slug
 from pydantic import StringConstraints, field_validator, model_validator
-from sqlalchemy import BigInteger, UniqueConstraint
+from sqlalchemy import BigInteger, Index, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 from .config import Provider, settings
@@ -136,6 +136,9 @@ class DeploymentChange(SQLModel):
 
 
 class Deployment(DeploymentBase, table=True):
+    # For cleanup, which looks for uploads past their window
+    __table_args__ = (Index("ix_deployment_state_expires_at", "state", "expires_at"),)
+
     owner_id: str = Field(
         foreign_key="users.id", index=True, description="User who owns the site"
     )
@@ -255,7 +258,9 @@ class CliLogin(SQLModel, table=True):
         ondelete="CASCADE",
         description="User who approved the sign-in",
     )
-    expires_at: datetime = Field(description="When the sign-in link stops working")
+    expires_at: datetime = Field(
+        index=True, description="When the sign-in link stops working"
+    )
 
 
 class CliLoginStarted(SQLModel):

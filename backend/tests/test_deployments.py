@@ -2,7 +2,7 @@ import base64
 import hashlib
 import json
 import re
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -44,15 +44,15 @@ def storage(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, ...]]:
     async def delete_site(slug: str) -> None:
         calls.append(("delete site", slug))
 
-    async def list_slugs() -> list[str]:
-        return []
+    async def slug_pages() -> AsyncIterator[list[str]]:
+        yield []
 
     for module in (deployments, cleanup):
         monkeypatch.setattr(module, "delete_folder", delete_folder)
         monkeypatch.setattr(module, "delete_site", delete_site)
     monkeypatch.setattr(deployments, "delete_paths", delete_paths)
     monkeypatch.setattr(deployments, "copy_files", copy_files)
-    monkeypatch.setattr(cleanup, "list_slugs", list_slugs)
+    monkeypatch.setattr(cleanup, "slug_pages", slug_pages)
     return calls
 
 
@@ -793,10 +793,12 @@ def test_cleanup_removes_expired_uploads_and_orphans(
     monkeypatch.setattr(settings, "upload_window", timedelta(seconds=-1))
     expired = create(client, token, "index.html")
 
-    async def list_slugs() -> list[str]:
-        return [ready["slug"], pending["slug"], "orphan-slug-0000"]
+    # The orphan is on the second page of the bucket's listing
+    async def slug_pages() -> AsyncIterator[list[str]]:
+        yield [ready["slug"], pending["slug"]]
+        yield ["orphan-slug-0000"]
 
-    monkeypatch.setattr(cleanup, "list_slugs", list_slugs)
+    monkeypatch.setattr(cleanup, "slug_pages", slug_pages)
     _, orphaned, _ = run_cleanup()
     deleted = [call[1] for call in storage if call[0] == "delete site"]
 

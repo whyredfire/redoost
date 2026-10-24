@@ -2,7 +2,7 @@ import asyncio
 import base64
 import gzip
 import hashlib
-from collections.abc import Callable, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from datetime import timedelta
 from typing import Any
 
@@ -232,10 +232,11 @@ def keys(s3: Any, prefix: str) -> list[str]:
 def only_sites(monkeypatch: pytest.MonkeyPatch, *slugs: str) -> None:
     """Keeps cleanup to these sites, as other sites in the bucket look orphaned here."""
 
-    async def list_slugs() -> list[str]:
-        return [slug for slug in await storage.list_slugs() if slug in slugs]
+    async def slug_pages() -> AsyncIterator[list[str]]:
+        async for page in storage.slug_pages():
+            yield [slug for slug in page if slug in slugs]
 
-    monkeypatch.setattr(cleanup, "list_slugs", list_slugs)
+    monkeypatch.setattr(cleanup, "slug_pages", slug_pages)
 
 
 def test_updates_switch_folders_once_complete(
