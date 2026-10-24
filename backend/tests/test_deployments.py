@@ -13,7 +13,7 @@ from pydantic import ByteSize
 from scripts import cleanup
 from src import deployments
 from src.config import settings
-from src.storage import content_type
+from src.storage import StoredObject, content_type
 
 URL = "/api/deployments"
 SHA256 = base64.b64encode(hashlib.sha256(b"").digest()).decode()
@@ -242,19 +242,19 @@ def complete(client: TestClient, created: dict[str, str], *paths: str) -> Respon
 
 
 def stored(
-    *paths: str, sha256: str = SHA256
-) -> Callable[[str], Awaitable[dict[str, str | None]]]:
-    async def read_checksums(slug: str) -> dict[str, str | None]:
-        return dict.fromkeys(paths, sha256)
+    *paths: str, sha256: str = SHA256, size: int = 1
+) -> Callable[[str], Awaitable[dict[str, StoredObject]]]:
+    async def read_objects(slug: str) -> dict[str, StoredObject]:
+        return {path: StoredObject(sha256=sha256, size=size) for path in paths}
 
-    return read_checksums
+    return read_objects
 
 
 def test_complete_marks_deployment_ready(
     client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     created = create(client, token, "index.html", "app.js")
-    monkeypatch.setattr(deployments, "read_checksums", stored("index.html", "app.js"))
+    monkeypatch.setattr(deployments, "read_objects", stored("index.html", "app.js"))
 
     response = complete(client, created, "index.html", "app.js")
     assert response.status_code == 200
@@ -275,14 +275,49 @@ def test_complete_rejects_missing_files(
     client: TestClient,
     token: str,
     monkeypatch: pytest.MonkeyPatch,
-    checksums: Callable[[str], Awaitable[dict[str, str | None]]],
+    checksums: Callable[[str], Awaitable[dict[str, StoredObject]]],
 ) -> None:
     created = create(client, token, "index.html", "app.js")
-    monkeypatch.setattr(deployments, "read_checksums", checksums)
+    monkeypatch.setattr(deployments, "read_objects", checksums)
 
     response = complete(client, created, "index.html", "app.js")
     assert response.status_code == 409
     assert response.json()["detail"].endswith("of 2 files uploaded")
+
+
+def test_complete_rejects_understated_sizes(
+    client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    created = create(client, token, "index.html")
+    monkeypatch.setattr(deployments, "read_objects", stored("index.html", size=10))
+    url = f"{URL}/{created['slug']}"
+
+    # The checksum matches, but the stored file is bigger than declared
+    response = client.post(
+        f"{url}/complete", headers=bearer(token), json=manifest("index.html", size=0)
+    )
+    assert response.status_code == 409
+    assert client.get(url, headers=bearer(token)).json()["state"] == "uploading"
+
+    response = client.post(
+        f"{url}/complete", headers=bearer(token), json=manifest("index.html", size=10)
+    )
+    assert response.json()["total_size"] == 10
+
+
+def test_complete_checks_storage_again(
+    client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    created = create(client, token, "index.html")
+    other = create(client, token, "index.html")
+    monkeypatch.setattr(deployments, "read_objects", stored("index.html"))
+    complete(client, other)
+    # As if the other site had finished first and used up what's left
+    monkeypatch.setattr(settings, "max_account_size", ByteSize(1))
+
+    response = complete(client, created)
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Your sites can use up to 1B in total"
 
 
 def test_complete_rejects_closed_upload_window(
@@ -290,7 +325,7 @@ def test_complete_rejects_closed_upload_window(
 ) -> None:
     monkeypatch.setattr(settings, "upload_window", timedelta(seconds=-1))
     created = create(client, token, "index.html")
-    monkeypatch.setattr(deployments, "read_checksums", stored("index.html"))
+    monkeypatch.setattr(deployments, "read_objects", stored("index.html"))
 
     assert complete(client, created).status_code == 410
 
@@ -306,7 +341,7 @@ def test_complete_requires_its_owner(
 def published(
     client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch, *paths: str
 ) -> dict[str, str]:
-    monkeypatch.setattr(deployments, "read_checksums", stored(*paths))
+    monkeypatch.setattr(deployments, "read_objects", stored(*paths))
     created = create(client, token, *paths)
     complete(client, created, *paths)
     return created
@@ -348,15 +383,25 @@ def test_update_signs_only_new_and_changed_files(
 ) -> None:
     created = published(client, token, monkeypatch, "index.html", "app.js", "old.js")
 
-    async def read_checksums(slug: str) -> dict[str, str | None]:
-        return {"index.html": SHA256, "app.js": OTHER_SHA256, "old.js": SHA256}
+    async def read_objects(slug: str) -> dict[str, StoredObject]:
+        return {
+            "index.html": StoredObject(sha256=SHA256, size=1),
+            "app.js": StoredObject(sha256=OTHER_SHA256, size=1),
+            # Same checksum, but not the size the manifest declares
+            "about.html": StoredObject(sha256=SHA256, size=5),
+            "old.js": StoredObject(sha256=SHA256, size=1),
+        }
 
-    monkeypatch.setattr(deployments, "read_checksums", read_checksums)
-    response = update(client, created, "index.html", "app.js", "new.js")
+    monkeypatch.setattr(deployments, "read_objects", read_objects)
+    response = update(client, created, "index.html", "app.js", "about.html", "new.js")
 
     assert response.status_code == 200
     body = response.json()
-    assert [upload["path"] for upload in body["uploads"]] == ["app.js", "new.js"]
+    assert [upload["path"] for upload in body["uploads"]] == [
+        "app.js",
+        "about.html",
+        "new.js",
+    ]
     assert body["uploads"][0]["fields"]["key"] == f"{created['slug']}/app.js"
     assert datetime.fromisoformat(body["expires_at"]) > datetime.now(UTC)
     assert "token" not in body
@@ -409,7 +454,7 @@ def test_completing_an_update_replaces_the_site(
         deleted.append((slug, paths))
 
     stored_files = stored("index.html", "old.html", "404.html")
-    monkeypatch.setattr(deployments, "read_checksums", stored_files)
+    monkeypatch.setattr(deployments, "read_objects", stored_files)
     monkeypatch.setattr(deployments, "delete_objects", delete_objects)
     response = complete(client, created, "index.html", "404.html")
 
@@ -427,7 +472,7 @@ def test_list_ready_deployments_for_its_owner(
     new_token: Callable[[], str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(deployments, "read_checksums", stored("index.html"))
+    monkeypatch.setattr(deployments, "read_objects", stored("index.html"))
     first = create(client, token, "index.html")
     second = create(client, token, "index.html")
     unfinished = create(client, token, "index.html")
@@ -524,7 +569,7 @@ def test_updates_keep_sites_off(
     turn(client, created, False)
 
     update(client, created, "index.html", "app.js")
-    monkeypatch.setattr(deployments, "read_checksums", stored("index.html", "app.js"))
+    monkeypatch.setattr(deployments, "read_objects", stored("index.html", "app.js"))
     response = complete(client, created, "index.html", "app.js")
 
     assert response.json()["enabled"] is False
@@ -600,7 +645,7 @@ def test_resolve_site_once_ready(
     assert created["spa"] == (spa == "1")
     assert resolve(client, created["slug"]).status_code == 403
 
-    monkeypatch.setattr(deployments, "read_checksums", stored(*paths))
+    monkeypatch.setattr(deployments, "read_objects", stored(*paths))
     complete(client, created, *paths)
     response = resolve(client, created["slug"])
     assert response.status_code == 204

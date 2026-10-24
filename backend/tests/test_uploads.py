@@ -195,6 +195,26 @@ def test_completes_once_every_file_is_uploaded(
     assert response.json()["state"] == "ready"
 
 
+def test_completion_counts_the_stored_sizes(
+    client: TestClient, deployment: dict[str, Any]
+) -> None:
+    url = f"/api/deployments/{deployment['slug']}/complete"
+    headers = {"Authorization": f"Bearer {deployment['token']}"}
+    for path, content in FILES.items():
+        upload(deployment, path, content)
+
+    # Same paths and checksums, but sizes that would hide the files from the quota
+    understated = manifest(FILES)
+    for file in understated["files"]:
+        file["size"] = 0
+    response = client.post(url, headers=headers, json=understated)
+    assert response.status_code == 409
+
+    response = client.post(url, headers=headers, json=manifest(FILES))
+    assert response.status_code == 200
+    assert response.json()["total_size"] == sum(map(len, FILES.values()))
+
+
 def test_updates_only_changed_files(
     client: TestClient, deployment: dict[str, Any], s3: Any
 ) -> None:

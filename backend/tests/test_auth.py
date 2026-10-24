@@ -15,6 +15,7 @@ from scripts import cleanup
 from src import auth, database, deployments, oidc
 from src.config import Provider, settings
 from src.models import CliLogin, OidcMetadata, User, UserInfo
+from src.storage import StoredObject
 
 SHA256 = "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
 MANIFEST = {"files": [{"path": "index.html", "size": 0, "sha256": SHA256}]}
@@ -110,15 +111,15 @@ def test_deleting_an_account_removes_its_sites(
     new_token: Callable[[], str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async def read_checksums(slug: str) -> dict[str, str | None]:
-        return {"index.html": SHA256}
+    async def read_objects(slug: str) -> dict[str, StoredObject]:
+        return {"index.html": StoredObject(sha256=SHA256, size=0)}
 
     deleted: list[str] = []
 
     async def delete_objects(slug: str) -> None:
         deleted.append(slug)
 
-    monkeypatch.setattr(deployments, "read_checksums", read_checksums)
+    monkeypatch.setattr(deployments, "read_objects", read_objects)
     monkeypatch.setattr(auth, "delete_objects", delete_objects)
     published = client.post("/api/deployments", json=MANIFEST, headers=bearer(token))
     client.post(
@@ -397,10 +398,10 @@ def test_account_sites_count_toward_their_storage(
     account = sign_in(accounts, monkeypatch, subject="quota").json()["token"]
     site = {"files": [{"path": "index.html", "size": 1, "sha256": SHA256}]}
 
-    async def read_checksums(slug: str) -> dict[str, str | None]:
-        return {"index.html": SHA256}
+    async def read_objects(slug: str) -> dict[str, StoredObject]:
+        return {"index.html": StoredObject(sha256=SHA256, size=1)}
 
-    monkeypatch.setattr(deployments, "read_checksums", read_checksums)
+    monkeypatch.setattr(deployments, "read_objects", read_objects)
     created = accounts.post("/api/deployments", json=site, headers=bearer(account))
     accounts.post(
         f"/api/deployments/{created.json()['slug']}/complete",

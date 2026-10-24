@@ -16,11 +16,12 @@ from .models import (
     DeploymentUploads,
     Limits,
     Manifest,
+    ManifestFile,
     StoredFile,
     Usage,
     User,
 )
-from .storage import delete_objects, read_checksums, sign_uploads
+from .storage import StoredObject, delete_objects, read_objects, sign_uploads
 
 router = APIRouter(prefix="/api/deployments", tags=["deployments"])
 
@@ -138,10 +139,18 @@ async def change_deployment(
     return deployment
 
 
+def matches(stored: StoredObject | None, file: ManifestFile) -> bool:
+    return (
+        stored is not None and stored.sha256 == file.sha256 and stored.size == file.size
+    )
+
+
 @router.get("/{slug}/files")
 async def read_files(deployment: OwnedDeployment) -> list[StoredFile]:
-    checksums = await read_checksums(deployment.slug)
-    return [StoredFile(path=path, sha256=sha256) for path, sha256 in checksums.items()]
+    objects = await read_objects(deployment.slug)
+    return [
+        StoredFile(path=path, sha256=stored.sha256) for path, stored in objects.items()
+    ]
 
 
 @router.put("/{slug}")
@@ -153,9 +162,9 @@ async def update_deployment(
     await check_storage(session, user, manifest.total_size, replacing=deployment.slug)
 
     # Only new and changed files are uploaded again
-    checksums = await read_checksums(deployment.slug)
+    objects = await read_objects(deployment.slug)
     changed = [
-        file for file in manifest.files if checksums.get(file.path) != file.sha256
+        file for file in manifest.files if not matches(objects.get(file.path), file)
     ]
     upload_url, uploads = await sign_uploads(deployment.slug, changed)
 
@@ -179,12 +188,12 @@ async def update_deployment(
 
 @router.post("/{slug}/complete")
 async def complete_deployment(
-    manifest: Manifest, deployment: OwnedDeployment, session: Session
+    manifest: Manifest, deployment: OwnedDeployment, session: Session, user: CurrentUser
 ) -> DeploymentBase:
-    checksums = await read_checksums(deployment.slug)
-    uploaded = sum(checksums.get(file.path) == file.sha256 for file in manifest.files)
+    objects = await read_objects(deployment.slug)
+    uploaded = sum(matches(objects.get(file.path), file) for file in manifest.files)
     paths = {file.path for file in manifest.files}
-    extra = [path for path in checksums if path not in paths]
+    extra = [path for path in objects if path not in paths]
 
     now = datetime.now(UTC)
     if deployment.expires_at <= now:
@@ -202,11 +211,16 @@ async def complete_deployment(
             f"{uploaded} of {len(manifest.files)} files uploaded",
         )
 
+    # Counted from storage, as the manifest's sizes are only the client's word;
+    # checked again, as other uploads may have finished since this one started
+    total_size = sum(objects[file.path].size for file in manifest.files)
+    await check_storage(session, user, total_size, replacing=deployment.slug)
+
     # Removed files stay online until the new ones are all in place
     await delete_objects(deployment.slug, extra)
     deployment.state = DeploymentState.ready
     deployment.file_count = len(manifest.files)
-    deployment.total_size = manifest.total_size
+    deployment.total_size = total_size
     deployment.spa = manifest.spa
     # Set here rather than when the update starts, so a failed update keeps the old one
     if manifest.description is not None:

@@ -1,5 +1,6 @@
 import asyncio
 import mimetypes
+from dataclasses import dataclass
 from typing import Any
 
 import aioboto3
@@ -45,8 +46,15 @@ async def list_keys(s3: Any, slug: str) -> list[str]:
     return keys
 
 
+@dataclass
+class StoredObject:
+    sha256: str | None
+    # The bytes actually stored, which a manifest can't vouch for
+    size: int
+
+
 # Listings leave out checksums, so every object is read on its own
-async def read_checksums(slug: str) -> dict[str, str | None]:
+async def read_objects(slug: str) -> dict[str, StoredObject]:
     async with client(settings.s3_endpoint) as s3:
         keys = await list_keys(s3, slug)
         heads = await asyncio.gather(
@@ -58,7 +66,9 @@ async def read_checksums(slug: str) -> dict[str, str | None]:
             )
         )
     return {
-        key.removeprefix(f"{slug}/"): head.get("ChecksumSHA256")
+        key.removeprefix(f"{slug}/"): StoredObject(
+            sha256=head.get("ChecksumSHA256"), size=head["ContentLength"]
+        )
         for key, head in zip(keys, heads, strict=True)
     }
 
