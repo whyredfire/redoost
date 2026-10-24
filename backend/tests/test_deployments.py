@@ -3,6 +3,7 @@ import hashlib
 import json
 import re
 from collections.abc import Awaitable, Callable
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -826,6 +827,32 @@ def test_users_have_a_storage_limit(
     assert response.status_code == 403
     assert response.json()["detail"] == "Your sites can use up to 3B in total"
     assert create(client, token, "index.html")["slug"]
+
+
+@pytest.mark.skipif(
+    settings.database_url == "sqlite+aiosqlite://",
+    reason="In-memory SQLite shares one connection, so requests can't race",
+)
+def test_concurrent_uploads_stay_within_the_limit(
+    client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "max_account_size", ByteSize(5))
+
+    # Each fits on its own, but only five fit together
+    with ThreadPoolExecutor(max_workers=12) as pool:
+        responses = list(
+            pool.map(
+                lambda _: client.post(
+                    URL, json=manifest("index.html"), headers=bearer(token)
+                ),
+                range(12),
+            )
+        )
+
+    assert (
+        sorted(response.status_code for response in responses) == [201] * 5 + [403] * 7
+    )
+    assert client.get(f"{URL}/usage", headers=bearer(token)).json()["used"] == 5
 
 
 def test_read_usage(

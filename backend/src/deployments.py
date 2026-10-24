@@ -75,9 +75,25 @@ async def used_storage(
     return int(result.one())
 
 
+async def lock_storage(session: Session, user: User) -> None:
+    """Makes other quota checks for the user wait until this transaction ends.
+
+    Without it, concurrent uploads could all see the same usage and all go ahead.
+    Postgres locks the user's row; SQLite ignores FOR UPDATE, so a write there takes
+    its single write lock instead. Either way, callers commit soon after, and do
+    their slower S3 work beforehand.
+    """
+    if session.get_bind().dialect.name == "sqlite":
+        query = update(User).where(col(User.id) == user.id).values(id=User.id)
+        await session.exec(query)
+    else:
+        await session.exec(select(User.id).where(User.id == user.id).with_for_update())
+
+
 async def check_storage(
     session: Session, user: User, size: int, replacing: str | None = None
 ) -> None:
+    await lock_storage(session, user)
     used = await used_storage(session, user, replacing)
     if used + size > settings.max_account_size:
         limit = settings.max_account_size.human_readable()
@@ -93,7 +109,6 @@ OwnedDeployment = Annotated[Deployment, Depends(get_deployment)]
 async def create_deployment(
     manifest: Manifest, session: Session, user: CurrentUser
 ) -> DeploymentUploads:
-    await check_storage(session, user, manifest.total_size)
     deployment = Deployment(
         owner_id=user.id,
         file_count=len(manifest.files),
@@ -103,6 +118,7 @@ async def create_deployment(
     )
     deployment.pending_folder = new_folder(deployment.slug)
     upload_url, uploads = await sign_uploads(deployment.pending_folder, manifest.files)
+    await check_storage(session, user, manifest.total_size)
     session.add(deployment)
     await session.commit()
     return DeploymentUploads(
@@ -203,6 +219,8 @@ async def update_deployment(
     ]
     pending_size = sum(file.size for file in changed)
     retired_size = 0 if retired_expired(deployment, now) else deployment.retired_size
+    folder = new_folder(deployment.slug)
+    upload_url, uploads = await sign_uploads(folder, changed)
     # Both versions are stored until the update finishes
     await check_storage(
         session,
@@ -210,8 +228,6 @@ async def update_deployment(
         deployment.total_size + pending_size + retired_size,
         replacing=deployment.slug,
     )
-    folder = new_folder(deployment.slug)
-    upload_url, uploads = await sign_uploads(folder, changed)
 
     # Taken in one statement, so two uploads to a site never overlap
     abandoned = deployment.pending_folder
@@ -287,10 +303,6 @@ async def complete_deployment(
     retired_size = sum(item.size for item in served.values()) - sum(
         file.size for file in copied
     )
-    # Checked again, as other uploads may have finished since this one started
-    await check_storage(
-        session, user, total_size + retired_size, replacing=deployment.slug
-    )
 
     paths = {file.path for file in manifest.files}
     await delete_paths(folder, [path for path in uploaded if path not in paths])
@@ -298,6 +310,11 @@ async def complete_deployment(
         await copy_files(deployment.folder, folder, [file.path for file in copied])
     # Only the version just replaced is kept, so a burst of updates can't pile them up
     await discard_retired(deployment)
+
+    # Checked again, as other uploads may have finished since this one started
+    await check_storage(
+        session, user, total_size + retired_size, replacing=deployment.slug
+    )
     if deployment.folder and deployment.folder != folder:
         deployment.retired_folder = deployment.folder
         deployment.retired_at = now
