@@ -12,6 +12,13 @@ compressible = re.compile(
     r"\.(html?|css|[cm]?js|json|map|svg|txt|xml|wasm|webmanifest)$", re.IGNORECASE
 )
 
+# The API's defaults, so reading is bounded even when no limits were fetched
+default_limits = {
+    "max_file_size": 20 * 1024**2,
+    "max_deployment_size": 150 * 1024**2,
+    "max_deployment_files": 2000,
+}
+
 
 class SiteError(Exception):
     pass
@@ -33,14 +40,44 @@ class SiteFile:
         }
 
 
-def read_zip(path: Path) -> list[SiteFile]:
+def check_uncompressed(sizes: list[tuple[str, int]], limits: dict[str, Any]) -> None:
+    """Fail before reading files, so oversized inputs never use the memory."""
+    largest = limits["max_file_size"]
+    too_big = [(path, size) for path, size in sizes if size > largest]
+    if too_big:
+        path, size = too_big[0]
+        others = f" (and {len(too_big) - 1} more)" if len(too_big) > 1 else ""
+        raise SiteError(
+            f"{path} is {format_bytes(size)} uncompressed{others}; "
+            f"files can be up to {format_bytes(largest)}."
+        )
+    if len(sizes) > limits["max_deployment_files"]:
+        raise SiteError(
+            f"The site has {len(sizes)} files; "
+            f"sites can have up to {limits['max_deployment_files']}."
+        )
+    total = sum(size for _, size in sizes)
+    if total > limits["max_deployment_size"]:
+        raise SiteError(
+            f"The site is {format_bytes(total)} uncompressed; "
+            f"sites can be up to {format_bytes(limits['max_deployment_size'])}."
+        )
+
+
+def read_zip(path: Path, limits: dict[str, Any] | None = None) -> list[SiteFile]:
+    limits = limits or default_limits
     try:
         with zipfile.ZipFile(path) as archive:
-            files = [
-                SiteFile(name, archive.read(name))
-                for name in archive.namelist()
-                if not name.endswith("/") and not name.startswith("__MACOSX/")
+            entries = [
+                entry
+                for entry in archive.infolist()
+                if not entry.is_dir() and not entry.filename.startswith("__MACOSX/")
             ]
+            entries.sort(key=lambda entry: entry.filename)
+            check_uncompressed(
+                [(entry.filename, entry.file_size) for entry in entries], limits
+            )
+            files = [SiteFile(entry.filename, archive.read(entry)) for entry in entries]
     except zipfile.BadZipFile as error:
         raise SiteError("This zip file can't be read.") from error
 
@@ -70,16 +107,23 @@ def to_pages(files: list[SiteFile]) -> list[SiteFile]:
     return files
 
 
-def read_site(path: Path) -> list[SiteFile]:
+def read_site(path: Path, limits: dict[str, Any] | None = None) -> list[SiteFile]:
+    limits = limits or default_limits
     if path.is_dir():
-        files = [
-            SiteFile(file.relative_to(path).as_posix(), file.read_bytes())
+        selected = [
+            (file.relative_to(path).as_posix(), file)
             for file in path.rglob("*")
             if file.is_file()
         ]
+        selected.sort(key=lambda item: item[0])
+        check_uncompressed(
+            [(name, file.stat().st_size) for name, file in selected], limits
+        )
+        files = [SiteFile(name, file.read_bytes()) for name, file in selected]
     elif path.suffix.lower() == ".zip":
-        files = read_zip(path)
+        files = read_zip(path, limits)
     elif path.is_file():
+        check_uncompressed([(path.name, path.stat().st_size)], limits)
         files = [SiteFile(path.name, path.read_bytes())]
     else:
         raise SiteError(f"{path} doesn't exist.")

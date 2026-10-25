@@ -6,7 +6,14 @@ from pathlib import Path
 
 import pytest
 
-from redoost.files import SiteError, SiteFile, compress, format_bytes, read_site
+from redoost.files import (
+    SiteError,
+    SiteFile,
+    compress,
+    default_limits,
+    format_bytes,
+    read_site,
+)
 
 
 def write(root: Path, files: dict[str, bytes]) -> None:
@@ -43,6 +50,51 @@ def test_rejects_unreadable_zips(tmp_path: Path) -> None:
 
     with pytest.raises(SiteError, match="can't be read"):
         read_site(archive)
+
+
+def test_rejects_oversized_zip_entries_before_reading(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    archive = tmp_path / "site.zip"
+    with zipfile.ZipFile(archive, "w") as zip_file:
+        zip_file.writestr("photo.png", b"x" * 2048)
+
+    def unexpected_read(*args: object, **kwargs: object) -> bytes:
+        raise AssertionError("read an oversized zip entry")
+
+    monkeypatch.setattr(zipfile.ZipFile, "read", unexpected_read)
+    limits = {**default_limits, "max_file_size": 1024}
+
+    with pytest.raises(SiteError, match="photo.png is 2 KiB uncompressed"):
+        read_site(archive, limits)
+
+
+def test_rejects_oversized_files_before_reading(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    site = tmp_path / "site"
+    site.mkdir()
+    (site / "photo.png").write_bytes(b"x" * 2048)
+
+    def unexpected_read(self: Path) -> bytes:
+        raise AssertionError("read an oversized file")
+
+    monkeypatch.setattr(Path, "read_bytes", unexpected_read)
+    limits = {**default_limits, "max_file_size": 1024}
+
+    with pytest.raises(SiteError, match="photo.png is 2 KiB uncompressed"):
+        read_site(site, limits)
+
+
+def test_rejects_zips_that_expand_past_the_deployment_limit(tmp_path: Path) -> None:
+    archive = tmp_path / "site.zip"
+    with zipfile.ZipFile(archive, "w") as zip_file:
+        zip_file.writestr("index.html", "x" * 1000)
+        zip_file.writestr("app.js", "x" * 1000)
+    limits = {**default_limits, "max_deployment_size": 1024}
+
+    with pytest.raises(SiteError, match="The site is 2 KiB uncompressed"):
+        read_site(archive, limits)
 
 
 def test_a_lone_html_file_becomes_the_home_page(tmp_path: Path) -> None:

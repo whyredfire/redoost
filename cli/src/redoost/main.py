@@ -101,8 +101,9 @@ def unchanged(api: Api, slug: str, manifest: dict[str, Any]) -> bool:
 def publish(args: argparse.Namespace) -> None:
     api = signed_in(args)
     with Spinner("Preparing files", args.json):
-        files = [compress(file) for file in read_site(args.path)]
-    check_limits(files, api.request("GET", "/api/deployments/limits").json())
+        limits = api.request("GET", "/api/deployments/limits").json()
+        files = [compress(file) for file in read_site(args.path, limits)]
+    check_limits(files, limits)
     manifest: dict[str, Any] = {"files": [file.manifest() for file in files]}
     # Left out, an update keeps the site's description
     if args.description is not None:

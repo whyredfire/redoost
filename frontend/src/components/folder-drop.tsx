@@ -3,6 +3,7 @@ import { Check, Upload } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useRef, type ChangeEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import type { Limits } from "@/lib/deploy";
 import { pickedFiles, type SiteCheck, type SiteFile } from "@/lib/site-files";
 
 type Props = {
@@ -17,6 +18,7 @@ type Props = {
   bottom?: ReactNode;
   className?: string;
   dragging: boolean;
+  limits: Limits | null;
   onFiles: (files: SiteFile[]) => void;
   error: string;
   checks: SiteCheck[];
@@ -43,6 +45,7 @@ export function FolderDrop({
   bottom,
   className,
   dragging,
+  limits,
   error,
   checks,
   onFiles,
@@ -60,7 +63,7 @@ export function FolderDrop({
     const input = event.currentTarget;
     if (!input.files) return;
     try {
-      const selected = await pickedFiles(input.files);
+      const selected = await pickedFiles(input.files, limits);
       onFiles(selected);
     } catch (error) {
       onError(error instanceof Error ? error.message : String(error));

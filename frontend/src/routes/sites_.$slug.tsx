@@ -65,7 +65,7 @@ function SitePage() {
   const site: Deployment | null = Route.useLoaderData();
   const router = useRouter();
   const navigate = useNavigate();
-  const { busy, message, checks, selectUpdate, showError, clearFiles } =
+  const { busy, message, checks, limits, selectUpdate, showError, clearFiles } =
     useUpload();
   const [switching, setSwitching] = useState(false);
   const [switchError, setSwitchError] = useState("");
@@ -159,6 +159,7 @@ function SitePage() {
               <FolderDrop
                 prompt="Drop a new version to update it"
                 dragging={dragging}
+                limits={limits}
                 error={message}
                 checks={checks}
                 onFiles={update}

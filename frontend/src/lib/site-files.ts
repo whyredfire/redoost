@@ -10,6 +10,13 @@ export type SiteCheck = { label: string; passed: boolean };
 const compressible =
   /\.(html?|css|[cm]?js|json|map|svg|txt|xml|wasm|webmanifest)$/i;
 
+// The API's defaults, so zips stay bounded before the limits request finishes
+const defaultLimits: Limits = {
+  max_file_size: 20 * 1024 ** 2,
+  max_deployment_size: 150 * 1024 ** 2,
+  max_deployment_files: 2000,
+};
+
 async function readEntry(
   entry: FileSystemEntry,
   prefix: string,
@@ -46,17 +53,55 @@ async function readDirectory(
   return files;
 }
 
-async function unzipped(archive: File): Promise<SiteFile[]> {
+async function unzipped(
+  archive: File,
+  limits: Limits | null,
+): Promise<SiteFile[]> {
+  const bounds = limits ?? defaultLimits;
+  if (archive.size > bounds.max_deployment_size) {
+    throw new Error(
+      `This zip is ${formatBytes(archive.size)}; sites can be up to ${formatBytes(bounds.max_deployment_size)}.`,
+    );
+  }
+
   const buffer = await archive.arrayBuffer();
+  let total = 0;
+  let count = 0;
+  let rejected = "";
   // fflate always allocates plain ArrayBuffers, which File accepts
   const entries = await new Promise<Record<string, Uint8Array<ArrayBuffer>>>(
     (resolve, reject) =>
-      unzip(new Uint8Array(buffer), (error, result) =>
-        error
-          ? reject(new Error("This zip file can't be read."))
-          : resolve(result as Record<string, Uint8Array<ArrayBuffer>>),
+      unzip(
+        new Uint8Array(buffer),
+        {
+          // Runs before each entry is decompressed, so an oversized one is skipped
+          filter: ({ name, originalSize }) => {
+            if (rejected) return false;
+            if (name.endsWith("/") || name.startsWith("__MACOSX/")) return false;
+            if (originalSize > bounds.max_file_size) {
+              rejected = `${name} is ${formatBytes(originalSize)} uncompressed; files can be up to ${formatBytes(bounds.max_file_size)}.`;
+              return false;
+            }
+            total += originalSize;
+            if (total > bounds.max_deployment_size) {
+              rejected = `This zip expands to more than ${formatBytes(bounds.max_deployment_size)}; sites can be up to ${formatBytes(bounds.max_deployment_size)}.`;
+              return false;
+            }
+            count += 1;
+            if (count > bounds.max_deployment_files) {
+              rejected = `This zip has more than ${bounds.max_deployment_files} files; sites can have up to ${bounds.max_deployment_files}.`;
+              return false;
+            }
+            return true;
+          },
+        },
+        (error, result) =>
+          error
+            ? reject(new Error("This zip file can't be read."))
+            : resolve(result as Record<string, Uint8Array<ArrayBuffer>>),
       ),
   );
+  if (rejected) throw new Error(rejected);
   const files = Object.entries(entries)
     .filter(([path]) => !path.endsWith("/") && !path.startsWith("__MACOSX/"))
     .map(([path, contents]) => ({
@@ -76,9 +121,12 @@ async function unzipped(archive: File): Promise<SiteFile[]> {
 }
 
 // A lone zip is unpacked and treated like the folder it contains
-async function toSite(files: SiteFile[]): Promise<SiteFile[]> {
+async function toSite(
+  files: SiteFile[],
+  limits: Limits | null,
+): Promise<SiteFile[]> {
   if (files.length === 1 && /\.zip$/i.test(files[0]!.path)) {
-    const contents = await unzipped(files[0]!.file);
+    const contents = await unzipped(files[0]!.file, limits);
     return toPages(contents);
   }
   return toPages(files);
@@ -104,18 +152,23 @@ function toPages(files: SiteFile[]): SiteFile[] {
   return sorted;
 }
 
-export function pickedFiles(files: FileList): Promise<SiteFile[]> {
+export function pickedFiles(
+  files: FileList,
+  limits: Limits | null,
+): Promise<SiteFile[]> {
   // Folder picks include the folder's name; single file picks have no path
   return toSite(
     Array.from(files, (file) => ({
       file,
       path: file.webkitRelativePath.split("/").slice(1).join("/") || file.name,
     })),
+    limits,
   );
 }
 
 export async function droppedFiles(
   items: DataTransferItemList,
+  limits: Limits | null,
 ): Promise<SiteFile[]> {
   const entries = Array.from(items, (item) => item.webkitGetAsEntry()).filter(
     (entry): entry is FileSystemEntry => entry !== null,
@@ -125,11 +178,11 @@ export async function droppedFiles(
       entries[0] as FileSystemDirectoryEntry,
       "",
     );
-    return toSite(files);
+    return toSite(files, limits);
   }
 
   const files = await Promise.all(entries.map((entry) => readEntry(entry, "")));
-  return toSite(files.flat());
+  return toSite(files.flat(), limits);
 }
 
 // Text files are uploaded gzipped; CompressionStream gives the same bytes every time, so resumes still match

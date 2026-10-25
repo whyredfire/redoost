@@ -293,13 +293,16 @@ def test_failed_updates_free_the_site(server: FakeServer, tmp_path: Path) -> Non
         (
             "max_file_size",
             2048,
-            "photo.png is 3 KiB \\(and 1 more\\); files can be up to 2 KiB",
+            (
+                "photo.png is 3 KiB uncompressed \\(and 1 more\\); "
+                "files can be up to 2 KiB"
+            ),
         ),
         ("max_deployment_files", 2, "The site has 3 files; sites can have up to 2"),
         (
             "max_deployment_size",
             4096,
-            "The site is 6 KiB once compressed; sites can be up to 4 KiB",
+            "The site is 6 KiB uncompressed; sites can be up to 4 KiB",
         ),
     ],
 )

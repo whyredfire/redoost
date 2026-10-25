@@ -414,12 +414,12 @@ export function usePageDrop(
   accepts: boolean,
   onFiles?: (files: SiteFile[]) => void,
 ) {
-  const { selectFiles, showError } = useUpload();
+  const { selectFiles, showError, limits } = useUpload();
   const [dragging, setDragging] = useState(false);
 
   const receive = useEffectEvent(async (items: DataTransferItemList) => {
     try {
-      const selected = await droppedFiles(items);
+      const selected = await droppedFiles(items, limits);
       (onFiles ?? selectFiles)(selected);
     } catch (error) {
       showError(error instanceof Error ? error.message : String(error));

@@ -89,6 +89,7 @@ function LandingPage() {
           </div>
         }
         dragging={dragging}
+        limits={limits}
         error={message}
         checks={checks}
         onFiles={selectFiles}
