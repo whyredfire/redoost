@@ -1,11 +1,10 @@
 name: scan
 
 on:
-  # After each image build, and weekly for CVEs published since
+  # After each release, and weekly for CVEs published since
   workflow_run:
-    workflows: [build]
+    workflows: [release]
     types: [completed]
-    branches: [main]
   schedule:
     - cron: "0 3 * * 1"
   workflow_dispatch:
@@ -28,8 +27,7 @@ jobs:
       - uses: aquasecurity/trivy-action@v0.36.0
         with:
           version: v0.75.0
-          # The image just built from main, or weekly the latest release
-          image-ref: ghcr.io/whyredfire/${{ matrix.image }}:${{ github.event_name == 'workflow_run' && 'dev' || 'latest' }}
+          image-ref: ghcr.io/whyredfire/${{ matrix.image }}:latest
           ignore-unfixed: true
           format: sarif
           output: trivy.sarif

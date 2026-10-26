@@ -113,10 +113,9 @@ auth:
 helm install redoost ./chart -f values.yaml
 ```
 
-Pushes that change the backend or frontend build both images for amd64 and
-arm64 and publish them to `ghcr.io/whyredfire/redoost-api` and
-`redoost-frontend`, tagged `dev` and with the last release and commit, e.g.
-`0.1.6-abc1234`. Running the `release` workflow builds both images again tagged
+Pushes and pull requests that change the backend or frontend run the checks
+only. Running the `release` workflow builds both images for amd64 and arm64,
+publishes them to `ghcr.io/whyredfire/redoost-api` and `redoost-frontend` tagged
 with the version and `latest`, then commits that tag to `chart/values.yaml`, so
 anything deploying the chart from `main` rolls out on releases only. Each image
 reports the version it was built with, in the dashboard footer and from
