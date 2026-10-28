@@ -233,6 +233,9 @@ export function changeDeployments(
   );
 }
 
+// An upload with no progress for this long has stalled, so it's retried
+const stallTimeout = 60_000;
+
 // XHR instead of fetch because fetch can't report upload progress
 function postFile(
   url: string,
@@ -253,10 +256,22 @@ function postFile(
 
     const request = new XMLHttpRequest();
     const aborted = () => request.abort();
-    const finish = () => signal.removeEventListener("abort", aborted);
+    let stalled = false;
+    const stall = () => {
+      stalled = true;
+      request.abort();
+    };
+    let timer = setTimeout(stall, stallTimeout);
+    const finish = () => {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", aborted);
+    };
     request.open("POST", url);
-    request.upload.onprogress = (event) =>
+    request.upload.onprogress = (event) => {
+      clearTimeout(timer);
+      timer = setTimeout(stall, stallTimeout);
       onProgress(Math.min(event.loaded, file.size));
+    };
     request.onload = () => {
       finish();
       if (request.status >= 200 && request.status < 300) resolve();
@@ -268,7 +283,11 @@ function postFile(
     };
     request.onabort = () => {
       finish();
-      reject(new DOMException("Upload cancelled", "AbortError"));
+      reject(
+        stalled
+          ? new Error(`Upload of ${fields.key} stalled.`)
+          : new DOMException("Upload cancelled", "AbortError"),
+      );
     };
     signal.addEventListener("abort", aborted, { once: true });
     request.send(form);
