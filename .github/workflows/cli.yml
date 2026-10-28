@@ -11,6 +11,8 @@ on:
     paths:
       - cli/**
       - .github/workflows/cli.yml
+  # Run by the release workflow before it builds the CLI
+  workflow_call:
 
 permissions:
   contents: read

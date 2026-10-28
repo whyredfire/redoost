@@ -18,8 +18,16 @@ jobs:
     steps:
       - run: '[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Version must look like 1.2.3"; exit 1; }'
 
-  build:
+  test:
     needs: check
+    uses: ./.github/workflows/build.yml
+
+  test-cli:
+    needs: check
+    uses: ./.github/workflows/cli.yml
+
+  build:
+    needs: [test, test-cli]
     strategy:
       matrix:
         include:
