@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     app_origin: str = Field(description="Frontend origin allowed to upload to S3")
     reload: bool = Field(default=False, description="Reload the API on code changes")
     version: str = Field(default="dev", description="Version reported by /health")
+    cli_sha256: str = Field(
+        default="", description="SHA-256 of the CLI wheel from the same release"
+    )
     database_url: str = Field(
         pattern=r"^postgresql\+asyncpg://",
         description="Postgres database URL, postgresql+asyncpg://user:password@host/db",

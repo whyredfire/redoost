@@ -1,6 +1,8 @@
+import hashlib
 import json
 from pathlib import Path
 
+import httpx2
 import pytest
 
 from redoost import main, updates
@@ -10,6 +12,8 @@ WHEEL = (
     "https://github.com/whyredfire/redoost/releases/download/v0.4.0/"
     "redoost-0.4.0-py3-none-any.whl"
 )
+CONTENT = b"the 0.4.0 wheel"
+SHA256 = hashlib.sha256(CONTENT).hexdigest()
 
 
 @pytest.fixture(autouse=True)
@@ -19,15 +23,46 @@ def installed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(main, "version", lambda name: "0.3.1")
 
 
-def serves(monkeypatch: pytest.MonkeyPatch, found: str | None) -> list[str]:
+def serves(
+    monkeypatch: pytest.MonkeyPatch, found: str | None, sha256: str | None = SHA256
+) -> list[str]:
     asked: list[str] = []
 
-    def server_version(server: str) -> str | None:
+    def server_release(server: str) -> dict[str, str | None]:
         asked.append(server)
-        return found
+        return {"version": found, "cli_sha256": sha256} if found else {}
 
-    monkeypatch.setattr(updates, "server_version", server_version)
+    monkeypatch.setattr(updates, "server_release", server_release)
     return asked
+
+
+def downloads(monkeypatch: pytest.MonkeyPatch, content: bytes = CONTENT) -> list[str]:
+    """Serves the release's wheel, recording what was downloaded."""
+    urls: list[str] = []
+
+    def get(url: str, **kwargs: object) -> httpx2.Response:
+        urls.append(url)
+        return httpx2.Response(200, content=content, request=httpx2.Request("GET", url))
+
+    monkeypatch.setattr(updates.httpx2, "get", get)
+    return urls
+
+
+def installs(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
+    monkeypatch.setattr(updates, "install_command", lambda: ["uv", "tool", "install"])
+    ran: list[list[str]] = []
+
+    class Done:
+        returncode = 0
+
+    def run(command: list[str], check: bool) -> Done:
+        ran.append(command)
+        # Installed while the download still exists
+        assert Path(command[-1]).read_bytes() == CONTENT
+        return Done()
+
+    monkeypatch.setattr(main.subprocess, "run", run)
+    return ran
 
 
 @pytest.mark.parametrize(
@@ -87,30 +122,61 @@ def test_update_installs_the_servers_release(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     serves(monkeypatch, "0.4.0-abc1234")
-    monkeypatch.setattr(
-        updates, "install_command", lambda spec: ["uv", "tool", "install", spec]
-    )
-    ran: list[list[str]] = []
-
-    class Done:
-        returncode = 0
-
-    def run(command: list[str], check: bool) -> Done:
-        ran.append(command)
-        return Done()
-
-    monkeypatch.setattr(main.subprocess, "run", run)
+    urls = downloads(monkeypatch)
+    ran = installs(monkeypatch)
 
     main.main(["update", "--server", SERVER])
-    assert ran == [["uv", "tool", "install", WHEEL]]
+    assert urls == [WHEEL]
+    assert [command[:3] for command in ran] == [["uv", "tool", "install"]]
+    assert Path(ran[0][3]).name == "redoost-0.4.0-py3-none-any.whl"
     assert capsys.readouterr().out == "Updated to redoost 0.4.0\n"
+
+
+def test_update_refuses_a_wheel_the_server_didnt_release(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    serves(monkeypatch, "0.4.0")
+    downloads(monkeypatch, b"something else")
+    ran = installs(monkeypatch)
+
+    with pytest.raises(SystemExit) as exited:
+        main.main(["update", "--server", SERVER])
+    assert "isn't the one" in str(exited.value)
+    assert ran == []
+
+
+def test_update_needs_the_servers_hash(monkeypatch: pytest.MonkeyPatch) -> None:
+    serves(monkeypatch, "0.4.0", sha256=None)
+    urls = downloads(monkeypatch)
+    ran = installs(monkeypatch)
+
+    with pytest.raises(SystemExit) as exited:
+        main.main(["update", "--server", SERVER])
+    assert str(exited.value) == (
+        f"error: {SERVER} doesn't say which redoost 0.4.0 to trust."
+    )
+    assert urls == [] and ran == []
+
+
+def test_update_reports_failed_downloads(monkeypatch: pytest.MonkeyPatch) -> None:
+    serves(monkeypatch, "0.4.0")
+    installs(monkeypatch)
+
+    def get(url: str, **kwargs: object) -> httpx2.Response:
+        raise httpx2.ConnectError("offline")
+
+    monkeypatch.setattr(updates.httpx2, "get", get)
+
+    with pytest.raises(SystemExit) as exited:
+        main.main(["update", "--server", SERVER])
+    assert str(exited.value) == "error: Couldn't download redoost 0.4.0."
 
 
 def test_update_explains_unknown_installs(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     serves(monkeypatch, "0.4.0")
-    monkeypatch.setattr(updates, "install_command", lambda spec: None)
+    monkeypatch.setattr(updates, "install_command", lambda: None)
 
     main.main(["update", "--server", SERVER, "--json"])
     assert json.loads(capsys.readouterr().out) == {

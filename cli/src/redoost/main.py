@@ -3,11 +3,14 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import time
 from collections.abc import Callable
 from importlib.metadata import version
 from pathlib import Path
 from typing import Any
+
+import httpx2
 
 from . import config, preview, updates
 from .api import Api, ApiError
@@ -265,7 +268,8 @@ def disable(args: argparse.Namespace) -> None:
 
 
 def update(args: argparse.Namespace) -> None:
-    available = updates.server_version(args.server)
+    release = updates.server_release(args.server)
+    available = release.get("version")
     if updates.release(available) is None:
         raise ApiError(f"Couldn't tell which version {args.server} runs.")
     newer = updates.newer_release(available)
@@ -279,7 +283,7 @@ def update(args: argparse.Namespace) -> None:
         return
 
     spec = updates.wheel_url(newer)
-    command = updates.install_command(spec)
+    command = updates.install_command()
     if command is None:
         choices = [f"uv tool install --force {spec}", f"pipx install --force {spec}"]
         text = f"redoost {newer} is available. Install it with one of:"
@@ -289,8 +293,22 @@ def update(args: argparse.Namespace) -> None:
             "\n  ".join([text, *choices]),
         )
         return
-    if subprocess.run(command, check=False).returncode != 0:
-        raise ApiError(f"Couldn't install redoost {newer}.")
+    # The server's image comes from the same release, so it vouches for the wheel
+    sha256 = release.get("cli_sha256")
+    if not sha256:
+        raise ApiError(f"{args.server} doesn't say which redoost {newer} to trust.")
+    with tempfile.TemporaryDirectory() as directory:
+        try:
+            wheel = updates.download_wheel(newer, sha256, Path(directory))
+        except httpx2.HTTPError as error:
+            raise ApiError(f"Couldn't download redoost {newer}.") from error
+        if wheel is None:
+            raise ApiError(
+                f"The download of redoost {newer} isn't the one {args.server} "
+                "released, so it wasn't installed."
+            )
+        if subprocess.run([*command, str(wheel)], check=False).returncode != 0:
+            raise ApiError(f"Couldn't install redoost {newer}.")
     output(args, {"version": newer, "updated": True}, f"Updated to redoost {newer}")
 
 

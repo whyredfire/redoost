@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 import json
 import re
 import shutil
@@ -6,6 +8,7 @@ import sys
 import time
 from importlib.metadata import version
 from pathlib import Path
+from typing import Any
 
 import httpx2
 
@@ -22,13 +25,19 @@ def release(text: str | None) -> tuple[int, ...] | None:
     return tuple(int(part) for part in match.groups()) if match else None
 
 
-def server_version(server: str) -> str | None:
+def server_release(server: str) -> dict[str, Any]:
+    """What the server's /api/version reports, or nothing if it can't be read."""
     try:
         response = httpx2.get(f"{server}/api/version", timeout=1)
         response.raise_for_status()
-        return response.json()["version"]
-    except (httpx2.HTTPError, ValueError, KeyError):
-        return None
+        found = response.json()
+    except (httpx2.HTTPError, ValueError):
+        return {}
+    return found if isinstance(found, dict) else {}
+
+
+def server_version(server: str) -> str | None:
+    return server_release(server).get("version")
 
 
 def cached_server_version(server: str) -> str | None:
@@ -74,14 +83,27 @@ def wheel_url(release_version: str) -> str:
     )
 
 
-def install_command(spec: str) -> list[str] | None:
-    """How to reinstall the CLI, judged by which tool installed this copy."""
+def download_wheel(release_version: str, sha256: str, directory: Path) -> Path | None:
+    """The release's wheel, only if it has the SHA-256 the server vouches for."""
+    url = wheel_url(release_version)
+    response = httpx2.get(url, follow_redirects=True, timeout=60)
+    response.raise_for_status()
+    if not hmac.compare_digest(hashlib.sha256(response.content).hexdigest(), sha256):
+        return None
+    path = directory / url.rsplit("/", 1)[-1]
+    path.write_bytes(response.content)
+    return path
+
+
+def install_command() -> list[str] | None:
+    """How to reinstall the CLI, judged by which tool installed this copy; the
+    wheel to install goes last."""
     here = Path(sys.prefix).resolve()
     tools = [
-        (["uv", "tool", "dir"], ["uv", "tool", "install", "--force", spec]),
+        (["uv", "tool", "dir"], ["uv", "tool", "install", "--force"]),
         (
             ["pipx", "environment", "--value", "PIPX_LOCAL_VENVS"],
-            ["pipx", "install", "--force", spec],
+            ["pipx", "install", "--force"],
         ),
     ]
     for find_dir, install in tools:

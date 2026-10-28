@@ -26,8 +26,30 @@ jobs:
     needs: check
     uses: ./.github/workflows/cli.yml
 
+  # Built before the images, so the API can vouch for the wheel redoost update installs
+  cli:
+    needs: test-cli
+    runs-on: ubuntu-slim
+    outputs:
+      sha256: ${{ steps.build.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.2
+      - id: build
+        working-directory: cli
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          uv version "$VERSION" --no-sync
+          uv build
+          echo "sha256=$(sha256sum dist/*.whl | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cli
+          path: cli/dist/
+
   build:
-    needs: [test, test-cli]
+    needs: [test, cli]
     strategy:
       matrix:
         include:
@@ -47,7 +69,9 @@ jobs:
       platforms: linux/amd64,linux/arm64
       cache: true
       cache-scope: ${{ matrix.image }}
-      build-args: VERSION=${{ inputs.version }}
+      build-args: |
+        VERSION=${{ inputs.version }}
+        CLI_SHA256=${{ needs.cli.outputs.sha256 }}
       sbom: true
       set-meta-labels: true
       set-meta-annotations: true
@@ -96,8 +120,10 @@ jobs:
             diff -B chart/values.yaml - | patch chart/values.yaml
 
       # Attached to the release, so the CLI installs from a tag without PyPI
-      - name: Build the CLI
-        run: cd cli && uv build
+      - uses: actions/download-artifact@v8
+        with:
+          name: cli
+          path: cli/dist/
 
       # Commit subjects since the previous release, without automated commits
       - name: Write the changelog

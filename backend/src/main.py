@@ -78,12 +78,18 @@ async def health() -> HealthResponse | JSONResponse:
 
 class VersionResponse(BaseModel):
     version: str = Field(description="Deployed version, e.g. 0.1.6-abc1234")
+    cli_sha256: str | None = Field(
+        description="SHA-256 of the CLI wheel released with it, which redoost update "
+        "checks before installing; missing for development builds"
+    )
 
 
 # The dashboard's origin only forwards /api, which is where the CLI looks
 @app.get("/api/version")
 async def read_version() -> VersionResponse:
-    return VersionResponse(version=settings.version)
+    return VersionResponse(
+        version=settings.version, cli_sha256=settings.cli_sha256 or None
+    )
 
 
 if __name__ == "__main__":

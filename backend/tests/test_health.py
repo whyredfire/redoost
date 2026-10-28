@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import src.main as api
+from src.config import settings
 
 
 async def available() -> None:
@@ -35,4 +36,13 @@ def test_health_when_s3_is_unavailable(
 def test_version_without_signing_in(client: TestClient) -> None:
     response = client.get("/api/version")
 
-    assert response.json() == {"version": "dev"}
+    assert response.json() == {"version": "dev", "cli_sha256": None}
+
+
+def test_version_vouches_for_the_cli(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "cli_sha256", "ab" * 32)
+    response = client.get("/api/version")
+
+    assert response.json()["cli_sha256"] == "ab" * 32
