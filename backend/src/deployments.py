@@ -6,12 +6,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import ARRAY, ColumnElement, String, any_, literal
-from sqlmodel import col, delete, func, or_, select
+from sqlmodel import col, delete, func, or_, select, update
 
 from .auth import CurrentUser
 from .config import settings
 from .database import Session
 from .models import (
+    ChangedSites,
     DeletedSites,
     Deployment,
     DeploymentBase,
@@ -22,6 +23,7 @@ from .models import (
     Limits,
     Manifest,
     ManifestFile,
+    SitesChange,
     StoredFile,
     Usage,
     User,
@@ -45,7 +47,18 @@ router = APIRouter(prefix="/api/deployments", tags=["deployments"])
 retire_after = timedelta(minutes=2)
 
 # Short enough for a URL, as each one is a query parameter
-max_bulk_delete = 100
+max_bulk_sites = 100
+
+# Several sites to change at once, as ?slug=...&slug=...
+Slugs = Annotated[
+    list[str],
+    Query(
+        alias="slug",
+        min_length=1,
+        max_length=max_bulk_sites,
+        description=f"Sites to change, up to {max_bulk_sites}",
+    ),
+]
 
 
 async def get_deployment(slug: str, session: Session, user: CurrentUser) -> Deployment:
@@ -449,28 +462,42 @@ async def remove_sites(session: Session, deployments: Sequence[Deployment]) -> N
         await session.delete(deployment)
 
 
-# Sites that don't exist are skipped, so a repeated request deletes nothing twice
-@router.delete("")
-async def delete_deployments(
-    slug: Annotated[
-        list[str],
-        Query(
-            min_length=1,
-            max_length=max_bulk_delete,
-            description=f"Sites to delete, up to {max_bulk_delete}",
-        ),
-    ],
-    session: Session,
-    user: CurrentUser,
-) -> DeletedSites:
+async def owned_sites(
+    session: Session, user: User, slugs: list[str]
+) -> Sequence[Deployment]:
+    """The sites among slugs, all the user's; ones that don't exist are skipped."""
     query = (
         select(Deployment)
-        .where(col(Deployment.slug) == any_(literal(sorted(set(slug)), ARRAY(String))))
+        .where(col(Deployment.slug) == any_(literal(sorted(set(slugs)), ARRAY(String))))
         .order_by(col(Deployment.slug))
     )
     deployments = (await session.exec(query)).all()
     if any(deployment.owner_id != user.id for deployment in deployments):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Not your deployment")
+    return deployments
+
+
+# Repeating it changes nothing more, as with deleting several
+@router.patch("")
+async def change_deployments(
+    slugs: Slugs, change: SitesChange, session: Session, user: CurrentUser
+) -> ChangedSites:
+    found = [deployment.slug for deployment in await owned_sites(session, user, slugs)]
+    await session.exec(
+        update(Deployment)
+        .where(col(Deployment.slug) == any_(literal(found, ARRAY(String))))
+        .values(enabled=change.enabled)
+    )
+    await session.commit()
+    return ChangedSites(changed=found)
+
+
+# Sites that don't exist are skipped, so a repeated request deletes nothing twice
+@router.delete("")
+async def delete_deployments(
+    slugs: Slugs, session: Session, user: CurrentUser
+) -> DeletedSites:
+    deployments = await owned_sites(session, user, slugs)
     await remove_sites(session, deployments)
     await session.commit()
     return DeletedSites(deleted=[deployment.slug for deployment in deployments])

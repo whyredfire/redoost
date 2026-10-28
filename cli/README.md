@@ -46,8 +46,8 @@ you, and last 30 days. `redoost logout` forgets the token.
 | `redoost publish <folder\|zip\|file.html>` | Publish a new site; `--description` adds a note to tell it apart |
 | `redoost publish <path> --update <slug>` | Replace a site's files, uploading only what changed, or nothing if nothing did |
 | `redoost list` | List your sites |
-| `redoost disable <slug>` | Take a site offline, keeping its files and address |
-| `redoost enable <slug>` | Put an offline site back online |
+| `redoost disable <slug>...` | Take sites offline, keeping their files and addresses |
+| `redoost enable <slug>...` | Put offline sites back online |
 | `redoost describe <slug> <text>` | Change a site's description, or clear it with `""` |
 | `redoost delete <slug>...` | Delete one or more sites |
 | `redoost update` | Update the CLI to the release your server runs |

@@ -211,16 +211,49 @@ def list_sites(args: argparse.Namespace) -> None:
     output(args, sites, "\n".join(lines) or "No sites yet")
 
 
+def change_sites(
+    args: argparse.Namespace, method: str, field: str, **kwargs: Any
+) -> tuple[list[str], list[str]]:
+    """Changes several sites, returning the ones changed and the ones not found."""
+    api = signed_in(args)
+    slugs = list(dict.fromkeys(args.slugs))
+    found: set[str] = set()
+    # The API takes up to 100 at a time
+    for start in range(0, len(slugs), 100):
+        params = [("slug", slug) for slug in slugs[start : start + 100]]
+        response = api.request(method, "/api/deployments", params=params, **kwargs)
+        found.update(response.json()[field])
+    # In the order given
+    return (
+        [slug for slug in slugs if slug in found],
+        [slug for slug in slugs if slug not in found],
+    )
+
+
+def report(
+    args: argparse.Namespace,
+    field: str,
+    changed: list[str],
+    missing: list[str],
+    text: str,
+) -> None:
+    if changed or args.json:
+        output(args, {field: changed, "missing": missing}, text)
+    if missing:
+        raise ApiError(f"Not found: {', '.join(missing)}")
+
+
 def switch(args: argparse.Namespace, enabled: bool) -> None:
-    response = signed_in(args).request(
-        "PATCH", f"/api/deployments/{args.slug}", json={"enabled": enabled}
-    )
+    changed, missing = change_sites(args, "PATCH", "changed", json={"enabled": enabled})
+    names = ", ".join(changed)
+    one = len(changed) == 1
     text = (
-        f"{args.slug} is online"
+        f"{names} {'is' if one else 'are'} online"
         if enabled
-        else f"{args.slug} is offline; visitors may still see it for a minute"
+        else f"{names} {'is' if one else 'are'} offline; visitors may still see "
+        f"{'it' if one else 'them'} for a minute"
     )
-    output(args, response.json(), text)
+    report(args, "changed", changed, missing, text)
 
 
 def enable(args: argparse.Namespace) -> None:
@@ -276,25 +309,8 @@ def describe(args: argparse.Namespace) -> None:
 
 
 def delete(args: argparse.Namespace) -> None:
-    api = signed_in(args)
-    slugs = list(dict.fromkeys(args.slugs))
-    found: set[str] = set()
-    # The API takes up to 100 at a time
-    for start in range(0, len(slugs), 100):
-        params = [("slug", slug) for slug in slugs[start : start + 100]]
-        response = api.request("DELETE", "/api/deployments", params=params)
-        found.update(response.json()["deleted"])
-    # In the order given
-    deleted = [slug for slug in slugs if slug in found]
-    missing = [slug for slug in slugs if slug not in found]
-    if deleted or args.json:
-        output(
-            args,
-            {"deleted": deleted, "missing": missing},
-            f"Deleted {', '.join(deleted)}",
-        )
-    if missing:
-        raise ApiError(f"Not found: {', '.join(missing)}")
+    deleted, missing = change_sites(args, "DELETE", "deleted")
+    report(args, "deleted", deleted, missing, f"Deleted {', '.join(deleted)}")
 
 
 def parse(argv: list[str] | None) -> argparse.Namespace:
@@ -353,10 +369,12 @@ def parse(argv: list[str] | None) -> argparse.Namespace:
     )
     commands.add_parser("list", parents=[common], help="list your sites")
     for name, help_text in [
-        ("enable", "put a site back online"),
-        ("disable", "take a site offline, keeping its files"),
+        ("enable", "put sites back online"),
+        ("disable", "take sites offline, keeping their files"),
     ]:
-        commands.add_parser(name, parents=[common], help=help_text).add_argument("slug")
+        commands.add_parser(name, parents=[common], help=help_text).add_argument(
+            "slugs", nargs="+", metavar="slug"
+        )
     describe_parser = commands.add_parser(
         "describe", parents=[common], help="change a site's description"
     )

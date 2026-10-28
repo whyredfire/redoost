@@ -190,24 +190,47 @@ export async function deleteDeployment(slug: string, token: string) {
   await checkResponse(response);
 }
 
-// The API takes up to 100 at a time; returns the ones that couldn't be deleted
-export async function deleteDeployments(slugs: string[], token: string) {
+// The API takes up to 100 sites a request; returns the ones whose request failed.
+// Sites that no longer exist, like ones deleted in another tab, are skipped.
+async function inBatches(
+  slugs: string[],
+  send: (query: URLSearchParams) => Promise<Response>,
+) {
   const failed: string[] = [];
   for (let start = 0; start < slugs.length; start += 100) {
     const batch = slugs.slice(start, start + 100);
-    const query = new URLSearchParams(batch.map((slug) => ["slug", slug]));
     try {
-      const response = await fetch(`/api/deployments?${query}`, {
-        method: "DELETE",
-        headers: authorization(token),
-      });
-      // Sites already deleted, like from another tab, are left out of the result
-      await readResponse<{ deleted: string[] }>(response);
+      await checkResponse(
+        await send(new URLSearchParams(batch.map((slug) => ["slug", slug]))),
+      );
     } catch {
       failed.push(...batch);
     }
   }
   return failed;
+}
+
+export function deleteDeployments(slugs: string[], token: string) {
+  return inBatches(slugs, (query) =>
+    fetch(`/api/deployments?${query}`, {
+      method: "DELETE",
+      headers: authorization(token),
+    }),
+  );
+}
+
+export function changeDeployments(
+  slugs: string[],
+  enabled: boolean,
+  token: string,
+) {
+  return inBatches(slugs, (query) =>
+    fetch(`/api/deployments?${query}`, {
+      method: "PATCH",
+      headers: { ...authorization(token), "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled }),
+    }),
+  );
 }
 
 // XHR instead of fetch because fetch can't report upload progress

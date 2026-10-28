@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import {
   ApiError,
+  changeDeployments,
   deleteDeployments,
   listDeployments,
   readUsage,
@@ -87,9 +88,7 @@ function SitesPage() {
     )
     .toSorted(orders[order]);
   // Only what's listed, so a filter can't hide a site that would be deleted
-  const selected = shown
-    .filter((site) => selecting?.has(site.slug))
-    .map((site) => site.slug);
+  const selected = shown.filter((site) => selecting?.has(site.slug));
 
   function toggle(slug: string) {
     setSelecting((current) => {
@@ -102,15 +101,32 @@ function SitesPage() {
   async function deleteSelected() {
     const token = loadToken();
     if (!token) throw new Error("Sign in again to delete these sites.");
-    const failed = await deleteDeployments(selected, token);
+    const slugs = selected.map((site) => site.slug);
+    const failed = await deleteDeployments(slugs, token);
     await router.invalidate();
     if (failed.length > 0) {
       setSelecting(new Set(failed));
       throw new Error(
-        `${failed.length} of ${selected.length} couldn't be deleted. Try again.`,
+        `${failed.length} of ${slugs.length} couldn't be deleted. Try again.`,
       );
     }
     setSelecting(null);
+  }
+
+  // The sites stay selected, to change them back or delete them next
+  async function switchSelected(enabled: boolean) {
+    const token = loadToken();
+    if (!token) throw new Error("Sign in again to change these sites.");
+    const slugs = selected
+      .filter((site) => site.enabled !== enabled)
+      .map((site) => site.slug);
+    const failed = await changeDeployments(slugs, enabled, token);
+    await router.invalidate();
+    if (failed.length > 0) {
+      throw new Error(
+        `${failed.length} of ${slugs.length} couldn't be changed. Try again.`,
+      );
+    }
   }
 
   return (
@@ -198,13 +214,18 @@ function SitesPage() {
                     )
                   }
                   onCancel={() => setSelecting(null)}
+                  onSwitch={switchSelected}
                   onDelete={deleteSelected}
                 />
               )}
               {shown.length > 0 ? (
                 <SiteList
                   sites={shown}
-                  selected={selecting ? new Set(selected) : undefined}
+                  selected={
+                    selecting
+                      ? new Set(selected.map((site) => site.slug))
+                      : undefined
+                  }
                   onToggle={toggle}
                 />
               ) : (

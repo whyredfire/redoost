@@ -847,6 +847,54 @@ def test_turning_sites_off_requires_their_owner(
     )
 
 
+def test_turn_several_sites_off_and_on(
+    client: TestClient,
+    token: str,
+    new_token: Callable[[], str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first = published(client, token, monkeypatch, "index.html")
+    second = published(client, token, monkeypatch, "index.html")
+    kept = published(client, token, monkeypatch, "index.html")
+    slugs = [first["slug"], second["slug"]]
+
+    response = client.patch(
+        URL,
+        params={"slug": [*slugs, "missing-site-0000"]},
+        json={"enabled": False},
+        headers=bearer(token),
+    )
+    assert response.status_code == 200
+    assert response.json() == {"changed": sorted(slugs)}
+    assert [resolve(client, slug).status_code for slug in slugs] == [403, 403]
+    assert resolve(client, kept["slug"]).status_code == 204
+
+    response = client.patch(
+        URL, params={"slug": slugs}, json={"enabled": True}, headers=bearer(token)
+    )
+    assert response.json() == {"changed": sorted(slugs)}
+    assert [resolve(client, slug).status_code for slug in slugs] == [204, 204]
+
+    # All or nothing when any belongs to someone else
+    theirs = published(client, new_token(), monkeypatch, "index.html")
+    response = client.patch(
+        URL,
+        params={"slug": [first["slug"], theirs["slug"]]},
+        json={"enabled": False},
+        headers=bearer(token),
+    )
+    assert response.status_code == 403
+    assert resolve(client, first["slug"]).status_code == 204
+
+
+def test_turning_several_sites_needs_a_state(client: TestClient, token: str) -> None:
+    for body in ({}, {"description": "shared"}, {"enabled": None}):
+        response = client.patch(
+            URL, params={"slug": "site-0000"}, json=body, headers=bearer(token)
+        )
+        assert response.status_code == 422
+
+
 def test_updates_keep_sites_off(
     client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:

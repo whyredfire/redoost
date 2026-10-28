@@ -223,6 +223,16 @@ class DiscardedFolder(SQLModel, table=True):
     )
 
 
+class SitesChange(SQLModel):
+    enabled: bool = Field(description="Whether visitors can reach the sites")
+
+
+class ChangedSites(SQLModel):
+    changed: list[str] = Field(
+        description="Sites changed; ones that didn't exist are left out"
+    )
+
+
 class DeletedSites(SQLModel):
     deleted: list[str] = Field(
         description="Sites deleted; ones that didn't exist are left out"

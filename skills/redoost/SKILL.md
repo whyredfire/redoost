@@ -59,9 +59,9 @@ without a file extension serve `index.html`.
   description.
 - `redoost describe <slug> "<text>"` changes a site's description, and `""`
   clears it.
-- `redoost disable <slug>` takes a site offline without deleting it, and
-  `redoost enable <slug>` puts it back. Taking a site offline can take up to a
-  minute to reach visitors.
+- `redoost disable <slug>...` takes sites offline without deleting them, and
+  `redoost enable <slug>...` puts them back. Taking a site offline can take up
+  to a minute to reach visitors.
 - `redoost delete <slug>...` deletes one or more sites and their files, and
   fails naming any it didn't find. Confirm with the user first, listing the
   sites; it can't be undone.

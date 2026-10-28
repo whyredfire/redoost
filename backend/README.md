@@ -52,9 +52,14 @@ sites, files first, after which their tokens get 401.
   deletes anything uploaded meanwhile.
 - `DELETE /api/deployments/{slug}`: deletes the deployment's files, then the
   deployment. The site shows "Site not found" right away.
+- `PATCH /api/deployments?slug=…&slug=…`: takes up to 100 of the user's sites
+  offline or puts them online, with `{"enabled": false}` or `true`, returning
+  `{"changed": [...]}`.
 - `DELETE /api/deployments?slug=…&slug=…`: deletes up to 100 of the user's
-  sites at once, returning `{"deleted": [...]}`. Sites that don't exist are
-  left out, so repeating it is safe; returns 403 if any belongs to someone else.
+  sites at once, returning `{"deleted": [...]}`.
+
+Both leave out sites that don't exist, so repeating them is safe, and return
+403 without changing anything if any of the sites belongs to someone else.
 - `GET /internal/sites/{slug}`: readiness check for Nginx. Not exposed publicly.
 
 Manifests need a root `index.html`. Default limits are 20 MiB per file,

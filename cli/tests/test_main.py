@@ -99,11 +99,12 @@ class FakeServer:
         if route == "PATCH /api/deployments/brave-otter-1a2b":
             change = json.loads(request.content)
             return httpx2.Response(200, json={"slug": "brave-otter-1a2b", **change})
-        if route == "DELETE /api/deployments":
+        if route in ("DELETE /api/deployments", "PATCH /api/deployments"):
             slugs = request.url.params.get_list("slug")
             # Sorted, as the API returns them
-            deleted = sorted(slug for slug in slugs if not slug.startswith("missing"))
-            return httpx2.Response(200, json={"deleted": deleted})
+            found = sorted(slug for slug in slugs if not slug.startswith("missing"))
+            field = "deleted" if request.method == "DELETE" else "changed"
+            return httpx2.Response(200, json={field: found})
         if route.endswith("/complete"):
             return httpx2.Response(
                 200, json={"slug": "brave-otter-1a2b", "state": "ready"}
@@ -410,14 +411,32 @@ def test_disable_and_enable(
     signed_in()
 
     out, _ = run(capsys, "disable", "brave-otter-1a2b")
-    assert out.startswith("brave-otter-1a2b is offline")
+    assert out == (
+        "brave-otter-1a2b is offline; visitors may still see it for a minute\n"
+    )
     out, _ = run(capsys, "enable", "brave-otter-1a2b", "--json")
-    assert json.loads(out) == {"slug": "brave-otter-1a2b", "enabled": True}
+    assert json.loads(out) == {"changed": ["brave-otter-1a2b"], "missing": []}
     patches = [r for r in server.requests if r.method == "PATCH"]
     assert [json.loads(r.content) for r in patches] == [
         {"enabled": False},
         {"enabled": True},
     ]
+    assert patches[0].url.params.get_list("slug") == ["brave-otter-1a2b"]
+
+
+def test_disable_several_sites(
+    server: FakeServer, capsys: pytest.CaptureFixture[str]
+) -> None:
+    signed_in()
+
+    with pytest.raises(SystemExit) as exited:
+        run(capsys, "disable", "quiet-heron-7f3c", "brave-otter-1a2b", "missing-site")
+
+    assert exited.value.code == "error: Not found: missing-site"
+    assert capsys.readouterr().out == (
+        "quiet-heron-7f3c, brave-otter-1a2b are offline; "
+        "visitors may still see them for a minute\n"
+    )
 
 
 @pytest.mark.parametrize("flag", ["--version", "-v"])
