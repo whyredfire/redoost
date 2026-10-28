@@ -474,7 +474,7 @@ def test_read_files(
     ]
 
 
-def test_versions_published_before_file_lists_are_read_from_storage(
+def test_versions_without_recorded_files_are_uploaded_again(
     client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     created = published(client, token, monkeypatch, "index.html")
@@ -485,9 +485,10 @@ def test_versions_published_before_file_lists_are_read_from_storage(
             await session.commit()
 
     asyncio.run(forget())
-    monkeypatch.setattr(deployments, "read_objects", stored("index.html", "old.js"))
     response = client.get(f"{URL}/{created['slug']}/files", headers=bearer(token))
-    assert [file["path"] for file in response.json()] == ["index.html", "old.js"]
+    assert response.json() == []
+    updated = update(client, created, "index.html").json()
+    assert [upload["path"] for upload in updated["uploads"]] == ["index.html"]
 
 
 def test_update_signs_only_new_and_changed_files(

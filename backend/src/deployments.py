@@ -240,13 +240,12 @@ def retired_expired(deployment: Deployment, now: datetime) -> bool:
 
 
 async def served_files(session: Session, folder: str) -> dict[str, StoredObject]:
-    """A published version's files, by path.
-
-    Versions published before their files were recorded are read from storage.
-    """
+    """A published version's files, by path."""
     version = await session.get(VersionFiles, folder)
+    # Only versions an older release published mid-rollout lack them; updating
+    # one uploads every file again
     if version is None:
-        return await read_objects(folder)
+        return {}
     return {
         path: StoredObject(sha256=file["sha256"], size=file["size"])
         for path, file in version.files.items()
