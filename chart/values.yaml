@@ -20,10 +20,14 @@ httpRoute:
     # Services to route to instead of the API and frontend, e.g. proxies ({name, port})
     apiBackendRef: {}
     frontendBackendRef: {}
+    # Gateway API filters for both rules, e.g. an ExtensionRef to a Traefik
+    # compress Middleware, as the API doesn't compress its responses
+    filters: []
   sites:
     parentRefs:
       - name: gateway
         sectionName: https
+    filters: []
 
 # An existing Garage bucket; the setup Job enables its website endpoint and CORS
 s3:
