@@ -53,8 +53,7 @@ def storage(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, ...]]:
 
     for module in (deployments, cleanup):
         monkeypatch.setattr(module, "delete_folder", delete_folder)
-    monkeypatch.setattr(deployments, "delete_site", delete_site)
-    # Cleanup deletes sites through storage.delete_sites
+    # Deletes go through storage.delete_sites
     monkeypatch.setattr("src.storage.delete_site", delete_site)
     monkeypatch.setattr(deployments, "delete_paths", delete_paths)
     monkeypatch.setattr(deployments, "copy_files", copy_files)
@@ -741,6 +740,62 @@ def test_delete_deployment(
     assert versions(created["slug"]) == set()
     assert client.get(url, headers=bearer(token)).status_code == 404
     assert resolve(client, created["slug"]).status_code == 403
+
+
+def test_delete_several_deployments(
+    client: TestClient,
+    token: str,
+    monkeypatch: pytest.MonkeyPatch,
+    storage: list[tuple[str, ...]],
+) -> None:
+    first = published(client, token, monkeypatch, "index.html")
+    second = published(client, token, monkeypatch, "index.html")
+    kept = published(client, token, monkeypatch, "index.html")
+
+    response = client.delete(
+        URL,
+        params={"slug": [first["slug"], second["slug"], "missing-site-0000"]},
+        headers=bearer(token),
+    )
+    assert response.status_code == 200
+    assert response.json() == {"deleted": sorted([first["slug"], second["slug"]])}
+    assert sorted(storage) == sorted(
+        [("delete site", first["slug"]), ("delete site", second["slug"])]
+    )
+    assert versions(first["slug"]) == set()
+    sites = [site["slug"] for site in client.get(URL, headers=bearer(token)).json()]
+    assert first["slug"] not in sites and kept["slug"] in sites
+
+    # Repeating it deletes nothing more
+    response = client.delete(URL, params={"slug": first["slug"]}, headers=bearer(token))
+    assert response.json() == {"deleted": []}
+
+
+def test_delete_several_requires_owning_them_all(
+    client: TestClient,
+    token: str,
+    new_token: Callable[[], str],
+    monkeypatch: pytest.MonkeyPatch,
+    storage: list[tuple[str, ...]],
+) -> None:
+    mine = published(client, token, monkeypatch, "index.html")
+    theirs = published(client, new_token(), monkeypatch, "index.html")
+
+    response = client.delete(
+        URL, params={"slug": [mine["slug"], theirs["slug"]]}, headers=bearer(token)
+    )
+    assert response.status_code == 403
+    assert storage == []
+    assert client.get(f"{URL}/{mine['slug']}", headers=bearer(token)).status_code == 200
+
+
+@pytest.mark.parametrize("count", [0, 101])
+def test_delete_several_takes_one_to_a_hundred(
+    client: TestClient, token: str, count: int
+) -> None:
+    slugs = [f"site-{i:04x}" for i in range(count)]
+    response = client.delete(URL, params={"slug": slugs}, headers=bearer(token))
+    assert response.status_code == 422
 
 
 def test_delete_requires_its_owner(

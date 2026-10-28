@@ -223,6 +223,12 @@ class DiscardedFolder(SQLModel, table=True):
     )
 
 
+class DeletedSites(SQLModel):
+    deleted: list[str] = Field(
+        description="Sites deleted; ones that didn't exist are left out"
+    )
+
+
 class StoredFile(SQLModel):
     path: str = Field(description="Path relative to the site root")
     sha256: str | None = Field(description="Base64-encoded SHA-256 of the stored bytes")

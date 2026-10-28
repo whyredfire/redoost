@@ -332,7 +332,9 @@ function useUploadState() {
       function flush() {
         clearTimeout(timer);
         timer = undefined;
-        setLoaded([...progress.values()].reduce((sum, bytes) => sum + bytes, 0));
+        setLoaded(
+          [...progress.values()].reduce((sum, bytes) => sum + bytes, 0),
+        );
         setUploaded(done);
       }
       const onProgress = (path: string, bytes: number, complete: boolean) => {

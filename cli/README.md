@@ -49,7 +49,7 @@ you, and last 30 days. `redoost logout` forgets the token.
 | `redoost disable <slug>` | Take a site offline, keeping its files and address |
 | `redoost enable <slug>` | Put an offline site back online |
 | `redoost describe <slug> <text>` | Change a site's description, or clear it with `""` |
-| `redoost delete <slug>` | Delete a site |
+| `redoost delete <slug>...` | Delete one or more sites |
 | `redoost update` | Update the CLI to the release your server runs |
 
 Publishing and previewing leave out dotfiles like `.env` and `.git/`, except

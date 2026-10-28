@@ -1,10 +1,11 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute, useRouter } from "@tanstack/react-router";
 import { Globe, Search } from "lucide-react";
 import { useState } from "react";
 import { CliCommand } from "@/components/cli-command";
 import { PageHeading } from "@/components/page-heading";
 import { SignInPrompt } from "@/components/sign-in-prompt";
 import { SiteList } from "@/components/site-list";
+import { SiteSelection } from "@/components/site-selection";
 import { StorageUsage } from "@/components/storage-usage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import {
   ApiError,
+  deleteDeployments,
   listDeployments,
   readUsage,
   type Deployment,
@@ -70,6 +72,9 @@ function SitesPage() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<Status>("all");
   const [order, setOrder] = useState<Order>("newest");
+  // Sites picked to delete together, or null when not picking
+  const [selecting, setSelecting] = useState<Set<string> | null>(null);
+  const router = useRouter();
   const search = query.trim().toLowerCase();
   const shown = sites
     .filter(
@@ -81,6 +86,32 @@ function SitesPage() {
       (site) => status === "all" || site.enabled === (status === "online"),
     )
     .toSorted(orders[order]);
+  // Only what's listed, so a filter can't hide a site that would be deleted
+  const selected = shown
+    .filter((site) => selecting?.has(site.slug))
+    .map((site) => site.slug);
+
+  function toggle(slug: string) {
+    setSelecting((current) => {
+      const next = new Set(current);
+      if (!next.delete(slug)) next.add(slug);
+      return next;
+    });
+  }
+
+  async function deleteSelected() {
+    const token = loadToken();
+    if (!token) throw new Error("Sign in again to delete these sites.");
+    const failed = await deleteDeployments(selected, token);
+    await router.invalidate();
+    if (failed.length > 0) {
+      setSelecting(new Set(failed));
+      throw new Error(
+        `${failed.length} of ${selected.length} couldn't be deleted. Try again.`,
+      );
+    }
+    setSelecting(null);
+  }
 
   return (
     <>
@@ -96,57 +127,86 @@ function SitesPage() {
         <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
           {sites.length > 0 ? (
             <div className="space-y-4">
-              {sites.length > 5 && (
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <div className="relative flex-1">
-                    <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      type="search"
-                      value={query}
-                      onChange={(event) => setQuery(event.target.value)}
-                      placeholder="Search sites"
-                      aria-label="Search sites"
-                      className="h-10 rounded-xl pl-10 font-mono [&::-webkit-search-cancel-button]:hidden"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Select
-                      value={status}
-                      onValueChange={(value) => setStatus(value as Status)}
-                    >
-                      <SelectTrigger
-                        className="h-10! flex-1 rounded-xl sm:w-32"
-                        aria-label="Show"
+              <div className="flex flex-col gap-2 sm:flex-row">
+                {sites.length > 5 && (
+                  <>
+                    <div className="relative flex-1">
+                      <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        type="search"
+                        value={query}
+                        onChange={(event) => setQuery(event.target.value)}
+                        placeholder="Search sites"
+                        aria-label="Search sites"
+                        className="h-10 rounded-xl pl-10 font-mono [&::-webkit-search-cancel-button]:hidden"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Select
+                        value={status}
+                        onValueChange={(value) => setStatus(value as Status)}
                       >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All sites</SelectItem>
-                        <SelectItem value="online">Online</SelectItem>
-                        <SelectItem value="offline">Offline</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select
-                      value={order}
-                      onValueChange={(value) => setOrder(value as Order)}
-                    >
-                      <SelectTrigger
-                        className="h-10! flex-1 rounded-xl sm:w-32"
-                        aria-label="Sort by"
+                        <SelectTrigger
+                          className="h-10! flex-1 rounded-xl sm:w-32"
+                          aria-label="Show"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All sites</SelectItem>
+                          <SelectItem value="online">Online</SelectItem>
+                          <SelectItem value="offline">Offline</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={order}
+                        onValueChange={(value) => setOrder(value as Order)}
                       >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="newest">Newest</SelectItem>
-                        <SelectItem value="largest">Largest</SelectItem>
-                        <SelectItem value="name">Name</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                        <SelectTrigger
+                          className="h-10! flex-1 rounded-xl sm:w-32"
+                          aria-label="Sort by"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="newest">Newest</SelectItem>
+                          <SelectItem value="largest">Largest</SelectItem>
+                          <SelectItem value="name">Name</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
+                {!selecting && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 rounded-xl sm:ml-auto"
+                    onClick={() => setSelecting(new Set())}
+                  >
+                    Select
+                  </Button>
+                )}
+              </div>
+              {selecting && (
+                <SiteSelection
+                  shown={shown.map((site) => site.slug)}
+                  selected={selected}
+                  onSelectAll={(all) =>
+                    setSelecting(
+                      new Set(all ? shown.map((site) => site.slug) : []),
+                    )
+                  }
+                  onCancel={() => setSelecting(null)}
+                  onDelete={deleteSelected}
+                />
               )}
               {shown.length > 0 ? (
-                <SiteList sites={shown} />
+                <SiteList
+                  sites={shown}
+                  selected={selecting ? new Set(selected) : undefined}
+                  onToggle={toggle}
+                />
               ) : (
                 <p className="rounded-xl border px-4 py-10 text-center text-sm text-muted-foreground">
                   No matching sites

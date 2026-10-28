@@ -99,6 +99,11 @@ class FakeServer:
         if route == "PATCH /api/deployments/brave-otter-1a2b":
             change = json.loads(request.content)
             return httpx2.Response(200, json={"slug": "brave-otter-1a2b", **change})
+        if route == "DELETE /api/deployments":
+            slugs = request.url.params.get_list("slug")
+            # Sorted, as the API returns them
+            deleted = sorted(slug for slug in slugs if not slug.startswith("missing"))
+            return httpx2.Response(200, json={"deleted": deleted})
         if route.endswith("/complete"):
             return httpx2.Response(
                 200, json={"slug": "brave-otter-1a2b", "state": "ready"}
@@ -368,7 +373,35 @@ def test_list_and_delete(
     )
     out, _ = run(capsys, "delete", "brave-otter-1a2b")
     assert out == "Deleted brave-otter-1a2b\n"
-    assert "DELETE /api/deployments/brave-otter-1a2b" in server.routes()
+    assert server.requests[-1].url.params.get_list("slug") == ["brave-otter-1a2b"]
+
+
+def test_delete_several_sites(
+    server: FakeServer, capsys: pytest.CaptureFixture[str]
+) -> None:
+    signed_in()
+    slugs = [f"site-{i:04x}" for i in range(150)]
+
+    out, _ = run(capsys, "delete", *reversed(slugs), slugs[0])
+    slugs.reverse()
+
+    assert out == f"Deleted {', '.join(slugs)}\n"
+    # One request per hundred, each site once
+    batches = [request.url.params.get_list("slug") for request in server.requests]
+    assert batches == [slugs[:100], slugs[100:]]
+
+
+def test_delete_reports_sites_not_found(
+    server: FakeServer, capsys: pytest.CaptureFixture[str]
+) -> None:
+    signed_in()
+
+    with pytest.raises(SystemExit) as exited:
+        run(capsys, "delete", "brave-otter-1a2b", "missing-site", "--json")
+
+    assert exited.value.code == "error: Not found: missing-site"
+    out = json.loads(capsys.readouterr().out)
+    assert out == {"deleted": ["brave-otter-1a2b"], "missing": ["missing-site"]}
 
 
 def test_disable_and_enable(

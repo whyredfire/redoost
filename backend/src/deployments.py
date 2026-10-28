@@ -1,16 +1,18 @@
 import hashlib
 import json
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import ColumnElement
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import ARRAY, ColumnElement, String, any_, literal
 from sqlmodel import col, delete, func, or_, select
 
 from .auth import CurrentUser
 from .config import settings
 from .database import Session
 from .models import (
+    DeletedSites,
     Deployment,
     DeploymentBase,
     DeploymentChange,
@@ -30,7 +32,7 @@ from .storage import (
     copy_files,
     delete_folder,
     delete_paths,
-    delete_site,
+    delete_sites,
     new_folder,
     read_objects,
     sign_uploads,
@@ -41,6 +43,9 @@ router = APIRouter(prefix="/api/deployments", tags=["deployments"])
 # Nginx caches which folder a site serves for a few seconds, and keeps serving it
 # while the API is unreachable, so the previous one stays a while before it's deleted
 retire_after = timedelta(minutes=2)
+
+# Short enough for a URL, as each one is a query parameter
+max_bulk_delete = 100
 
 
 async def get_deployment(slug: str, session: Session, user: CurrentUser) -> Deployment:
@@ -435,10 +440,43 @@ async def cancel_upload(deployment: OwnedDeployment, session: Session) -> None:
     await session.commit()
 
 
+async def remove_sites(session: Session, deployments: Sequence[Deployment]) -> None:
+    """Deletes sites and their files; the caller commits."""
+    # Files go first, so a failed delete leaves the deployments in place to retry
+    await delete_sites(deployment.slug for deployment in deployments)
+    for deployment in deployments:
+        discard_upload(session, deployment)
+        await session.delete(deployment)
+
+
+# Sites that don't exist are skipped, so a repeated request deletes nothing twice
+@router.delete("")
+async def delete_deployments(
+    slug: Annotated[
+        list[str],
+        Query(
+            min_length=1,
+            max_length=max_bulk_delete,
+            description=f"Sites to delete, up to {max_bulk_delete}",
+        ),
+    ],
+    session: Session,
+    user: CurrentUser,
+) -> DeletedSites:
+    query = (
+        select(Deployment)
+        .where(col(Deployment.slug) == any_(literal(sorted(set(slug)), ARRAY(String))))
+        .order_by(col(Deployment.slug))
+    )
+    deployments = (await session.exec(query)).all()
+    if any(deployment.owner_id != user.id for deployment in deployments):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Not your deployment")
+    await remove_sites(session, deployments)
+    await session.commit()
+    return DeletedSites(deleted=[deployment.slug for deployment in deployments])
+
+
 @router.delete("/{slug}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_deployment(deployment: OwnedDeployment, session: Session) -> None:
-    # Files go first, so a failed delete leaves the deployment in place to retry
-    await delete_site(deployment.slug)
-    discard_upload(session, deployment)
-    await session.delete(deployment)
+    await remove_sites(session, [deployment])
     await session.commit()

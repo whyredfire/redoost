@@ -190,6 +190,26 @@ export async function deleteDeployment(slug: string, token: string) {
   await checkResponse(response);
 }
 
+// The API takes up to 100 at a time; returns the ones that couldn't be deleted
+export async function deleteDeployments(slugs: string[], token: string) {
+  const failed: string[] = [];
+  for (let start = 0; start < slugs.length; start += 100) {
+    const batch = slugs.slice(start, start + 100);
+    const query = new URLSearchParams(batch.map((slug) => ["slug", slug]));
+    try {
+      const response = await fetch(`/api/deployments?${query}`, {
+        method: "DELETE",
+        headers: authorization(token),
+      });
+      // Sites already deleted, like from another tab, are left out of the result
+      await readResponse<{ deleted: string[] }>(response);
+    } catch {
+      failed.push(...batch);
+    }
+  }
+  return failed;
+}
+
 // XHR instead of fetch because fetch can't report upload progress
 function postFile(
   url: string,

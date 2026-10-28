@@ -276,8 +276,25 @@ def describe(args: argparse.Namespace) -> None:
 
 
 def delete(args: argparse.Namespace) -> None:
-    signed_in(args).request("DELETE", f"/api/deployments/{args.slug}")
-    output(args, {"slug": args.slug}, f"Deleted {args.slug}")
+    api = signed_in(args)
+    slugs = list(dict.fromkeys(args.slugs))
+    found: set[str] = set()
+    # The API takes up to 100 at a time
+    for start in range(0, len(slugs), 100):
+        params = [("slug", slug) for slug in slugs[start : start + 100]]
+        response = api.request("DELETE", "/api/deployments", params=params)
+        found.update(response.json()["deleted"])
+    # In the order given
+    deleted = [slug for slug in slugs if slug in found]
+    missing = [slug for slug in slugs if slug not in found]
+    if deleted or args.json:
+        output(
+            args,
+            {"deleted": deleted, "missing": missing},
+            f"Deleted {', '.join(deleted)}",
+        )
+    if missing:
+        raise ApiError(f"Not found: {', '.join(missing)}")
 
 
 def parse(argv: list[str] | None) -> argparse.Namespace:
@@ -347,10 +364,8 @@ def parse(argv: list[str] | None) -> argparse.Namespace:
     describe_parser.add_argument(
         "description", help='the new description, or "" to clear it'
     )
-    delete_parser = commands.add_parser(
-        "delete", parents=[common], help="delete a site"
-    )
-    delete_parser.add_argument("slug")
+    delete_parser = commands.add_parser("delete", parents=[common], help="delete sites")
+    delete_parser.add_argument("slugs", nargs="+", metavar="slug")
     commands.add_parser(
         "update", parents=[common], help="update the CLI to the server's version"
     )
