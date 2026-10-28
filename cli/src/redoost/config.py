@@ -1,5 +1,6 @@
 import json
 import os
+import tempfile
 from pathlib import Path
 
 default_server = "https://redoost.whyredfire.dev"
@@ -12,16 +13,20 @@ def config_path() -> Path:
 
 def load_tokens() -> dict[str, str]:
     try:
-        text = config_path().read_text()
+        tokens = json.loads(config_path().read_text()).get("tokens", {})
     except FileNotFoundError:
         return {}
-    return json.loads(text).get("tokens", {})
+    # Unreadable, so signed out; the next login replaces it
+    except (ValueError, AttributeError):
+        return {}
+    return tokens
 
 
 def save_tokens(tokens: dict[str, str]) -> None:
     path = config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    # Only the user can read their tokens
-    path.touch(mode=0o600, exist_ok=True)
-    path.chmod(0o600)
-    path.write_text(json.dumps({"tokens": tokens}, indent=2))
+    # Created so only the user can read their tokens, then swapped in whole, so an
+    # interrupted write never leaves half a file
+    with tempfile.NamedTemporaryFile("w", dir=path.parent, delete=False) as file:
+        file.write(json.dumps({"tokens": tokens}, indent=2))
+    os.replace(file.name, path)

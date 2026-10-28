@@ -447,6 +447,18 @@ def test_version(capsys: pytest.CaptureFixture[str], flag: str) -> None:
     assert capsys.readouterr().out == f"redoost {version('redoost')}\n"
 
 
+def test_unreadable_config_reads_as_signed_out(
+    server: FakeServer, capsys: pytest.CaptureFixture[str]
+) -> None:
+    config.config_path().parent.mkdir(parents=True)
+    config.config_path().write_text('{"tokens": ')
+
+    assert config.load_tokens() == {}
+    run(capsys, "login")
+    assert config.load_tokens() == {SERVER: "token"}
+    assert list(config.config_path().parent.iterdir()) == [config.config_path()]
+
+
 def test_expired_sign_ins_need_a_new_login(server: FakeServer) -> None:
     config.save_tokens({SERVER: "expired"})
 
