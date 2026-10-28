@@ -7,8 +7,8 @@ from typing import Annotated, Any
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy.exc import IntegrityError
-from sqlmodel import col, select
+from sqlalchemy.dialects.postgresql import insert
+from sqlmodel import col, delete, select, update
 
 from . import oidc
 from .config import Provider, settings
@@ -135,13 +135,18 @@ async def start_cli_login(session: Session) -> CliLoginStarted:
     return CliLoginStarted(id=login.id, secret=secret, expires_at=login.expires_at)
 
 
+# One statement, so a link can only ever be approved once, by one user
 @router.post("/cli/{login_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def approve_cli_login(login_id: str, user: CurrentUser, session: Session) -> None:
-    login = await session.get(CliLogin, login_id)
-    if login is None or login.user_id or login.expires_at <= datetime.now(UTC):
+    result = await session.exec(
+        update(CliLogin)
+        .where(col(CliLogin.id) == login_id)
+        .where(col(CliLogin.user_id).is_(None))
+        .where(col(CliLogin.expires_at) > datetime.now(UTC))
+        .values(user_id=user.id)
+    )
+    if result.rowcount == 0:
         raise expired_link()
-    login.user_id = user.id
-    session.add(login)
     await session.commit()
 
 
@@ -149,53 +154,58 @@ async def approve_cli_login(login_id: str, user: CurrentUser, session: Session) 
 async def claim_cli_login(
     login_id: str, body: CliLoginClaim, session: Session
 ) -> Token | Response:
-    login = await session.get(CliLogin, login_id)
-    if (
-        login is None
-        or login.expires_at <= datetime.now(UTC)
-        or not hmac.compare_digest(login.secret_hash, hash_secret(body.secret))
-    ):
-        raise expired_link()
-    # Not approved in the browser yet
-    if login.user_id is None:
-        return Response(status_code=status.HTTP_202_ACCEPTED)
-    user = await session.get(User, login.user_id)
+    # Deleted as it's claimed, so it gives out one token at most
+    claimed = await session.exec(
+        delete(CliLogin)
+        .where(col(CliLogin.id) == login_id)
+        .where(col(CliLogin.secret_hash) == hash_secret(body.secret))
+        .where(col(CliLogin.expires_at) > datetime.now(UTC))
+        .where(col(CliLogin.user_id).is_not(None))
+        .returning(col(CliLogin.user_id))
+    )
+    user_id = claimed.scalar_one_or_none()
+    user = await session.get(User, user_id) if user_id else None
     if user is None:
+        login = await session.get(CliLogin, login_id)
+        # Not approved in the browser yet
+        if (
+            login
+            and login.expires_at > datetime.now(UTC)
+            and hmac.compare_digest(login.secret_hash, hash_secret(body.secret))
+        ):
+            return Response(status_code=status.HTTP_202_ACCEPTED)
         raise expired_link()
-    await session.delete(login)
     await session.commit()
     return create_token(user)
 
 
-async def find_or_create_user(
-    session: Session, provider: Provider, subject: str
+async def sign_in_user(
+    session: Session,
+    provider: Provider,
+    subject: str,
+    email: str | None,
+    name: str | None,
 ) -> User:
-    query = select(User).where(
-        col(User.provider) == provider, col(User.subject) == subject
-    )
-    result = await session.exec(query)
-    user = result.first()
-    if user:
-        return user
-    user = User(provider=provider, subject=subject)
-    session.add(user)
-    try:
-        await session.commit()
-    except IntegrityError:
-        # A concurrent first sign-in created the user, so this one finds it
-        await session.rollback()
-        return await find_or_create_user(session, provider, subject)
+    """Finds or creates the user in one statement, keeping their details current."""
+    new = User(provider=provider, subject=subject, email=email, name=name)
+    upsert = insert(User).values(**new.model_dump())
+    upsert = upsert.on_conflict_do_update(
+        index_elements=[col(User.provider), col(User.subject)],
+        set_={"email": upsert.excluded.email, "name": upsert.excluded.name},
+    ).returning(col(User.id))
+    user_id = (await session.exec(upsert)).scalar_one()
+    await session.commit()
+    user = await session.get(User, user_id, populate_existing=True)
+    assert user is not None
     return user
 
 
 @dev_router.post("/dev")
 async def sign_in_as_dev(session: Session) -> Token:
     # Google's subjects are numeric, so this can't be a real account
-    user = await find_or_create_user(session, Provider.google, "dev")
-    user.email = "dev@localhost"
-    user.name = "Dev User"
-    session.add(user)
-    await session.commit()
+    user = await sign_in_user(
+        session, Provider.google, "dev", "dev@localhost", "Dev User"
+    )
     return create_token(user)
 
 
@@ -208,10 +218,8 @@ async def sign_in(body: SignIn, session: Session) -> Token:
     except oidc.OidcError as error:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(error)) from error
 
-    user = await find_or_create_user(session, settings.oidc_provider, info.sub)
-    # Kept current, since users can change them at the provider
-    user.email = info.email
-    user.name = info.name
-    session.add(user)
-    await session.commit()
+    # Email and name are kept current, since users can change them at the provider
+    user = await sign_in_user(
+        session, settings.oidc_provider, info.sub, info.email, info.name
+    )
     return create_token(user)

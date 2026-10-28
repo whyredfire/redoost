@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import hashlib
 import json
@@ -11,10 +12,13 @@ import pytest
 from fastapi.testclient import TestClient
 from httpx2 import Response
 from pydantic import ByteSize
+from sqlmodel import col, select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from scripts import cleanup
-from src import deployments
+from src import database, deployments
 from src.config import settings
+from src.models import VersionFiles
 from src.storage import StoredObject, content_type
 
 URL = "/api/deployments"
@@ -410,6 +414,34 @@ def published(
     return created
 
 
+def serve(created: dict[str, str], files: dict[str, StoredObject]) -> None:
+    """Replaces what the site's current version holds."""
+
+    async def write() -> None:
+        async with AsyncSession(database.engine) as session:
+            version = await session.get(VersionFiles, folder_of(created))
+            assert version is not None
+            version.files = {
+                path: {"sha256": file.sha256, "size": file.size}
+                for path, file in files.items()
+            }
+            session.add(version)
+            await session.commit()
+
+    asyncio.run(write())
+
+
+def versions(slug: str) -> set[str]:
+    """Folders whose files are recorded for the site."""
+
+    async def read() -> set[str]:
+        async with AsyncSession(database.engine) as session:
+            query = select(VersionFiles.folder).where(col(VersionFiles.slug) == slug)
+            return set((await session.exec(query)).all())
+
+    return asyncio.run(read())
+
+
 def update(client: TestClient, created: dict[str, str], *paths: str) -> Response:
     return client.put(
         f"{URL}/{created['slug']}",
@@ -434,28 +466,45 @@ def test_read_files(
     url = f"{URL}/{created['slug']}/files"
 
     assert client.get(url, headers=bearer(new_token())).status_code == 403
+    # Recorded when it was published, so storage isn't read again
+    monkeypatch.setattr(deployments, "read_objects", stored())
     response = client.get(url, headers=bearer(token))
     assert response.json() == [
-        {"path": "index.html", "sha256": SHA256},
         {"path": "app.js", "sha256": SHA256},
+        {"path": "index.html", "sha256": SHA256},
     ]
+
+
+def test_versions_published_before_file_lists_are_read_from_storage(
+    client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    created = published(client, token, monkeypatch, "index.html")
+
+    async def forget() -> None:
+        async with AsyncSession(database.engine) as session:
+            await deployments.forget_version(session, folder_of(created))
+            await session.commit()
+
+    asyncio.run(forget())
+    monkeypatch.setattr(deployments, "read_objects", stored("index.html", "old.js"))
+    response = client.get(f"{URL}/{created['slug']}/files", headers=bearer(token))
+    assert [file["path"] for file in response.json()] == ["index.html", "old.js"]
 
 
 def test_update_signs_only_new_and_changed_files(
     client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     created = published(client, token, monkeypatch, "index.html", "app.js", "old.js")
-
-    async def read_objects(slug: str) -> dict[str, StoredObject]:
-        return {
+    serve(
+        created,
+        {
             "index.html": StoredObject(sha256=SHA256, size=1),
             "app.js": StoredObject(sha256=OTHER_SHA256, size=1),
             # Same checksum, but not the size the manifest declares
             "about.html": StoredObject(sha256=SHA256, size=5),
             "old.js": StoredObject(sha256=SHA256, size=1),
-        }
-
-    monkeypatch.setattr(deployments, "read_objects", read_objects)
+        },
+    )
     response = update(client, created, "index.html", "app.js", "about.html", "new.js")
 
     assert response.status_code == 200
@@ -560,11 +609,13 @@ def test_completing_an_update_switches_folders(
     # The old version stays while Nginx may still serve it; only old.html isn't shared
     assert ("delete folder", served) not in storage
     assert usage(client, token) == 3
+    assert versions(created["slug"]) == {served, folder}
 
     monkeypatch.setattr(cleanup, "retire_after", timedelta(0))
     run_cleanup()
     assert ("delete folder", served) in storage
     assert usage(client, token) == 2
+    assert versions(created["slug"]) == {folder}
 
 
 def test_cancelling_an_update_deletes_its_files(
@@ -687,6 +738,7 @@ def test_delete_deployment(
     response = client.delete(url, headers=bearer(token))
     assert response.status_code == 204
     assert storage == [("delete site", created["slug"])]
+    assert versions(created["slug"]) == set()
     assert client.get(url, headers=bearer(token)).status_code == 404
     assert resolve(client, created["slug"]).status_code == 403
 

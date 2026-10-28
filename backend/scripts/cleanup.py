@@ -1,24 +1,42 @@
 import asyncio
 import logging
 from datetime import UTC, datetime
+from typing import Any
 
-from sqlmodel import and_, col, delete, or_, select, update
+from sqlalchemy import ARRAY, CTE, Insert, String, any_, literal
+from sqlalchemy.dialects.postgresql import insert
+from sqlmodel import col, delete, select, update
 from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlmodel.sql.sqltypes import UTCDateTime
 
 from src.database import engine
 from src.deployments import retire_after
-from src.models import CliLogin, Deployment, DeploymentState, DiscardedFolder
+from src.models import (
+    CliLogin,
+    Deployment,
+    DeploymentState,
+    DiscardedFolder,
+    VersionFiles,
+)
 from src.storage import delete_folder, delete_sites, slug_pages
 
 # Caps each run, so a large backlog is cleared over several runs
 batch_size = 100
 
 
-def discard(
-    session: AsyncSession, folder: str | None, owner_id: str, now: datetime
-) -> None:
-    if folder:
-        session.add(DiscardedFolder(folder=folder, owner_id=owner_id, delete_after=now))
+def queue(cleared: CTE, folder: str, now: datetime, *where: Any) -> Insert:
+    """Queues the folders an UPDATE ... RETURNING took off their rows for deletion."""
+    rows = select(
+        cleared.c[folder],
+        cleared.c.owner_id,
+        literal(0),
+        literal(now, UTCDateTime()),
+    ).where(cleared.c[folder].is_not(None), *where)
+    return (
+        insert(DiscardedFolder)
+        .from_select(["folder", "owner_id", "size", "delete_after"], rows)
+        .on_conflict_do_nothing()
+    )
 
 
 async def cleanup(session: AsyncSession) -> tuple[int, int, int]:
@@ -36,7 +54,9 @@ async def cleanup(session: AsyncSession) -> tuple[int, int, int]:
     # going a page at a time keeps memory and query size flat however many sites there are.
     orphaned: list[str] = []
     async for slugs in slug_pages():
-        query = select(Deployment.slug).where(col(Deployment.slug).in_(slugs))
+        query = select(Deployment.slug).where(
+            col(Deployment.slug) == any_(literal(slugs, ARRAY(String)))
+        )
         known = set((await session.exec(query)).all())
         orphaned.extend(slug for slug in slugs if slug not in known)
         if len(orphaned) >= batch_size:
@@ -47,49 +67,52 @@ async def cleanup(session: AsyncSession) -> tuple[int, int, int]:
     for deployment in expired:
         await session.delete(deployment)
 
-    # Updates nobody finished or cancelled, and versions replaced by an update.
-    # Each folder is only let go if the row still has it, as the API may have
-    # changed the row since it was read, and is then deleted with the others below.
+    # Updates nobody finished or cancelled, and versions replaced by an update. Each
+    # statement takes the folders off their rows and queues them in one go, skipping
+    # rows the API has locked to change them.
     now = datetime.now(UTC)
-    leftovers_query = (
-        select(Deployment)
+    abandoned = (
+        select(Deployment.slug, Deployment.owner_id, Deployment.pending_folder)
+        .add_columns(col(Deployment.folder).label("served"))
         .where(col(Deployment.state) == DeploymentState.ready)
-        .where(
-            or_(
-                and_(
-                    col(Deployment.pending_folder).is_not(None),
-                    col(Deployment.expires_at) < now,
-                ),
-                col(Deployment.retired_at) < now - retire_after,
-            )
-        )
+        .where(col(Deployment.pending_folder).is_not(None))
+        .where(col(Deployment.expires_at) < now)
         .limit(batch_size)
+        .with_for_update(skip_locked=True)
+        .subquery()
     )
-    # Read up front, as each commit expires the rows
-    leftovers = [
-        (row.slug, row.owner_id, row.pending_folder, row.folder, row.retired_folder)
-        for row in (await session.exec(leftovers_query)).all()
-    ]
-    for slug, owner_id, pending, served, retired in leftovers:
-        abandoned = await session.exec(
-            update(Deployment)
-            .where(col(Deployment.slug) == slug)
-            .where(col(Deployment.pending_folder) == pending)
-            .where(col(Deployment.expires_at) < now)
-            .values(pending_folder=None, pending_size=0, pending_digest=None)
+    cleared = (
+        update(Deployment)
+        .where(col(Deployment.slug) == abandoned.c.slug)
+        .values(pending_folder=None, pending_size=0, pending_digest=None)
+        .returning(abandoned.c.pending_folder, abandoned.c.owner_id, abandoned.c.served)
+        .cte("cleared")
+    )
+    # Sites from before versions uploaded into the folder they serve
+    await session.exec(
+        queue(
+            cleared,
+            "pending_folder",
+            now,
+            cleared.c.pending_folder.is_distinct_from(cleared.c.served),
         )
-        if abandoned.rowcount and pending != served:
-            discard(session, pending, owner_id, now)
-        replaced = await session.exec(
-            update(Deployment)
-            .where(col(Deployment.slug) == slug)
-            .where(col(Deployment.retired_folder) == retired)
-            .where(col(Deployment.retired_at) < now - retire_after)
-            .values(retired_folder=None, retired_at=None, retired_size=0)
-        )
-        if replaced.rowcount:
-            discard(session, retired, owner_id, now)
-        await session.commit()
+    )
+    replaced = (
+        select(Deployment.slug, Deployment.owner_id, Deployment.retired_folder)
+        .where(col(Deployment.retired_at) < now - retire_after)
+        .limit(batch_size)
+        .with_for_update(skip_locked=True)
+        .subquery()
+    )
+    cleared = (
+        update(Deployment)
+        .where(col(Deployment.slug) == replaced.c.slug)
+        .values(retired_folder=None, retired_at=None, retired_size=0)
+        .returning(replaced.c.retired_folder, replaced.c.owner_id)
+        .cte("cleared")
+    )
+    await session.exec(queue(cleared, "retired_folder", now))
+    await session.commit()
 
     # Folders let go above, by cancelled uploads, and by sites deleted mid-upload
     discarded_query = (
@@ -101,6 +124,11 @@ async def cleanup(session: AsyncSession) -> tuple[int, int, int]:
     for folder in discarded:
         await delete_folder(folder.folder)
         await session.delete(folder)
+    await session.exec(
+        delete(VersionFiles).where(
+            col(VersionFiles.folder).in_([folder.folder for folder in discarded])
+        )
+    )
 
     # CLI sign-ins nobody finished
     await session.exec(

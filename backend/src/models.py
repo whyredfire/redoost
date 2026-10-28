@@ -2,11 +2,12 @@ import re
 import secrets
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Annotated, Self
+from typing import Annotated, Any, Self
 
 from coolname import generate_slug
 from pydantic import StringConstraints, field_validator, model_validator
 from sqlalchemy import BigInteger, Index, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
 from .config import Provider, settings
@@ -174,6 +175,26 @@ class Deployment(DeploymentBase, table=True):
         default=0,
         sa_type=BigInteger,
         description="Bytes of the retired folder that the new one doesn't share",
+    )
+
+
+class VersionFiles(SQLModel, table=True):
+    """What a published version folder holds, as verified when it was published.
+
+    Kept so updates and their checks never read every file back from storage.
+    """
+
+    __tablename__ = "version_files"  # pyright: ignore[reportAssignmentType]
+
+    folder: str = Field(primary_key=True, description="Storage prefix of the version")
+    slug: str = Field(
+        foreign_key="deployment.slug",
+        ondelete="CASCADE",
+        index=True,
+        description="Site the version belongs to",
+    )
+    files: dict[str, dict[str, Any]] = Field(
+        sa_type=JSONB, description="Each file's SHA-256 and stored size, by path"
     )
 
 

@@ -1,7 +1,6 @@
 import asyncio
 from collections.abc import AsyncIterator, Callable, Iterator
 from datetime import UTC, datetime, timedelta
-from typing import Any
 
 import jwt
 import pytest
@@ -72,31 +71,31 @@ def test_rejects_invalid_tokens(client: TestClient, token: str) -> None:
         assert response.headers["WWW-Authenticate"] == "Bearer"
 
 
-def test_concurrent_first_sign_ins_find_the_same_user(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    async def race() -> tuple[User, User]:
-        async with (
-            AsyncSession(database.engine, expire_on_commit=False) as session,
-            AsyncSession(database.engine, expire_on_commit=False) as other,
-        ):
-            lookup = session.exec
-            first: list[User] = []
+def test_concurrent_first_sign_ins_find_the_same_user(client: TestClient) -> None:
+    async def sign_in() -> User:
+        async with AsyncSession(database.engine, expire_on_commit=False) as session:
+            return await auth.sign_in_user(
+                session, Provider.google, "race", "race@example.com", None
+            )
 
-            # The other sign-in creates the user right after this one's lookup misses
-            async def lookup_then_race(*args: Any, **kwargs: Any) -> Any:
-                result = await lookup(*args, **kwargs)
-                monkeypatch.setattr(session, "exec", lookup)
-                user = await auth.find_or_create_user(other, Provider.google, "race")
-                first.append(user)
-                return result
+    async def race() -> list[User]:
+        return list(await asyncio.gather(*(sign_in() for _ in range(5))))
 
-            monkeypatch.setattr(session, "exec", lookup_then_race)
-            user = await auth.find_or_create_user(session, Provider.google, "race")
-            return first[0], user
+    assert len({user.id for user in asyncio.run(race())}) == 1
 
-    first, second = asyncio.run(race())
+
+def test_signing_in_again_keeps_details_current(client: TestClient) -> None:
+    async def sign_in(email: str) -> User:
+        async with AsyncSession(database.engine, expire_on_commit=False) as session:
+            return await auth.sign_in_user(
+                session, Provider.google, "renamed", email, "Name"
+            )
+
+    first = asyncio.run(sign_in("old@example.com"))
+    second = asyncio.run(sign_in("new@example.com"))
     assert second.id == first.id
+    assert second.created_at == first.created_at
+    assert second.email == "new@example.com"
 
 
 def test_sign_in_is_unavailable_without_oidc(client: TestClient) -> None:

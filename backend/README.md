@@ -34,7 +34,9 @@ sites, files first, after which their tokens get 401.
 - `GET /api/deployments`: the user's ready deployments, newest first.
 - `GET /api/deployments/{slug}`: deployment status.
 - `GET /api/deployments/{slug}/files`: the site's stored files as
-  `{"path", "sha256"}`, so an update can be previewed.
+  `{"path", "sha256"}`, sorted by path, so an update can be previewed. Each
+  version's files are recorded when it's published, so this and updates never
+  read them back from storage.
 - `PUT /api/deployments/{slug}`: updates a ready site in place from a full
   manifest, counted at its new size against `REDOOST_MAX_ACCOUNT_SIZE`. Returns upload policies only for new and changed files, compared
   by checksum with what's stored. One upload per site at a time: returns 409
