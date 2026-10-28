@@ -884,10 +884,6 @@ def test_users_have_a_storage_limit(
     assert create(client, token, "index.html")["slug"]
 
 
-@pytest.mark.skipif(
-    settings.database_url == "sqlite+aiosqlite://",
-    reason="In-memory SQLite shares one connection, so requests can't race",
-)
 def test_concurrent_uploads_stay_within_the_limit(
     client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:

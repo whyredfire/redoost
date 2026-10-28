@@ -65,17 +65,8 @@ Settings shared by the API, its migrations, and the bucket setup Job
     name: {{ include "redoost.secretName" . }}
 - secretRef:
     name: {{ include "redoost.authSecretName" . }}
-{{- if include "redoost.postgres" . }}
 - secretRef:
     name: {{ include "redoost.databaseSecretName" . }}
-{{- end }}
-{{- end }}
-
-{{/*
-Non-empty when the API uses Postgres instead of SQLite on a volume
-*/}}
-{{- define "redoost.postgres" -}}
-{{- if or .Values.database.url .Values.database.existingSecret }}true{{ end }}
 {{- end }}
 
 {{- define "redoost.authSecretName" -}}
@@ -88,20 +79,10 @@ Non-empty when the API uses Postgres instead of SQLite on a volume
 {{- end }}
 
 {{- define "redoost.databaseSecretName" -}}
-{{- .Values.database.existingSecret | default (printf "%s-database" (include "redoost.fullname" .)) }}
+{{- if not (or .Values.database.url .Values.database.existingSecret) }}
+{{- fail "Set database.url or database.existingSecret" }}
 {{- end }}
-
-{{/*
-Keeps pods that use the SQLite volume on the same node as the API
-*/}}
-{{- define "redoost.apiAffinity" -}}
-podAffinity:
-  requiredDuringSchedulingIgnoredDuringExecution:
-    - labelSelector:
-        matchLabels:
-          {{- include "redoost.selectorLabels" . | nindent 10 }}
-          app.kubernetes.io/component: api
-      topologyKey: kubernetes.io/hostname
+{{- .Values.database.existingSecret | default (printf "%s-database" (include "redoost.fullname" .)) }}
 {{- end }}
 
 {{/*

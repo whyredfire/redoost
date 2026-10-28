@@ -4,12 +4,19 @@ from pydantic import ValidationError
 from src.config import Settings
 
 
-def test_database_uses_local_sqlite_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("REDOOST_DATABASE_URL")
+@pytest.mark.parametrize(
+    "url", [None, "sqlite+aiosqlite:///./redoost.db", "postgresql://host/redoost"]
+)
+def test_database_must_be_postgres(
+    monkeypatch: pytest.MonkeyPatch, url: str | None
+) -> None:
+    if url is None:
+        monkeypatch.delenv("REDOOST_DATABASE_URL")
+    else:
+        monkeypatch.setenv("REDOOST_DATABASE_URL", url)
 
-    settings = Settings()  # pyright: ignore[reportCallIssue]
-
-    assert settings.database_url == "sqlite+aiosqlite:///./redoost.db"
+    with pytest.raises(ValidationError):
+        Settings()  # pyright: ignore[reportCallIssue]
 
 
 def test_settings_load_prefixed_environment(monkeypatch: pytest.MonkeyPatch) -> None:

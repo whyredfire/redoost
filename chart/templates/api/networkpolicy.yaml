@@ -32,10 +32,8 @@ spec:
         {{- toYaml .Values.networkPolicy.oidc | nindent 8 }}
       ports:
         - port: {{ include "redoost.oidcPort" . }}
-    {{- if include "redoost.postgres" . }}
     - to:
         {{- toYaml .Values.networkPolicy.database | nindent 8 }}
       ports:
         - port: {{ include "redoost.databasePort" . }}
-    {{- end }}
 {{- end }}

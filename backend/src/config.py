@@ -18,8 +18,8 @@ class Settings(BaseSettings):
     reload: bool = Field(default=False, description="Reload the API on code changes")
     version: str = Field(default="dev", description="Version reported by /health")
     database_url: str = Field(
-        default="sqlite+aiosqlite:///./redoost.db",
-        description="Async SQLAlchemy database URL",
+        pattern=r"^postgresql\+asyncpg://",
+        description="Postgres database URL, postgresql+asyncpg://user:password@host/db",
     )
     jwt_secret: SecretStr = Field(
         min_length=32, description="Key that signs the API's tokens"

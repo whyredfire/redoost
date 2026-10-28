@@ -88,15 +88,10 @@ async def lock_storage(session: Session, user: User) -> None:
     """Makes other quota checks for the user wait until this transaction ends.
 
     Without it, concurrent uploads could all see the same usage and all go ahead.
-    Postgres locks the user's row; SQLite ignores FOR UPDATE, so a write there takes
-    its single write lock instead. Either way, callers commit soon after, and do
-    their slower S3 work beforehand.
+    It locks the user's row, so callers commit soon after, and do their slower S3
+    work beforehand.
     """
-    if session.get_bind().dialect.name == "sqlite":
-        query = update(User).where(col(User.id) == user.id).values(id=User.id)
-        await session.exec(query)
-    else:
-        await session.exec(select(User.id).where(User.id == user.id).with_for_update())
+    await session.exec(select(User.id).where(User.id == user.id).with_for_update())
 
 
 async def check_storage(

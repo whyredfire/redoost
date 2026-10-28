@@ -55,8 +55,8 @@ auth:
   # of the secrets above
   existingSecret: ""
 
-# Postgres database, e.g. postgresql+asyncpg://user:password@host:5432/redoost.
-# When neither value is set, the API uses SQLite on a volume.
+# Postgres database, e.g. postgresql+asyncpg://user:password@host:5432/redoost;
+# one of the two values is required
 database:
   url: ""
   # Secret with REDOOST_DATABASE_URL, used instead of the url above
@@ -75,9 +75,6 @@ api:
   # Total size of each user's sites
   maxAccountSize: 1GiB
   uploadWindow: PT1H
-  persistence:
-    size: 100Mi
-    storageClass: ""
   resources:
     requests:
       cpu: 10m

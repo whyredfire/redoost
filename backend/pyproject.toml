@@ -9,7 +9,6 @@ authors = [
 requires-python = ">=3.14"
 dependencies = [
     "aioboto3>=15.5.0",
-    "aiosqlite>=0.22.1",
     "alembic>=1.20.1",
     "asyncpg>=0.32.0",
     "coolname>=5.0.0",

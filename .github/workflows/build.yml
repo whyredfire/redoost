@@ -22,23 +22,6 @@ permissions:
 
 jobs:
   backend:
-    runs-on: ubuntu-slim
-    defaults:
-      run:
-        working-directory: backend
-    steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.3.2
-        with:
-          enable-cache: true
-          cache-dependency-glob: backend/uv.lock
-      - run: uv sync --locked
-      - run: uv run ruff format --check .
-      - run: uv run ruff check .
-      - run: uv run basedpyright src scripts tests migrations
-      - run: uv run python -m pytest
-
-  backend-postgres:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -65,6 +48,9 @@ jobs:
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
       - run: uv sync --locked
+      - run: uv run ruff format --check .
+      - run: uv run ruff check .
+      - run: uv run basedpyright src scripts tests migrations
       - run: uv run python -m pytest
 
   frontend:

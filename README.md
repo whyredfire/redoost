@@ -46,7 +46,7 @@ flowchart LR
     visitor[Visitor] --> sites[Sites Nginx]
     sites -->|is the site ready?| api
     sites -->|files| garage
-    api --- db[(SQLite or Postgres)]
+    api --- db[(Postgres)]
 ```
 
 1. The dashboard hashes the folder's files and sends a manifest to the API,
@@ -57,16 +57,18 @@ flowchart LR
 4. Nginx serves `<slug>.<sites domain>` from Garage's website endpoint, after
    checking with the API (cached briefly) that the site exists.
 
-Built with FastAPI, SQLModel, and Alembic on SQLite or Postgres; React, TanStack Router,
+Built with FastAPI, SQLModel, and Alembic on Postgres; React, TanStack Router,
 Tailwind, and shadcn/ui, built with Vite and Bun; [Garage](https://garagehq.deuxfleurs.fr) for storage; and
 Nginx for serving sites.
 
 ## Self-hosting on Kubernetes
 
 The Helm chart in [`chart/`](chart) runs the API, the frontend, and the sites
-Nginx, routed with Gateway API HTTPRoutes. Garage isn't part of the chart; it
-expects:
+Nginx, routed with Gateway API HTTPRoutes. Garage and Postgres aren't part of
+the chart; it expects:
 
+- a Postgres database for `database.url`, or a secret containing
+  `REDOOST_DATABASE_URL` for `database.existingSecret`,
 - a bucket and a key with owner permission on it (the setup Job enables the
   bucket's website endpoint and CORS),
 - Garage's website endpoint (`[s3_web]`, port 3902) for `s3.websiteUpstream`,
@@ -100,6 +102,8 @@ s3:
   publicEndpoint: https://s3.example.com
   websiteUpstream: garage.garage.svc.cluster.local:3902
   existingSecret: redoost-s3
+database:
+  url: postgresql+asyncpg://redoost:password@postgres:5432/redoost
 auth:
   # openssl rand -hex 32
   jwtSecret: 3f7c2a9e5b1d8c4f6a0e3d7b9c2f5a8e
@@ -121,11 +125,9 @@ anything deploying the chart from `main` rolls out on releases only. Each image
 reports the version it was built with, in the dashboard footer and from
 `/health`.
 
-See [`chart/values.yaml`](chart/values.yaml) for all settings. By default the
-API uses SQLite on a volume, so it runs as a single replica with the `Recreate`
-strategy, and the hourly cleanup CronJob runs on the same node. Setting
-`database.url` (or `database.existingSecret`) switches to Postgres, with no
-volume and any number of replicas.
+See [`chart/values.yaml`](chart/values.yaml) for all settings. The API keeps no
+state of its own, so it can run any number of replicas, and an hourly CronJob
+cleans up abandoned uploads.
 
 ## Local development
 
@@ -158,7 +160,8 @@ ingress and routes by host:
 | <http://localhost:8080> | Garage UI (log in with `GARAGE_ADMIN_TOKEN`) |
 
 On startup, the one-off `init` service enables the bucket's website endpoint
-and CORS, and `migrate` applies database migrations. See
+and CORS, and `migrate` applies database migrations to the `postgres` service.
+See
 [`backend/README.md`](backend/README.md) and
 [`frontend/README.md`](frontend/README.md) for the API, migrations, and checks.
 
@@ -171,7 +174,7 @@ values.
 | --- | --- | --- |
 | `REDOOST_APP_ORIGIN` | | Dashboard origin, allowed to upload to the bucket |
 | `REDOOST_LOG_LEVEL` | | `INFO` or `VERBOSE` |
-| `REDOOST_DATABASE_URL` | `sqlite+aiosqlite:///./redoost.db` | Async SQLAlchemy database URL, `sqlite+aiosqlite://` or `postgresql+asyncpg://` |
+| `REDOOST_DATABASE_URL` | | Postgres database URL, `postgresql+asyncpg://user:password@host/db` |
 | `REDOOST_S3_ENDPOINT` | | S3 endpoint used by the API |
 | `REDOOST_S3_PUBLIC_ENDPOINT` | | S3 endpoint used by browsers for uploads |
 | `REDOOST_S3_REGION` | | Region used for signing |

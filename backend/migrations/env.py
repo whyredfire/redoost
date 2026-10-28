@@ -11,16 +11,10 @@ from src.config import settings
 
 
 def run_migrations(connection: Connection) -> None:
-    # SQLite can't alter most columns, so batch mode recreates the table instead
-    context.configure(
-        connection=connection,
-        target_metadata=SQLModel.metadata,
-        render_as_batch=True,
-    )
+    context.configure(connection=connection, target_metadata=SQLModel.metadata)
     with context.begin_transaction():
         # API replicas all migrate on start, so they wait for each other
-        if connection.dialect.name == "postgresql":
-            connection.execute(text("SELECT pg_advisory_xact_lock(7562105)"))
+        connection.execute(text("SELECT pg_advisory_xact_lock(7562105)"))
         context.run_migrations()
 
 

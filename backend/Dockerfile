@@ -11,7 +11,6 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 COPY pyproject.toml uv.lock .python-version ./
 RUN uv sync --locked --no-dev
-RUN mkdir data
 
 # Then, use a final image without uv
 FROM registry.access.redhat.com/hi/python:3.14@sha256:3521997789c9b812980f0fa15846949a7a7f6bfd959bf61202b5d83e25efecba
@@ -22,7 +21,6 @@ ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1
 
 COPY --from=builder /app/.venv ./.venv
-COPY --from=builder --chown=65532:0 /app/data ./data
 COPY pyproject.toml ./
 COPY src ./src
 COPY migrations ./migrations

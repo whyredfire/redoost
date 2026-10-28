@@ -34,12 +34,32 @@ services:
     ports:
       - "8080:8080"
 
+  postgres:
+    image: postgres:18-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
+    environment:
+      POSTGRES_USER: redoost
+      POSTGRES_PASSWORD: redoost
+      POSTGRES_DB: redoost
+    configs:
+      # The tests' own database, which they empty on every run
+      - source: test-database
+        target: /docker-entrypoint-initdb.d/test-database.sql
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "redoost", "-d", "redoost"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
   init:
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
     command: ["uv", "run", "--no-sync", "python", "-m", "scripts.setup_bucket"]
     env_file: .env
+    environment:
+      REDOOST_DATABASE_URL: postgresql+asyncpg://redoost:redoost@postgres/redoost
     depends_on:
       garage:
         condition: service_healthy
@@ -52,9 +72,10 @@ services:
     command: ["uv", "run", "--no-sync", "alembic", "upgrade", "head"]
     env_file: .env
     environment:
-      REDOOST_DATABASE_URL: ${REDOOST_DATABASE_URL:-sqlite+aiosqlite:///./data/redoost.db}
-    volumes:
-      - api-data:/app/data
+      REDOOST_DATABASE_URL: postgresql+asyncpg://redoost:redoost@postgres/redoost
+    depends_on:
+      postgres:
+        condition: service_healthy
     develop:
       watch:
         - action: rebuild
@@ -66,15 +87,14 @@ services:
       dockerfile: Dockerfile.dev
     env_file: .env
     environment:
-      REDOOST_DATABASE_URL: ${REDOOST_DATABASE_URL:-sqlite+aiosqlite:///./data/redoost.db}
+      REDOOST_DATABASE_URL: postgresql+asyncpg://redoost:redoost@postgres/redoost
+      REDOOST_TEST_DATABASE_URL: postgresql+asyncpg://redoost:redoost@postgres/redoost_test
       REDOOST_RELOAD: "true"
     depends_on:
       init:
         condition: service_completed_successfully
       migrate:
         condition: service_completed_successfully
-    volumes:
-      - api-data:/app/data
     develop:
       watch:
         - action: sync
@@ -145,4 +165,8 @@ services:
 
 volumes:
   garage-data:
-  api-data:
+  postgres-data:
+
+configs:
+  test-database:
+    content: CREATE DATABASE redoost_test;

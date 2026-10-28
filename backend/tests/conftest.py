@@ -5,13 +5,14 @@ from collections.abc import Callable, Iterator
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-# Tests never touch the real database
-os.environ["REDOOST_DATABASE_URL"] = os.environ.get(
-    "REDOOST_TEST_DATABASE_URL", "sqlite+aiosqlite://"
-)
+# Tests never touch the real database, and empty the one they're given
+if "REDOOST_TEST_DATABASE_URL" not in os.environ:
+    pytest.exit("Set REDOOST_TEST_DATABASE_URL to a Postgres database for tests", 2)
+os.environ["REDOOST_DATABASE_URL"] = os.environ["REDOOST_TEST_DATABASE_URL"]
 
 # Real values from the environment take precedence, which enables the Garage tests
 for name, value in {
@@ -31,6 +32,17 @@ os.environ.pop("REDOOST_OIDC_ISSUER", None)
 os.environ["REDOOST_DEV_SIGN_IN"] = "true"
 
 
+async def drop_tables() -> None:
+    from src import database
+
+    async with database.engine.begin() as connection:
+        await connection.run_sync(SQLModel.metadata.drop_all)
+        await connection.execute(text("DROP TABLE IF EXISTS alembic_version"))
+        # drop_all skips enum types whose table is already gone
+        await connection.execute(text("DROP TYPE IF EXISTS deploymentstate"))
+        await connection.execute(text("DROP TYPE IF EXISTS provider"))
+
+
 @pytest.fixture(autouse=True, scope="session")
 def database_engine() -> None:
     from sqlalchemy.ext.asyncio import create_async_engine
@@ -39,9 +51,15 @@ def database_engine() -> None:
     from src import database
     from src.config import settings
 
-    # asyncpg connections can't cross event loops; in-memory SQLite needs its pool
-    if not settings.database_url.startswith("sqlite"):
-        database.engine = create_async_engine(settings.database_url, poolclass=NullPool)
+    # asyncpg connections can't cross event loops
+    database.engine = create_async_engine(settings.database_url, poolclass=NullPool)
+    # What earlier runs left behind would otherwise show up in cleanup
+    asyncio.run(drop_tables())
+
+
+@pytest.fixture
+def empty_database() -> None:
+    asyncio.run(drop_tables())
 
 
 async def create_tables() -> None:
