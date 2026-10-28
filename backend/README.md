@@ -42,9 +42,12 @@ sites, files first, after which their tokens get 401.
 - `POST /api/deployments/{slug}/complete`: send the manifest again; marks the
   deployment `ready` once every file is stored with its checksum, then
   deletes files not in the manifest and frees the site for its next update.
-  Returns 409 while files are missing and 410 after the upload window.
-- `POST /api/deployments/{slug}/cancel`: frees the site for another update.
-  Files uploaded so far stay until then.
+  Returns 409 while files are missing or the manifest isn't the one the upload
+  started with, and 410 after the upload window.
+- `POST /api/deployments/{slug}/cancel`: frees the site for another update and
+  deletes the files uploaded so far. Its upload policies work until the window
+  closes, so its size counts toward the user's storage until then, and cleanup
+  deletes anything uploaded meanwhile.
 - `DELETE /api/deployments/{slug}`: deletes the deployment's files, then the
   deployment. The site shows "Site not found" right away.
 - `GET /internal/sites/{slug}`: readiness check for Nginx. Not exposed publicly.

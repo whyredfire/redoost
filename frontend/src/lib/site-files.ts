@@ -17,6 +17,13 @@ const defaultLimits: Limits = {
   max_deployment_files: 2000,
 };
 
+// Dotfiles like .env and .git/ are never published; .well-known/ is
+function hidden(path: string) {
+  return path
+    .split("/")
+    .some((part) => part.startsWith(".") && part !== ".well-known");
+}
+
 async function readEntry(
   entry: FileSystemEntry,
   prefix: string,
@@ -77,7 +84,13 @@ async function unzipped(
           // Runs before each entry is decompressed, so an oversized one is skipped
           filter: ({ name, originalSize }) => {
             if (rejected) return false;
-            if (name.endsWith("/") || name.startsWith("__MACOSX/")) return false;
+            if (
+              name.endsWith("/") ||
+              name.startsWith("__MACOSX/") ||
+              hidden(name)
+            ) {
+              return false;
+            }
             if (originalSize > bounds.max_file_size) {
               rejected = `${name} is ${formatBytes(originalSize)} uncompressed; files can be up to ${formatBytes(bounds.max_file_size)}.`;
               return false;
@@ -103,7 +116,10 @@ async function unzipped(
   );
   if (rejected) throw new Error(rejected);
   const files = Object.entries(entries)
-    .filter(([path]) => !path.endsWith("/") && !path.startsWith("__MACOSX/"))
+    .filter(
+      ([path]) =>
+        !path.endsWith("/") && !path.startsWith("__MACOSX/") && !hidden(path),
+    )
     .map(([path, contents]) => ({
       path,
       file: new File([contents], path.split("/").pop()!),
@@ -129,7 +145,7 @@ async function toSite(
     const contents = await unzipped(files[0]!.file, limits);
     return toPages(contents);
   }
-  return toPages(files);
+  return toPages(files.filter(({ path }) => !hidden(path)));
 }
 
 // Without index.html, a lone root HTML file becomes the home page; otherwise siteChecks flags it
@@ -205,19 +221,24 @@ async function digest(file: File) {
   return btoa(String.fromCharCode(...new Uint8Array(hash)));
 }
 
-// Compresses and hashes each file, reporting them one by one
+// Compresses and hashes a few files at a time, reporting each as it's done
 export async function prepareFiles(
   files: SiteFile[],
   onFile: (file: UploadFile) => void,
 ) {
-  const prepared = [];
-  for (const file of files) {
-    const packed = await compress(file);
-    const sha256 = await digest(packed.file);
-    const result = { ...packed, sha256 };
-    prepared.push(result);
-    onFile(result);
+  // In the order given, since resuming compares manifests file by file
+  const prepared: UploadFile[] = [];
+  let next = 0;
+  async function worker() {
+    while (next < files.length) {
+      const index = next++;
+      const packed = await compress(files[index]!);
+      const sha256 = await digest(packed.file);
+      prepared[index] = { ...packed, sha256 };
+      onFile(prepared[index]);
+    }
   }
+  await Promise.all(Array.from({ length: 4 }, () => worker()));
   return prepared;
 }
 

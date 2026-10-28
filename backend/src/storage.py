@@ -87,6 +87,9 @@ async def list_keys(s3: Any, prefix: str) -> list[str]:
 
 async def list_files(s3: Any, folder: str) -> list[str]:
     keys = await list_keys(s3, folder)
+    # Only a site's root, like brave-otter-1a2b/, has version folders inside it
+    if folder.count("/") > 1:
+        return keys
     return [key for key in keys if not version_folder.match(key.removeprefix(folder))]
 
 

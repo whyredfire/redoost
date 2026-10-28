@@ -34,12 +34,36 @@ def test_reads_folders(tmp_path: Path) -> None:
     ]
 
 
+def test_leaves_out_dotfiles(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        {"index.html": b"<h1>", ".env": b"SECRET=1", ".git/config": b"[core]"},
+    )
+
+    assert [file.path for file in read_site(tmp_path)] == ["index.html"]
+
+
+def test_leaves_out_links_to_files_outside_the_folder(tmp_path: Path) -> None:
+    site = tmp_path / "site"
+    write(site, {"index.html": b"<h1>", "app.js": b"x"})
+    write(tmp_path, {"credentials": b"secret"})
+    (site / "credentials").symlink_to(tmp_path / "credentials")
+    (site / "main.js").symlink_to(site / "app.js")
+
+    assert [file.path for file in read_site(site)] == [
+        "app.js",
+        "index.html",
+        "main.js",
+    ]
+
+
 def test_reads_zips_without_their_wrapping_folder(tmp_path: Path) -> None:
     archive = tmp_path / "site.zip"
     with zipfile.ZipFile(archive, "w") as zip_file:
         zip_file.writestr("my-site/index.html", "<h1>")
         zip_file.writestr("my-site/app.js", "x")
         zip_file.writestr("__MACOSX/my-site/._index.html", "junk")
+        zip_file.writestr("my-site/.DS_Store", "junk")
 
     assert [file.path for file in read_site(archive)] == ["app.js", "index.html"]
 

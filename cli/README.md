@@ -52,6 +52,9 @@ you, and last 30 days. `redoost logout` forgets the token.
 | `redoost delete <slug>` | Delete a site |
 | `redoost update` | Update the CLI to the release your server runs |
 
+Publishing and previewing leave out dotfiles like `.env` and `.git/`, except
+`.well-known/`, and links to files outside the folder.
+
 Once a day, commands run in a terminal check whether the server runs a newer
 release, and suggest `redoost update` if so.
 

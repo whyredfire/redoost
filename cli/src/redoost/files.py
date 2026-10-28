@@ -40,6 +40,13 @@ class SiteFile:
         }
 
 
+def hidden(path: str) -> bool:
+    """Dotfiles like .env and .git/ are never published; .well-known/ is."""
+    return any(
+        part.startswith(".") and part != ".well-known" for part in path.split("/")
+    )
+
+
 def check_uncompressed(sizes: list[tuple[str, int]], limits: dict[str, Any]) -> None:
     """Fail before reading files, so oversized inputs never use the memory."""
     largest = limits["max_file_size"]
@@ -71,7 +78,9 @@ def read_zip(path: Path, limits: dict[str, Any] | None = None) -> list[SiteFile]
             entries = [
                 entry
                 for entry in archive.infolist()
-                if not entry.is_dir() and not entry.filename.startswith("__MACOSX/")
+                if not entry.is_dir()
+                and not entry.filename.startswith("__MACOSX/")
+                and not hidden(entry.filename)
             ]
             entries.sort(key=lambda entry: entry.filename)
             check_uncompressed(
@@ -110,10 +119,14 @@ def to_pages(files: list[SiteFile]) -> list[SiteFile]:
 def read_site(path: Path, limits: dict[str, Any] | None = None) -> list[SiteFile]:
     limits = limits or default_limits
     if path.is_dir():
+        root = path.resolve()
         selected = [
             (file.relative_to(path).as_posix(), file)
             for file in path.rglob("*")
             if file.is_file()
+            and not hidden(file.relative_to(path).as_posix())
+            # Links can point anywhere, like ~/.aws/credentials
+            and file.resolve().is_relative_to(root)
         ]
         selected.sort(key=lambda item: item[0])
         check_uncompressed(

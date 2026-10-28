@@ -1,3 +1,5 @@
+import hashlib
+import json
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
@@ -14,6 +16,7 @@ from .models import (
     DeploymentChange,
     DeploymentState,
     DeploymentUploads,
+    DiscardedFolder,
     Limits,
     Manifest,
     ManifestFile,
@@ -72,7 +75,13 @@ async def used_storage(
     if replacing:
         query = query.where(Deployment.slug != replacing)
     result = await session.exec(query)
-    return int(result.one())
+    # Cancelled uploads, until their policies stop working
+    discarded = await session.exec(
+        select(func.coalesce(func.sum(DiscardedFolder.size), 0))
+        .where(DiscardedFolder.owner_id == user.id)
+        .where(col(DiscardedFolder.delete_after) > datetime.now(UTC))
+    )
+    return int(result.one()) + int(discarded.one())
 
 
 async def lock_storage(session: Session, user: User) -> None:
@@ -105,6 +114,33 @@ async def check_storage(
 OwnedDeployment = Annotated[Deployment, Depends(get_deployment)]
 
 
+def manifest_digest(manifest: Manifest) -> str:
+    files = sorted(
+        (file.path, file.size, file.sha256, file.gzip) for file in manifest.files
+    )
+    return hashlib.sha256(json.dumps(files).encode()).hexdigest()
+
+
+def discard_upload(session: Session, deployment: Deployment) -> None:
+    """Keeps an unfinished upload's folder counted until its policies stop working."""
+    folder = deployment.pending_folder
+    if folder is None or folder == deployment.folder:
+        return
+    size = (
+        deployment.pending_size
+        if deployment.state == DeploymentState.ready
+        else deployment.total_size
+    )
+    session.add(
+        DiscardedFolder(
+            folder=folder,
+            owner_id=deployment.owner_id,
+            size=size,
+            delete_after=max(deployment.expires_at, datetime.now(UTC)),
+        )
+    )
+
+
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_deployment(
     manifest: Manifest, session: Session, user: CurrentUser
@@ -117,6 +153,7 @@ async def create_deployment(
         description=manifest.description or "",
     )
     deployment.pending_folder = new_folder(deployment.slug)
+    deployment.pending_digest = manifest_digest(manifest)
     upload_url, uploads = await sign_uploads(deployment.pending_folder, manifest.files)
     await check_storage(session, user, manifest.total_size)
     session.add(deployment)
@@ -239,6 +276,7 @@ async def update_deployment(
             expires_at=now + settings.upload_window,
             pending_folder=folder,
             pending_size=pending_size,
+            pending_digest=manifest_digest(manifest),
         )
     )
     if result.rowcount == 0:
@@ -274,6 +312,11 @@ async def complete_deployment(
             ):
                 return deployment
         raise HTTPException(status.HTTP_410_GONE, "Upload window has closed")
+    # So leftover policies can only rewrite the files it publishes, with the same bytes
+    if deployment.pending_digest != manifest_digest(manifest):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "These aren't the files this upload started with"
+        )
 
     uploaded = await read_objects(folder)
     served = (
@@ -309,21 +352,31 @@ async def complete_deployment(
     if deployment.folder and copied:
         await copy_files(deployment.folder, folder, [file.path for file in copied])
     # Only the version just replaced is kept, so a burst of updates can't pile them up
-    await discard_retired(deployment)
+    if deployment.retired_folder:
+        await delete_folder(deployment.retired_folder)
 
     # Checked again, as other uploads may have finished since this one started
     await check_storage(
         session, user, total_size + retired_size, replacing=deployment.slug
     )
-    if deployment.folder and deployment.folder != folder:
-        deployment.retired_folder = deployment.folder
-        deployment.retired_at = now
-        deployment.retired_size = retired_size
+    # The window may have closed while files were copied, letting cleanup or a new
+    # update take the folder; locked, so neither can until this commits
+    await session.refresh(deployment, with_for_update=True)
+    if deployment.pending_folder != folder:
+        # A repeated request finished it first
+        if deployment.folder == folder:
+            return deployment
+        raise HTTPException(status.HTTP_410_GONE, "Upload window has closed")
+    replaced = deployment.folder if deployment.folder != folder else None
+    deployment.retired_folder = replaced
+    deployment.retired_at = now if replaced else None
+    deployment.retired_size = retired_size if replaced else 0
 
     # Visitors switch to the new files all at once
     deployment.folder = folder
     deployment.pending_folder = None
     deployment.pending_size = 0
+    deployment.pending_digest = None
     deployment.state = DeploymentState.ready
     deployment.file_count = len(manifest.files)
     deployment.total_size = total_size
@@ -343,8 +396,11 @@ async def complete_deployment(
 async def cancel_upload(deployment: OwnedDeployment, session: Session) -> None:
     if deployment.pending_folder and deployment.pending_folder != deployment.folder:
         await delete_folder(deployment.pending_folder)
+    # Its policies still work, so anything uploaded with them is deleted later
+    discard_upload(session, deployment)
     deployment.pending_folder = None
     deployment.pending_size = 0
+    deployment.pending_digest = None
     deployment.expires_at = datetime.now(UTC)
     session.add(deployment)
     await session.commit()
@@ -354,5 +410,6 @@ async def cancel_upload(deployment: OwnedDeployment, session: Session) -> None:
 async def delete_deployment(deployment: OwnedDeployment, session: Session) -> None:
     # Files go first, so a failed delete leaves the deployment in place to retry
     await delete_site(deployment.slug)
+    discard_upload(session, deployment)
     await session.delete(deployment)
     await session.commit()

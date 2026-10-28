@@ -1,3 +1,4 @@
+import re
 import secrets
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -42,6 +43,9 @@ class ManifestFile(SQLModel):
                 "Must be a relative path of at most 900 bytes"
                 " without empty, '.' or '..' segments"
             )
+        # Version folders go inside a site's root, where these would be mistaken for one
+        if re.match(r"v-[0-9a-f]{12}/", path):
+            raise ValueError("Can't start with a folder named like v-0123456789ab")
         return path
 
 
@@ -153,6 +157,11 @@ class Deployment(DeploymentBase, table=True):
         sa_type=BigInteger,
         description="Bytes an update uploads next to the files being served",
     )
+    pending_digest: str | None = Field(
+        default=None,
+        description="SHA-256 of the manifest the current upload was signed for, so "
+        "completing it can't publish other files",
+    )
     retired_folder: str | None = Field(
         default=None,
         description="Storage prefix of the files served before the last update, kept "
@@ -165,6 +174,31 @@ class Deployment(DeploymentBase, table=True):
         default=0,
         sa_type=BigInteger,
         description="Bytes of the retired folder that the new one doesn't share",
+    )
+
+
+class DiscardedFolder(SQLModel, table=True):
+    """A folder no site uses any more, which cleanup deletes once its time comes.
+
+    A cancelled upload's signed policies keep working until they expire, so its folder
+    waits until then, counting toward its owner's storage, and anything uploaded to
+    it meanwhile is deleted with it.
+    """
+
+    __tablename__ = "discarded_folder"  # pyright: ignore[reportAssignmentType]
+
+    folder: str = Field(primary_key=True, description="Storage prefix to delete")
+    owner_id: str = Field(
+        foreign_key="users.id",
+        ondelete="CASCADE",
+        index=True,
+        description="User whose storage it counts toward",
+    )
+    size: int = Field(
+        default=0, sa_type=BigInteger, description="Bytes it counts until it's deleted"
+    )
+    delete_after: datetime = Field(
+        index=True, description="When its upload policies, if any, stop working"
     )
 
 

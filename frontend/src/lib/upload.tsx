@@ -74,7 +74,7 @@ function useUploadState() {
   // Null leaves an updated site's description as it is, as when it couldn't be read
   const [description, setDescription] = useState<string | null>(null);
   const [checks, setChecks] = useState<SiteCheck[]>([]);
-  const [progress, setProgress] = useState<Record<string, number>>({});
+  const [loaded, setLoaded] = useState(0);
   const [uploaded, setUploaded] = useState(0);
   const [uploadCount, setUploadCount] = useState(0);
   const [uploadSize, setUploadSize] = useState(0);
@@ -100,7 +100,6 @@ function useUploadState() {
     compressedSize !== null &&
     diff.changes.size === 0 &&
     diff.removed.length === 0;
-  const loaded = Object.values(progress).reduce((sum, bytes) => sum + bytes, 0);
   const percentage = uploadSize ? Math.round((loaded / uploadSize) * 100) : 0;
 
   useEffect(() => {
@@ -170,6 +169,8 @@ function useUploadState() {
     }
     clearFiles();
     setStage("idle");
+    // Before any file is read, so an oversized one can't fill the tab's memory
+    if (rejected(selected)) return;
     // Without index.html the files are only checked, never listed
     if (selected.some(({ path }) => path === "index.html")) {
       setFiles(selected);
@@ -194,9 +195,8 @@ function useUploadState() {
     });
     preparation.current = run;
     try {
-      const uploads = await run;
+      await run;
       flush();
-      if (preparation.current === run) rejected(uploads);
     } catch (error) {
       if (preparation.current !== run) return;
       showError(error instanceof Error ? error.message : String(error));
@@ -325,17 +325,32 @@ function useUploadState() {
       // Pages go last, so a live site never links to assets still uploading
       const pages = pending.filter(({ path }) => /\.html?$/i.test(path));
       const assets = pending.filter((file) => !pages.includes(file));
-      const onProgress = (path: string, bytes: number, done: boolean) => {
-        setProgress((current) => ({ ...current, [path]: bytes }));
-        if (done) setUploaded((count) => count + 1);
+      // Batched, since each update re-renders every listed file
+      const progress = new Map<string, number>();
+      let done = 0;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      function flush() {
+        clearTimeout(timer);
+        timer = undefined;
+        setLoaded([...progress.values()].reduce((sum, bytes) => sum + bytes, 0));
+        setUploaded(done);
+      }
+      const onProgress = (path: string, bytes: number, complete: boolean) => {
+        progress.set(path, bytes);
+        if (complete) done++;
+        timer ??= setTimeout(flush, 100);
       };
-      setProgress({});
+      setLoaded(0);
       setUploaded(0);
       setUploadCount(pending.length);
       setUploadSize(pending.reduce((sum, { file }) => sum + file.size, 0));
       setStage("uploading");
-      await uploadFiles(active.deployment, assets, abort.signal, onProgress);
-      await uploadFiles(active.deployment, pages, abort.signal, onProgress);
+      try {
+        await uploadFiles(active.deployment, assets, abort.signal, onProgress);
+        await uploadFiles(active.deployment, pages, abort.signal, onProgress);
+      } finally {
+        flush();
+      }
 
       setStage("completing");
       const token = publishToken();

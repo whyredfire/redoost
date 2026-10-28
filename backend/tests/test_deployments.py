@@ -336,15 +336,36 @@ def test_complete_rejects_understated_sizes(
 
     # The checksum matches, but the stored file is bigger than declared
     response = client.post(
-        f"{url}/complete", headers=bearer(token), json=manifest("index.html", size=0)
+        f"{url}/complete", headers=bearer(token), json=manifest("index.html")
     )
     assert response.status_code == 409
     assert client.get(url, headers=bearer(token)).json()["state"] == "uploading"
 
+
+def test_complete_only_publishes_the_signed_files(
+    client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Otherwise the policies left over for big.bin could fill the live folder
+    created = create(client, token, "index.html", "big.bin")
+    monkeypatch.setattr(deployments, "read_objects", stored("index.html"))
+    url = f"{URL}/{created['slug']}"
+
     response = client.post(
-        f"{url}/complete", headers=bearer(token), json=manifest("index.html", size=10)
+        f"{url}/complete", headers=bearer(token), json=manifest("index.html")
     )
-    assert response.json()["total_size"] == 10
+    assert response.status_code == 409
+    assert client.get(url, headers=bearer(token)).json()["state"] == "uploading"
+
+
+def test_rejects_paths_named_like_version_folders(
+    client: TestClient, token: str
+) -> None:
+    response = client.post(
+        URL,
+        json=manifest("index.html", "v-0123456789ab/blob"),
+        headers=bearer(token),
+    )
+    assert response.status_code == 422
 
 
 def test_complete_checks_storage_again(
@@ -563,10 +584,40 @@ def test_cancelling_an_update_deletes_its_files(
     assert cancel(client, created).status_code == 204
     assert ("delete folder", folder_of(updated)) in storage
     assert ("delete folder", served) not in storage
-    assert usage(client, token) == 1
     assert resolve(client, created["slug"]).headers["X-Site-Root"] == (
         "/" + served.removesuffix("/")
     )
+    # Its policies still work, so it counts until they stop
+    assert usage(client, token) == 2
+
+
+def test_cancelled_uploads_are_deleted_again_once_their_policies_expire(
+    client: TestClient,
+    token: str,
+    monkeypatch: pytest.MonkeyPatch,
+    storage: list[tuple[str, ...]],
+    run_cleanup: Callable[[], tuple[int, int, int]],
+) -> None:
+    created = published(client, token, monkeypatch, "index.html")
+    served = folder_of(created)
+    monkeypatch.setattr(
+        deployments, "read_objects", by_folder({served: {"index.html": 1}})
+    )
+    updated = folder_of(update(client, created, "index.html", "big.bin").json())
+    assert cancel(client, created).status_code == 204
+
+    # Not while files could still be uploaded to it
+    run_cleanup()
+    assert storage.count(("delete folder", updated)) == 1
+
+    monkeypatch.setattr(settings, "upload_window", timedelta(seconds=-1))
+    other = create(client, token, "index.html")
+    other_folder = folder_of(other)
+    assert cancel(client, other).status_code == 204
+    assert usage(client, token) == 2
+    run_cleanup()
+    assert storage.count(("delete folder", other_folder)) == 2
+    assert storage.count(("delete folder", updated)) == 1
 
 
 def test_abandoned_updates_are_deleted(

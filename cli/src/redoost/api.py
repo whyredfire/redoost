@@ -101,12 +101,17 @@ class Api:
         url = deployment["upload_url"]
         done = 0
         with ThreadPoolExecutor(max_workers=16) as pool:
-            for batch in (assets, pages):
-                uploads = [
-                    pool.submit(self.upload, url, policies[file.path], file)
-                    for file in batch
-                ]
-                for upload in as_completed(uploads):
-                    upload.result()
-                    done += 1
-                    on_upload(done)
+            try:
+                for batch in (assets, pages):
+                    uploads = [
+                        pool.submit(self.upload, url, policies[file.path], file)
+                        for file in batch
+                    ]
+                    for upload in as_completed(uploads):
+                        upload.result()
+                        done += 1
+                        on_upload(done)
+            except BaseException:
+                # Otherwise a failure or Ctrl+C waits for every queued upload
+                pool.shutdown(wait=False, cancel_futures=True)
+                raise

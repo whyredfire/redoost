@@ -475,7 +475,12 @@ export function PublishCard() {
                   Cancel
                 </Button>
               ) : (
-                <Button type="button" variant="ghost" onClick={clearFiles}>
+                // Otherwise the unfinished upload would expect these files again
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={session ? startOver : clearFiles}
+                >
                   Clear
                 </Button>
               )}

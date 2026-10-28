@@ -3,10 +3,11 @@ from typing import Literal
 
 import uvicorn
 from botocore.exceptions import BotoCoreError, ClientError
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import SQLAlchemyError
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from . import auth
 from .config import settings
@@ -15,7 +16,36 @@ from .deployments import router as deployments_router
 from .sites import router as sites_router
 from .storage import check_storage
 
+# Bodies are read before requests are authenticated, so anyone could send a huge one;
+# the largest manifest, of 2000 files with long paths, is a few MiB
+max_body_size = 8 * 1024**2
+
+
+class LimitBodySize:
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        received = 0
+
+        async def limited() -> Message:
+            nonlocal received
+            message = await receive()
+            received += len(message.get("body", b""))
+            if received > max_body_size:
+                raise HTTPException(
+                    status.HTTP_413_CONTENT_TOO_LARGE, "Request body is too large"
+                )
+            return message
+
+        await self.app(scope, limited, send)
+
+
 app = FastAPI()
+app.add_middleware(LimitBodySize)
 app.include_router(auth.router)
 if settings.oidc_issuer:
     app.include_router(auth.oidc_router)
