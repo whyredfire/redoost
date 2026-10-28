@@ -4,7 +4,6 @@ import react from "@vitejs/plugin-react";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
 import { defineConfig, type Plugin } from "vite";
-import { redact } from "@tanstack/redact/vite";
 import { renderOgImage } from "./og.tsx";
 
 // Served by the frontend's Nginx in production
@@ -70,7 +69,6 @@ export default defineConfig({
     configJson(),
     ogImage(),
     gzipAssets(),
-    redact()
   ],
   resolve: { tsconfigPaths: true },
   server: { host: true, port: 5173, strictPort: true },
