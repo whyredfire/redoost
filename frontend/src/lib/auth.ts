@@ -1,7 +1,7 @@
 import { authorization, checkResponse, readResponse } from "./api";
 import { clearSession, clearToken, loadToken, saveToken } from "./session";
 
-type Provider = "google";
+export type Provider = "google";
 
 type AuthConfig = {
   oidc: {

@@ -115,15 +115,10 @@ async function unzipped(
       ),
   );
   if (rejected) throw new Error(rejected);
-  const files = Object.entries(entries)
-    .filter(
-      ([path]) =>
-        !path.endsWith("/") && !path.startsWith("__MACOSX/") && !hidden(path),
-    )
-    .map(([path, contents]) => ({
-      path,
-      file: new File([contents], path.split("/").pop()!),
-    }));
+  const files = Object.entries(entries).map(([path, contents]) => ({
+    path,
+    file: new File([contents], path.split("/").pop()!),
+  }));
 
   // Zips often wrap the site in one folder, like my-site/index.html
   const top = files[0]?.path.split("/")[0];
