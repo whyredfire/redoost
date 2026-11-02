@@ -4,7 +4,6 @@ import {
   stagger,
   useReducedMotion,
 } from "motion/react";
-import { cn } from "cn";
 import { useEffect, useState } from "react";
 
 const letter = {
@@ -12,9 +11,9 @@ const letter = {
   visible: { opacity: 1, y: 0, filter: "blur(0px)" },
 };
 
-type Props = { words: string[]; className?: string };
+type Props = { words: string[] };
 
-export function RotatingWord({ words, className }: Props) {
+export function RotatingWord({ words }: Props) {
   const [index, setIndex] = useState(0);
   const reduceMotion = useReducedMotion();
 
@@ -32,7 +31,7 @@ export function RotatingWord({ words, className }: Props) {
   return (
     // Every word sits invisibly in one cell, so the slot is as wide as the
     // longest and the text around it never moves
-    <span className={cn("inline-grid text-left whitespace-pre", className)}>
+    <span className="inline-grid text-left whitespace-pre">
       {words.map((word) => (
         <span key={word} className="invisible col-start-1 row-start-1">
           {word}

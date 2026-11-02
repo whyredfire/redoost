@@ -8,7 +8,7 @@ import {
 import { formatBytes } from "@/lib/format";
 
 // Smaller savings, like a site of mostly images, aren't worth mentioning
-export function savedPercent(original: number, uploaded: number) {
+function savedPercent(original: number, uploaded: number) {
   const percent = original ? Math.round((1 - uploaded / original) * 100) : 0;
   return percent >= 10 ? percent : null;
 }

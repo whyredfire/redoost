@@ -1,4 +1,5 @@
 export const repository = "https://github.com/whyredfire/redoost";
+export const installUrl = `${repository}/tree/main/cli#readme`;
 
 type Config = { sitesOrigin: string | null };
 

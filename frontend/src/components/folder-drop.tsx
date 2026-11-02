@@ -2,6 +2,7 @@ import { cn } from "cn";
 import { Check, Upload } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useRef, type ChangeEvent, type ReactNode } from "react";
+import { EmptyStateIcon } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import type { Limits } from "@/lib/deploy";
 import { errorMessage } from "@/lib/format";
@@ -99,9 +100,7 @@ export function FolderDrop({
             >
               {view === "prompt" && (
                 <>
-                  <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-muted">
-                    <Upload className="size-5 text-muted-foreground" />
-                  </div>
+                  <EmptyStateIcon icon={Upload} />
                   {heading ? (
                     <h1 className="text-4xl font-semibold tracking-tighter text-balance sm:text-6xl">
                       {prompt}

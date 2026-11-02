@@ -2,6 +2,7 @@ import { Link, useRouter } from "@tanstack/react-router";
 import { cn } from "cn";
 import { LogIn } from "lucide-react";
 import { useState } from "react";
+import { EmptyState } from "@/components/empty-state";
 import { ProviderLogo } from "@/components/provider-logo";
 import { Button } from "@/components/ui/button";
 import { authConfig, providerNames, signIn, signInAsDev } from "@/lib/auth";
@@ -73,18 +74,13 @@ export function SignInPrompt({
   if (!oidc && !dev) return null;
 
   return (
-    <div
-      className={cn(
-        "flex flex-col items-center justify-center rounded-xl border px-6 py-12 text-center",
-        className,
-      )}
+    <EmptyState
+      icon={LogIn}
+      title={title}
+      description={description}
+      className={cn("justify-center", className)}
     >
-      <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-muted">
-        <LogIn className="size-5 text-muted-foreground" />
-      </div>
-      <p className="text-lg font-medium">{title}</p>
-      <p className="mt-1 mb-6 text-sm text-muted-foreground">{description}</p>
       <SignInButton />
-    </div>
+    </EmptyState>
   );
 }

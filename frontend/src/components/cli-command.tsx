@@ -1,7 +1,5 @@
 import { CopyButton } from "@/components/copy-button";
-import { repository } from "@/lib/config";
-
-const installUrl = `${repository}/tree/main/cli#readme`;
+import { installUrl } from "@/lib/config";
 
 type CliCommandProps = {
   command?: string;

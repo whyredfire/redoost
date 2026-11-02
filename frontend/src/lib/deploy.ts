@@ -43,7 +43,7 @@ export type UploadSession = {
   description?: string;
 };
 
-export type DeploymentChange = { enabled?: boolean; description?: string };
+type DeploymentChange = { enabled?: boolean; description?: string };
 
 export async function createDeployment(
   files: ManifestFile[],

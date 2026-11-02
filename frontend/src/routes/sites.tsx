@@ -2,6 +2,7 @@ import { Link, createFileRoute, useRouter } from "@tanstack/react-router";
 import { Globe, Search } from "lucide-react";
 import { useState } from "react";
 import { CliCommand } from "@/components/cli-command";
+import { EmptyState } from "@/components/empty-state";
 import { PageHeading } from "@/components/page-heading";
 import { SignInPrompt } from "@/components/sign-in-prompt";
 import { SiteList } from "@/components/site-list";
@@ -25,7 +26,7 @@ import {
   type Deployment,
   type Usage,
 } from "@/lib/deploy";
-import { repository } from "@/lib/config";
+import { installUrl } from "@/lib/config";
 import { clearToken, loadToken, useToken } from "@/lib/session";
 
 export const Route = createFileRoute("/sites")({
@@ -235,18 +236,15 @@ function SitesPage() {
               )}
             </div>
           ) : (
-            <div className="flex flex-col items-center rounded-xl border px-6 py-12 text-center">
-              <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-muted">
-                <Globe className="size-5 text-muted-foreground" />
-              </div>
-              <p className="text-lg font-medium">No sites yet</p>
-              <p className="mt-1 mb-6 text-sm text-muted-foreground">
-                Publish your first site here, or from the command line.
-              </p>
+            <EmptyState
+              icon={Globe}
+              title="No sites yet"
+              description="Publish your first site here, or from the command line."
+            >
               <Button asChild>
                 <Link to="/">Publish a site</Link>
               </Button>
-            </div>
+            </EmptyState>
           )}
           <Sidebar sites={sites} usage={usage} />
         </div>
@@ -278,7 +276,7 @@ function Sidebar({ sites, usage }: SidebarProps) {
         <h2 className="font-medium">From the terminal</h2>
         <CliCommand command="redoost list" variant="compact" />
         <a
-          href={`${repository}/tree/main/cli#readme`}
+          href={installUrl}
           target="_blank"
           rel="noreferrer"
           className="inline-block text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"

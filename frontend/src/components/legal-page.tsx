@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { PageHeading } from "@/components/page-heading";
 
-export const contact = "whyredfire@gmail.com";
+const contact = "whyredfire@gmail.com";
 
 export function ContactLink() {
   return (
