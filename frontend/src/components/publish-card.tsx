@@ -1,17 +1,9 @@
 import { cn } from "cn";
-import { Link } from "@tanstack/react-router";
-import { ChevronRight, ExternalLink, FolderOpen } from "lucide-react";
-import { motion, useReducedMotion } from "motion/react";
+import { ChevronRight, FolderOpen } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { ThinkingOrb } from "thinking-orbs";
-import {
-  CompressionSaving,
-  SizeInfo,
-  Sizes,
-} from "@/components/compression-saving";
+import { SizeInfo, Sizes } from "@/components/compression-saving";
 import { stageSize } from "@/components/folder-drop";
-import { SiteAddress } from "@/components/site-address";
-import { SitePreview } from "@/components/site-preview";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -27,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { listDeployments, type Deployment } from "@/lib/deploy";
-import { formatTime, siteUrl } from "@/lib/format";
+import { formatTime } from "@/lib/format";
 import type { FileChange } from "@/lib/site-files";
 import { loadToken } from "@/lib/session";
 import { usePageDrop, useUpload, type Stage } from "@/lib/upload";
@@ -137,21 +129,27 @@ function Working({ children }: { children: ReactNode }) {
   );
 }
 
-const MotionCardContent = motion.create(CardContent);
+function ProgressRow({
+  value,
+  label,
+  children,
+}: {
+  value: number;
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="space-y-2 text-sm" aria-live="polite">
+      <div className="flex justify-between gap-2">
+        <Working>{children}</Working>
+        <span className="text-muted-foreground">{value}%</span>
+      </div>
+      <Progress value={value} aria-label={label} />
+    </div>
+  );
+}
 
-// The live page's sections rise in one after another
-const stagger = { shown: { transition: { staggerChildren: 0.08 } } };
-const rise = {
-  hidden: { opacity: 0, y: 12, filter: "blur(4px)" },
-  shown: {
-    opacity: 1,
-    y: 0,
-    filter: "blur(0px)",
-    transition: { duration: 0.4, ease: "easeOut" as const },
-  },
-};
-
-// The selected files before publishing, then the live site
+// The selected files before publishing
 export function PublishCard() {
   const {
     files,
@@ -186,76 +184,6 @@ export function PublishCard() {
     // Without them, files can only go to a new site
     listDeployments(token).then(setSites, () => {});
   }, []);
-  const reduceMotion = useReducedMotion();
-
-  if (stage === "ready" && session) {
-    const slug = session.deployment.slug;
-    const url = siteUrl(slug);
-    return (
-      <Card className={cn(stageSize, "py-0")}>
-        <MotionCardContent
-          className="flex flex-1 flex-col gap-6 py-6 lg:px-8 lg:py-8"
-          variants={stagger}
-          initial={reduceMotion ? false : "hidden"}
-          animate="shown"
-        >
-          <motion.div
-            variants={rise}
-            className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"
-          >
-            <div className="min-w-0 space-y-3 lg:max-w-xl lg:flex-1">
-              <h1 className="text-3xl font-semibold tracking-tighter text-balance sm:text-4xl">
-                {target ? "It's updated." : "It's live."}{" "}
-                <span className="text-muted-foreground">
-                  {target
-                    ? "Same address, new files."
-                    : "Share it with anyone."}
-                </span>
-              </h1>
-              <SiteAddress slug={slug} />
-              {session.deployment.description && (
-                <p className="text-sm break-words text-muted-foreground">
-                  {session.deployment.description}
-                </p>
-              )}
-              {session.originalSize !== undefined && (
-                <CompressionSaving
-                  original={session.originalSize}
-                  uploaded={session.deployment.total_size}
-                />
-              )}
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              {url && (
-                <Button asChild>
-                  <a href={url} target="_blank" rel="noreferrer">
-                    <ExternalLink />
-                    Open site
-                  </a>
-                </Button>
-              )}
-              <Button variant="outline" asChild>
-                <Link to="/sites/$slug" params={{ slug }}>
-                  Manage site
-                </Link>
-              </Button>
-              <Button type="button" variant="ghost" onClick={startOver}>
-                Publish another site
-              </Button>
-            </div>
-          </motion.div>
-          {url && (
-            <motion.div
-              variants={rise}
-              className="flex min-h-0 flex-1 flex-col"
-            >
-              <SitePreview url={url} fill />
-            </motion.div>
-          )}
-        </MotionCardContent>
-      </Card>
-    );
-  }
 
   const listed: ListedFile[] = [
     ...files.map(({ path, file }) => ({
@@ -400,32 +328,18 @@ export function PublishCard() {
             </div>
 
             {compressedSize === null && stage === "idle" && !message && (
-              <div className="space-y-2 text-sm" aria-live="polite">
-                <div className="flex justify-between gap-2">
-                  <Working>
-                    Compressing {compressedCount} of {files.length}
-                  </Working>
-                  <span className="text-muted-foreground">
-                    {compressedPercentage}%
-                  </span>
-                </div>
-                <Progress
-                  value={compressedPercentage}
-                  aria-label="Compression progress"
-                />
-              </div>
+              <ProgressRow
+                value={compressedPercentage}
+                label="Compression progress"
+              >
+                Compressing {compressedCount} of {files.length}
+              </ProgressRow>
             )}
 
             {stage === "uploading" && (
-              <div className="space-y-2 text-sm" aria-live="polite">
-                <div className="flex justify-between gap-2">
-                  <Working>
-                    Uploading {uploaded} of {uploadCount}
-                  </Working>
-                  <span className="text-muted-foreground">{percentage}%</span>
-                </div>
-                <Progress value={percentage} aria-label="Upload progress" />
-              </div>
+              <ProgressRow value={percentage} label="Upload progress">
+                Uploading {uploaded} of {uploadCount}
+              </ProgressRow>
             )}
 
             {statusText[stage] && (
