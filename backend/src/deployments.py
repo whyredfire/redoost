@@ -115,7 +115,7 @@ async def lock_storage(session: Session, user: User) -> None:
     await session.exec(select(User.id).where(User.id == user.id).with_for_update())
 
 
-async def check_storage(
+async def check_quota(
     session: Session, user: User, size: int, replacing: str | None = None
 ) -> None:
     await lock_storage(session, user)
@@ -171,7 +171,7 @@ async def create_deployment(
     deployment.pending_folder = new_folder(deployment.slug)
     deployment.pending_digest = manifest_digest(manifest)
     upload_url, uploads = await sign_uploads(deployment.pending_folder, manifest.files)
-    await check_storage(session, user, manifest.total_size)
+    await check_quota(session, user, manifest.total_size)
     session.add(deployment)
     await session.commit()
     return DeploymentUploads(
@@ -294,7 +294,7 @@ async def update_deployment(
     folder = new_folder(deployment.slug)
     upload_url, uploads = await sign_uploads(folder, changed)
     # Both versions are stored until the update finishes
-    await check_storage(
+    await check_quota(
         session,
         user,
         deployment.total_size + pending_size + retired_size,
@@ -387,7 +387,7 @@ async def complete_deployment(
         await delete_folder(retired)
 
     # Checked again, as other uploads may have finished since this one started
-    await check_storage(
+    await check_quota(
         session, user, total_size + retired_size, replacing=deployment.slug
     )
     # The window may have closed while files were copied, letting cleanup or a new

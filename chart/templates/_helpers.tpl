@@ -37,7 +37,7 @@ Image reference from {repository, tag}, defaulting the tag to the app version
 {{- printf "%s:%s" .image.repository (.image.tag | default .context.Chart.AppVersion) }}
 {{- end }}
 
-{{- define "redoost.secretName" -}}
+{{- define "redoost.s3SecretName" -}}
 {{- .Values.s3.existingSecret | default (printf "%s-s3" (include "redoost.fullname" .)) }}
 {{- end }}
 
@@ -62,7 +62,7 @@ Settings shared by the API, its migrations, the bucket setup Job, and cleanup
 - configMapRef:
     name: {{ include "redoost.fullname" . }}-api
 - secretRef:
-    name: {{ include "redoost.secretName" . }}
+    name: {{ include "redoost.s3SecretName" . }}
 - secretRef:
     name: {{ include "redoost.authSecretName" . }}
 - secretRef:
