@@ -22,3 +22,7 @@ export function formatDate(date: string) {
 export function formatTime(date: string) {
   return new Date(date).toLocaleTimeString(undefined, { timeStyle: "short" });
 }
+
+export function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}

@@ -3,6 +3,7 @@ import { useState, type FormEvent } from "react";
 import { Hint } from "@/components/hint";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { errorMessage } from "@/lib/format";
 
 type SiteDescriptionProps = {
   description: string;
@@ -29,7 +30,7 @@ export function SiteDescription({ description, onSave }: SiteDescriptionProps) {
       await onSave(draft.trim());
       setEditing(false);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     } finally {
       setSaving(false);
     }

@@ -4,6 +4,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useRef, type ChangeEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import type { Limits } from "@/lib/deploy";
+import { errorMessage } from "@/lib/format";
 import { pickedFiles, type SiteCheck, type SiteFile } from "@/lib/site-files";
 
 type Props = {
@@ -66,7 +67,7 @@ export function FolderDrop({
       const selected = await pickedFiles(input.files, limits);
       onFiles(selected);
     } catch (error) {
-      onError(error instanceof Error ? error.message : String(error));
+      onError(errorMessage(error));
     } finally {
       // Clearing it empties input.files, so only once they've been read
       input.value = "";

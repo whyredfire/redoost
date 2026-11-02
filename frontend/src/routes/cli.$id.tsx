@@ -5,6 +5,7 @@ import { SignInPrompt } from "@/components/sign-in-prompt";
 import { Button } from "@/components/ui/button";
 import { approveCliLogin, signedInUser } from "@/lib/auth";
 import { ApiError } from "@/lib/deploy";
+import { errorMessage } from "@/lib/format";
 import { useToken } from "@/lib/session";
 
 // Opened from the link `redoost login` prints
@@ -46,7 +47,7 @@ function CliLoginPage() {
       if (cause instanceof ApiError && cause.status === 404) {
         setError("This sign-in link has expired or was already used.");
       } else {
-        setError(cause instanceof Error ? cause.message : String(cause));
+        setError(errorMessage(cause));
       }
     } finally {
       setApproving(false);

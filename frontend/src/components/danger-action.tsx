@@ -11,6 +11,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { errorMessage } from "@/lib/format";
 
 type DangerActionProps = {
   title: string;
@@ -48,7 +49,7 @@ export function DangerAction({
     try {
       await onConfirm();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
       setDeleting(false);
     }
   }

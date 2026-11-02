@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ProviderLogo } from "@/components/provider-logo";
 import { Button } from "@/components/ui/button";
 import { authConfig, providerNames, signIn, signInAsDev } from "@/lib/auth";
+import { errorMessage } from "@/lib/format";
 
 type SignInPromptProps = {
   title: string;
@@ -23,7 +24,7 @@ export function SignInButton() {
       await signInAsDev();
       await router.invalidate();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     }
   }
 

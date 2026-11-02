@@ -24,6 +24,7 @@ import {
   type UploadSession,
 } from "./deploy";
 import { publishToken } from "./auth";
+import { errorMessage } from "./format";
 import { clearSession, loadSession, loadToken, saveSession } from "./session";
 import {
   droppedFiles,
@@ -199,7 +200,7 @@ function useUploadState() {
       flush();
     } catch (error) {
       if (preparation.current !== run) return;
-      showError(error instanceof Error ? error.message : String(error));
+      showError(errorMessage(error));
     }
   }
 
@@ -264,7 +265,7 @@ function useUploadState() {
     try {
       await cancelUpload(target, token);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error));
+      setMessage(errorMessage(error));
       return;
     }
     await publish();
@@ -374,7 +375,7 @@ function useUploadState() {
       if (error instanceof DOMException && error.name === "AbortError") {
         setMessage("Upload cancelled.");
       } else {
-        setMessage(error instanceof Error ? error.message : String(error));
+        setMessage(errorMessage(error));
       }
       setStage("error");
     } finally {
@@ -439,7 +440,7 @@ export function usePageDrop(
       const selected = await droppedFiles(items, limits);
       (onFiles ?? selectFiles)(selected);
     } catch (error) {
-      showError(error instanceof Error ? error.message : String(error));
+      showError(errorMessage(error));
     }
   });
 

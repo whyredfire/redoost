@@ -21,7 +21,7 @@ import {
   readDeployment,
   type Deployment,
 } from "@/lib/deploy";
-import { formatBytes, formatDate, siteUrl } from "@/lib/format";
+import { errorMessage, formatBytes, formatDate, siteUrl } from "@/lib/format";
 import {
   clearSession,
   clearToken,
@@ -96,7 +96,7 @@ function SitePage() {
       await changeDeployment(site.slug, { enabled }, token);
       await router.invalidate();
     } catch (cause) {
-      setSwitchError(cause instanceof Error ? cause.message : String(cause));
+      setSwitchError(errorMessage(cause));
     } finally {
       setSwitching(false);
     }

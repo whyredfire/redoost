@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import type { Deployment } from "@/lib/deploy";
+import { errorMessage } from "@/lib/format";
 
 type SiteSelectionProps = {
   // The sites listed right now, which select all picks
@@ -50,7 +51,7 @@ export function SiteSelection({
     try {
       await onSwitch(enabled);
     } catch (cause) {
-      setSwitchError(cause instanceof Error ? cause.message : String(cause));
+      setSwitchError(errorMessage(cause));
     } finally {
       setSwitching(false);
     }
@@ -71,7 +72,7 @@ export function SiteSelection({
       await onDelete();
       setConfirming(false);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     } finally {
       setDeleting(false);
     }
