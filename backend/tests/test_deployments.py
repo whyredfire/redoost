@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
+from conftest import bearer
 from fastapi.testclient import TestClient
 from httpx2 import Response
 from pydantic import ByteSize
@@ -65,10 +66,6 @@ def folder_of(response: dict[str, Any]) -> str:
     """The version folder a response's uploads go to."""
     upload = response["uploads"][0]
     return upload["fields"]["key"].removesuffix(upload["path"])
-
-
-def bearer(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
 
 
 def create(client: TestClient, token: str, *paths: str) -> dict[str, str]:
@@ -338,9 +335,7 @@ def test_complete_rejects_understated_sizes(
     url = f"{URL}/{created['slug']}"
 
     # The checksum matches, but the stored file is bigger than declared
-    response = client.post(
-        f"{url}/complete", headers=bearer(token), json=manifest("index.html")
-    )
+    response = complete(client, created)
     assert response.status_code == 409
     assert client.get(url, headers=bearer(token)).json()["state"] == "uploading"
 
@@ -353,9 +348,7 @@ def test_complete_only_publishes_the_signed_files(
     monkeypatch.setattr(deployments, "read_objects", stored("index.html"))
     url = f"{URL}/{created['slug']}"
 
-    response = client.post(
-        f"{url}/complete", headers=bearer(token), json=manifest("index.html")
-    )
+    response = complete(client, created)
     assert response.status_code == 409
     assert client.get(url, headers=bearer(token)).json()["state"] == "uploading"
 
@@ -556,20 +549,6 @@ def test_update_requires_its_owner(
     assert cancel(client, other).status_code == 403
 
 
-def by_folder(
-    folders: dict[str, dict[str, int]],
-) -> Callable[[str], Awaitable[dict[str, StoredObject]]]:
-    """Stored files per folder, by path and size."""
-
-    async def read_objects(folder: str) -> dict[str, StoredObject]:
-        files = folders.get(folder, {})
-        return {
-            path: StoredObject(sha256=SHA256, size=size) for path, size in files.items()
-        }
-
-    return read_objects
-
-
 def usage(client: TestClient, token: str) -> int:
     return client.get(f"{URL}/usage", headers=bearer(token)).json()["used"]
 
@@ -592,10 +571,7 @@ def test_completing_an_update_switches_folders(
     assert [upload["path"] for upload in updated["uploads"]] == ["404.html"]
     assert usage(client, token) == 3
 
-    files = {"index.html": 1, "old.html": 1}
-    monkeypatch.setattr(
-        deployments, "read_objects", by_folder({served: files, folder: {"404.html": 1}})
-    )
+    monkeypatch.setattr(deployments, "read_objects", stored("404.html"))
     response = complete(client, created, "index.html", "404.html")
 
     assert response.status_code == 200
@@ -626,9 +602,6 @@ def test_cancelling_an_update_deletes_its_files(
 ) -> None:
     created = published(client, token, monkeypatch, "index.html")
     served = folder_of(created)
-    monkeypatch.setattr(
-        deployments, "read_objects", by_folder({served: {"index.html": 1}})
-    )
     updated = update(client, created, "index.html", "big.bin").json()
     assert usage(client, token) == 2
 
@@ -650,10 +623,6 @@ def test_cancelled_uploads_are_deleted_again_once_their_policies_expire(
     run_cleanup: Callable[[], tuple[int, int, int]],
 ) -> None:
     created = published(client, token, monkeypatch, "index.html")
-    served = folder_of(created)
-    monkeypatch.setattr(
-        deployments, "read_objects", by_folder({served: {"index.html": 1}})
-    )
     updated = folder_of(update(client, created, "index.html", "big.bin").json())
     assert cancel(client, created).status_code == 204
 
@@ -680,9 +649,6 @@ def test_abandoned_updates_are_deleted(
 ) -> None:
     created = published(client, token, monkeypatch, "index.html")
     served = folder_of(created)
-    monkeypatch.setattr(
-        deployments, "read_objects", by_folder({served: {"index.html": 1}})
-    )
     # Neither finished nor cancelled, so its window closes on its own
     monkeypatch.setattr(settings, "upload_window", timedelta(seconds=-1))
     first = folder_of(update(client, created, "index.html", "a.bin").json())
@@ -1059,7 +1025,7 @@ def test_concurrent_uploads_stay_within_the_limit(
     assert (
         sorted(response.status_code for response in responses) == [201] * 5 + [403] * 7
     )
-    assert client.get(f"{URL}/usage", headers=bearer(token)).json()["used"] == 5
+    assert usage(client, token) == 5
 
 
 def test_read_usage(

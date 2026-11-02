@@ -11,6 +11,7 @@ import httpx2
 import pytest
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
+from conftest import bearer
 from fastapi.testclient import TestClient
 
 from scripts import cleanup
@@ -60,14 +61,11 @@ def deployment(client: TestClient, token: str, s3: Any) -> Iterator[dict[str, An
     created = client.post(
         "/api/deployments",
         json=manifest(FILES),
-        headers={"Authorization": f"Bearer {token}"},
+        headers=bearer(token),
     ).json()
     yield {**created, "token": token}
-    objects = s3.list_objects_v2(
-        Bucket=settings.s3_bucket, Prefix=f"{created['slug']}/"
-    )
-    for item in objects.get("Contents", []):
-        s3.delete_object(Bucket=settings.s3_bucket, Key=item["Key"])
+    for item in keys(s3, f"{created['slug']}/"):
+        s3.delete_object(Bucket=settings.s3_bucket, Key=item)
 
 
 def key(deployment: dict[str, Any], path: str) -> str:
@@ -113,7 +111,7 @@ def test_uploads_gzipped_files(client: TestClient, token: str, s3: Any) -> None:
     created = client.post(
         "/api/deployments",
         json={"files": [{**file, "gzip": True}]},
-        headers={"Authorization": f"Bearer {token}"},
+        headers=bearer(token),
     )
     deployment = created.json()
     try:
@@ -190,12 +188,8 @@ def test_rejects_expired_policies(
     content = FILES["index.html"]
     created = client.post(
         "/api/deployments",
-        json={
-            "files": [
-                {"path": "index.html", "size": len(content), "sha256": digest(content)}
-            ]
-        },
-        headers={"Authorization": f"Bearer {token}"},
+        json=manifest({"index.html": content}),
+        headers=bearer(token),
     ).json()
 
     assert upload(created, "index.html", content).status_code == 400
@@ -206,7 +200,7 @@ def test_completes_once_every_file_is_uploaded(
     client: TestClient, deployment: dict[str, Any]
 ) -> None:
     url = f"/api/deployments/{deployment['slug']}/complete"
-    headers = {"Authorization": f"Bearer {deployment['token']}"}
+    headers = bearer(deployment["token"])
 
     upload(deployment, "index.html", FILES["index.html"])
     response = client.post(url, headers=headers, json=manifest(FILES))
@@ -224,7 +218,7 @@ def test_completion_counts_the_stored_sizes(
     client: TestClient, deployment: dict[str, Any]
 ) -> None:
     url = f"/api/deployments/{deployment['slug']}/complete"
-    headers = {"Authorization": f"Bearer {deployment['token']}"}
+    headers = bearer(deployment["token"])
     for path, content in FILES.items():
         upload(deployment, path, content)
 
@@ -264,7 +258,7 @@ def test_updates_switch_folders_once_complete(
 ) -> None:
     slug = deployment["slug"]
     url = f"/api/deployments/{slug}"
-    headers = {"Authorization": f"Bearer {deployment['token']}"}
+    headers = bearer(deployment["token"])
     for path, content in FILES.items():
         upload(deployment, path, content)
     client.post(f"{url}/complete", headers=headers, json=manifest(FILES))
@@ -318,7 +312,7 @@ def test_cancelled_updates_leave_nothing_behind(
 ) -> None:
     slug = deployment["slug"]
     url = f"/api/deployments/{slug}"
-    headers = {"Authorization": f"Bearer {deployment['token']}"}
+    headers = bearer(deployment["token"])
     for path, content in FILES.items():
         upload(deployment, path, content)
     client.post(f"{url}/complete", headers=headers, json=manifest(FILES))
@@ -344,13 +338,10 @@ def test_delete_removes_uploaded_files(
 
     response = client.delete(
         f"/api/deployments/{deployment['slug']}",
-        headers={"Authorization": f"Bearer {deployment['token']}"},
+        headers=bearer(deployment["token"]),
     )
     assert response.status_code == 204
-    objects = s3.list_objects_v2(
-        Bucket=settings.s3_bucket, Prefix=f"{deployment['slug']}/"
-    )
-    assert objects["KeyCount"] == 0
+    assert keys(s3, f"{deployment['slug']}/") == []
 
 
 def test_cleanup_removes_orphaned_files(

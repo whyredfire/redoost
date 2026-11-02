@@ -79,6 +79,10 @@ def client() -> Iterator[TestClient]:
         yield test_client
 
 
+def bearer(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
 async def create_user() -> str:
     from src import database
     from src.auth import create_token

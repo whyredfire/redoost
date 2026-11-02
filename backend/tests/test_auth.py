@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 import jwt
 import pytest
+from conftest import bearer
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx2 import Response
@@ -18,10 +19,6 @@ from src.storage import StoredObject
 
 SHA256 = "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
 MANIFEST = {"files": [{"path": "index.html", "size": 0, "sha256": SHA256}]}
-
-
-def bearer(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
 
 
 def test_config_with_dev_sign_in(client: TestClient) -> None:
