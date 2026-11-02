@@ -131,9 +131,7 @@ async def cleanup(session: AsyncSession) -> tuple[int, int, int]:
     )
 
     # CLI sign-ins nobody finished
-    await session.exec(
-        delete(CliLogin).where(col(CliLogin.expires_at) < datetime.now(UTC))
-    )
+    await session.exec(delete(CliLogin).where(col(CliLogin.expires_at) < now))
     await session.commit()
     return len(expired), len(orphaned), len(discarded)
 

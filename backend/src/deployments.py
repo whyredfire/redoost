@@ -70,6 +70,9 @@ async def get_deployment(slug: str, session: Session, user: CurrentUser) -> Depl
     return deployment
 
 
+OwnedDeployment = Annotated[Deployment, Depends(get_deployment)]
+
+
 def in_use() -> ColumnElement[bool]:
     # Abandoned uploads don't count, though cleanup hasn't run
     return or_(
@@ -105,29 +108,19 @@ async def used_storage(
     return int(result.one())
 
 
-async def lock_storage(session: Session, user: User) -> None:
-    """Makes other quota checks for the user wait until this transaction ends.
-
-    Without it, concurrent uploads could all see the same usage and all go ahead.
-    It locks the user's row, so callers commit soon after, and do their slower S3
-    work beforehand.
-    """
-    await session.exec(select(User.id).where(User.id == user.id).with_for_update())
-
-
 async def check_quota(
     session: Session, user: User, size: int, replacing: str | None = None
 ) -> None:
-    await lock_storage(session, user)
+    # Other quota checks for the user wait until this transaction ends, or concurrent
+    # uploads could all see the same usage and all go ahead. It locks the user's row,
+    # so callers commit soon after, and do their slower S3 work beforehand.
+    await session.exec(select(User.id).where(User.id == user.id).with_for_update())
     used = await used_storage(session, user, replacing)
     if used + size > settings.max_account_size:
         limit = settings.max_account_size.human_readable()
         raise HTTPException(
             status.HTTP_403_FORBIDDEN, f"Your sites can use up to {limit} in total"
         )
-
-
-OwnedDeployment = Annotated[Deployment, Depends(get_deployment)]
 
 
 def manifest_digest(manifest: Manifest) -> str:

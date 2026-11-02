@@ -17,7 +17,7 @@ from .sites import router as sites_router
 from .storage import check_storage
 
 # Bodies are read before requests are authenticated, so anyone could send a huge one;
-# the largest manifest, of 2000 files with long paths, is a few MiB
+# a manifest at the default file limit, with long paths, is a few MiB
 max_body_size = 8 * 1024**2
 
 
