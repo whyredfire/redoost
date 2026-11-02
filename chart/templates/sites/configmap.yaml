@@ -48,7 +48,7 @@ data:
 
     server {
         listen 8080 default_server;
-        # Keep sniffing ruled out for published (untrusted) sites
+        # Published sites are untrusted code, so only sniffing is ruled out
         add_header X-Content-Type-Options "nosniff" always;
         add_header Cache-Control $cache_control always;
         error_page 403 404 =404 @notfound;
@@ -92,8 +92,8 @@ data:
             # Short, so updates switch over and deleted sites go away within seconds
             proxy_cache_valid 204 10s;
             proxy_cache_valid 403 5s;
-        # Serve stale content for deleted sites while the API is down
-        proxy_cache_use_stale error timeout http_500 http_502 http_503 http_504;
+            # Keep serving known sites while the API is down or restarting
+            proxy_cache_use_stale error timeout http_500 http_502 http_503 http_504;
         }
 
         location @missing {
