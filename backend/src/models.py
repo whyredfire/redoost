@@ -12,6 +12,11 @@ from sqlmodel import Field, SQLModel
 
 from .config import Provider, settings
 
+# Each publish or update uploads into its own folder, like brave-otter-1a2b/v-0123456789ab/,
+# so a site switches to it in one step. Sites from before versions keep their files at
+# the slug's root, next to their newer versions' folders.
+version_folder = re.compile(r"v-[0-9a-f]{12}/")
+
 
 class DeploymentState(StrEnum):
     uploading = "uploading"
@@ -45,7 +50,7 @@ class ManifestFile(SQLModel):
                 " without empty, '.' or '..' segments"
             )
         # Version folders go inside a site's root, where these would be mistaken for one
-        if re.match(r"v-[0-9a-f]{12}/", path):
+        if version_folder.match(path):
             raise ValueError("Can't start with a folder named like v-0123456789ab")
         return path
 

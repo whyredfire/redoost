@@ -1,6 +1,5 @@
 import asyncio
 import mimetypes
-import re
 import secrets
 from collections.abc import AsyncIterator, Awaitable, Iterable
 from dataclasses import dataclass
@@ -12,7 +11,7 @@ from botocore.exceptions import ClientError
 from pydantic import AnyHttpUrl
 
 from .config import settings
-from .models import ManifestFile, UploadPolicy
+from .models import ManifestFile, UploadPolicy, version_folder
 
 session = aioboto3.Session()
 mime_types = mimetypes.MimeTypes()
@@ -63,12 +62,6 @@ def content_type(path: str) -> str:
 async def check_storage() -> None:
     async with client(settings.s3_endpoint) as s3:
         await s3.head_bucket(Bucket=settings.s3_bucket)
-
-
-# Each publish or update uploads into its own folder, like brave-otter-1a2b/v-0123456789ab/,
-# so a site switches to it in one step. Sites from before versions keep their files at
-# the slug's root, next to their newer versions' folders.
-version_folder = re.compile(r"v-[0-9a-f]{12}/")
 
 
 def new_folder(slug: str) -> str:
