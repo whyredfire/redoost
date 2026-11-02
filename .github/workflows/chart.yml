@@ -18,11 +18,16 @@ permissions:
 jobs:
   lint:
     runs-on: ubuntu-slim
+    env:
+      # What every release has to set
+      VALUES: database.existingSecret=redoost-db,auth.existingSecret=redoost-auth,auth.oidc.issuer=https://id.example.com,auth.oidc.clientId=redoost,s3.existingSecret=redoost-s3
     steps:
       - uses: actions/checkout@v7
       - uses: azure/setup-helm@v5
         with:
           version: v4.3.1
-      # Missing required values only warn while linting; the policies are optional
-      - run: helm lint --strict chart --set s3.existingSecret=redoost-s3
-      - run: helm lint --strict chart --set s3.existingSecret=redoost-s3 --set networkPolicy.enabled=true
+      # The policies are optional
+      - run: helm lint --strict chart --set "$VALUES"
+      - run: helm lint --strict chart --set "$VALUES,networkPolicy.enabled=true"
+      # Linting only warns about missing required values, so rendering checks them
+      - run: helm template chart --set "$VALUES" > /dev/null

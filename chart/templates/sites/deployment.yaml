@@ -45,7 +45,7 @@ spec:
             # Nginx keeps its pid and temporary files here
             - name: tmp
               mountPath: /tmp
-            # Readiness cache
+            # Cache of site lookups from the API
             - name: cache
               mountPath: /var/cache/nginx
       volumes:
