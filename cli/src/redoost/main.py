@@ -115,7 +115,7 @@ def publish(args: argparse.Namespace) -> None:
         url = site_url(api, args.update)
         if args.description is None:
             response = api.request("GET", f"/api/deployments/{args.update}")
-            output(args, {**response.json(), "url": url}, "No changes to publish")
+            text = "No changes to publish"
         else:
             response = api.request(
                 "PATCH",
@@ -123,7 +123,7 @@ def publish(args: argparse.Namespace) -> None:
                 json={"description": args.description},
             )
             text = "No changes to publish, but updated the description"
-            output(args, {**response.json(), "url": url}, text)
+        output(args, {**response.json(), "url": url}, text)
         return
 
     if args.update:
@@ -136,8 +136,7 @@ def publish(args: argparse.Namespace) -> None:
 
     # Updates that only remove files have nothing to upload
     text = f"Uploading {plural(count, 'file')}" if count else "Publishing"
-    status = Spinner(text, args.json)
-    with status:
+    with Spinner(text, args.json) as status:
         try:
             api.upload_files(
                 deployment,
@@ -389,6 +388,7 @@ def parse(argv: list[str] | None) -> argparse.Namespace:
     for name, help_text in [
         ("enable", "put sites back online"),
         ("disable", "take sites offline, keeping their files"),
+        ("delete", "delete sites"),
     ]:
         commands.add_parser(name, parents=[common], help=help_text).add_argument(
             "slugs", nargs="+", metavar="slug"
@@ -400,8 +400,6 @@ def parse(argv: list[str] | None) -> argparse.Namespace:
     describe_parser.add_argument(
         "description", help='the new description, or "" to clear it'
     )
-    delete_parser = commands.add_parser("delete", parents=[common], help="delete sites")
-    delete_parser.add_argument("slugs", nargs="+", metavar="slug")
     commands.add_parser(
         "update", parents=[common], help="update the CLI to the server's version"
     )

@@ -1,10 +1,12 @@
 import itertools
 import sys
 import threading
+from typing import final
 
 frames = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 
 
+@final
 class Spinner:
     """Animates a status line on stderr while work runs."""
 
@@ -29,9 +31,10 @@ class Spinner:
         sys.stderr.write("\r\033[K")
         sys.stderr.flush()
 
-    def __enter__(self) -> None:
+    def __enter__(self) -> "Spinner":
         if self.animated:
             self.thread.start()
+        return self
 
     def __exit__(self, *exc_info: object) -> None:
         self.done.set()

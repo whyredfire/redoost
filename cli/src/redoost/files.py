@@ -47,15 +47,17 @@ def hidden(path: str) -> bool:
     )
 
 
-def check_uncompressed(sizes: list[tuple[str, int]], limits: dict[str, Any]) -> None:
-    """Fail before reading files, so oversized inputs never use the memory."""
+def check_sizes(
+    sizes: list[tuple[str, int, str]], total_note: str, limits: dict[str, Any]
+) -> None:
+    """Fail naming what's too big; each size comes with a note on what it measures."""
     largest = limits["max_file_size"]
-    too_big = [(path, size) for path, size in sizes if size > largest]
+    too_big = [(path, size, note) for path, size, note in sizes if size > largest]
     if too_big:
-        path, size = too_big[0]
+        path, size, note = too_big[0]
         others = f" (and {len(too_big) - 1} more)" if len(too_big) > 1 else ""
         raise SiteError(
-            f"{path} is {format_bytes(size)} uncompressed{others}; "
+            f"{path} is {format_bytes(size)}{note}{others}; "
             f"files can be up to {format_bytes(largest)}."
         )
     if len(sizes) > limits["max_deployment_files"]:
@@ -63,16 +65,21 @@ def check_uncompressed(sizes: list[tuple[str, int]], limits: dict[str, Any]) -> 
             f"The site has {len(sizes)} files; "
             f"sites can have up to {limits['max_deployment_files']}."
         )
-    total = sum(size for _, size in sizes)
+    total = sum(size for _, size, _ in sizes)
     if total > limits["max_deployment_size"]:
         raise SiteError(
-            f"The site is {format_bytes(total)} uncompressed; "
+            f"The site is {format_bytes(total)}{total_note}; "
             f"sites can be up to {format_bytes(limits['max_deployment_size'])}."
         )
 
 
-def read_zip(path: Path, limits: dict[str, Any] | None = None) -> list[SiteFile]:
-    limits = limits or default_limits
+def check_uncompressed(sizes: list[tuple[str, int]], limits: dict[str, Any]) -> None:
+    """Fail before reading files, so oversized inputs never use the memory."""
+    noted = [(path, size, " uncompressed") for path, size in sizes]
+    check_sizes(noted, " uncompressed", limits)
+
+
+def read_zip(path: Path, limits: dict[str, Any]) -> list[SiteFile]:
     try:
         with zipfile.ZipFile(path) as archive:
             entries = [
@@ -168,25 +175,8 @@ def format_bytes(size: int) -> str:
 
 def check_limits(files: list[SiteFile], limits: dict[str, Any]) -> None:
     """Fail before uploading, as the server would, but naming what's too big."""
-    largest = limits["max_file_size"]
-    too_big = [file for file in files if len(file.content) > largest]
-    if too_big:
-        file = too_big[0]
-        size = format_bytes(len(file.content))
-        compressed = " compressed" if file.gzip else ""
-        others = f" (and {len(too_big) - 1} more)" if len(too_big) > 1 else ""
-        raise SiteError(
-            f"{file.path} is {size}{compressed}{others}; "
-            f"files can be up to {format_bytes(largest)}."
-        )
-    if len(files) > limits["max_deployment_files"]:
-        raise SiteError(
-            f"The site has {len(files)} files; "
-            f"sites can have up to {limits['max_deployment_files']}."
-        )
-    total = sum(len(file.content) for file in files)
-    if total > limits["max_deployment_size"]:
-        raise SiteError(
-            f"The site is {format_bytes(total)} once compressed; "
-            f"sites can be up to {format_bytes(limits['max_deployment_size'])}."
-        )
+    noted = [
+        (file.path, len(file.content), " compressed" if file.gzip else "")
+        for file in files
+    ]
+    check_sizes(noted, " once compressed", limits)
