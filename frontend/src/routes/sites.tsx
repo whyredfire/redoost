@@ -207,7 +207,7 @@ function SitesPage() {
               </div>
               {selecting && (
                 <SiteSelection
-                  shown={shown.map((site) => site.slug)}
+                  shownCount={shown.length}
                   selected={selected}
                   onSelectAll={(all) =>
                     setSelecting(
@@ -222,11 +222,7 @@ function SitesPage() {
               {shown.length > 0 ? (
                 <SiteList
                   sites={shown}
-                  selected={
-                    selecting
-                      ? new Set(selected.map((site) => site.slug))
-                      : undefined
-                  }
+                  selected={selecting ?? undefined}
                   onToggle={toggle}
                 />
               ) : (

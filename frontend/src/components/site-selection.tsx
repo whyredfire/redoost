@@ -15,8 +15,8 @@ import type { Deployment } from "@/lib/deploy";
 import { errorMessage } from "@/lib/format";
 
 type SiteSelectionProps = {
-  // The sites listed right now, which select all picks
-  shown: string[];
+  // How many sites are listed right now, which select all picks
+  shownCount: number;
   selected: Deployment[];
   onSelectAll: (all: boolean) => void;
   onCancel: () => void;
@@ -31,7 +31,7 @@ function sites(count: number) {
 // Picks sites from the list, then takes them offline, puts them online, or deletes
 // them after a confirmation
 export function SiteSelection({
-  shown,
+  shownCount,
   selected,
   onSelectAll,
   onCancel,
@@ -43,7 +43,7 @@ export function SiteSelection({
   const [error, setError] = useState("");
   const [switching, setSwitching] = useState(false);
   const [switchError, setSwitchError] = useState("");
-  const all = shown.length > 0 && selected.length === shown.length;
+  const all = shownCount > 0 && selected.length === shownCount;
 
   async function switchTo(enabled: boolean) {
     setSwitching(true);

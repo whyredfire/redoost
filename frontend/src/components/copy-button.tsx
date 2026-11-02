@@ -1,7 +1,7 @@
 import { Check, Copy } from "lucide-react";
-import { useState } from "react";
 import { Hint } from "@/components/hint";
 import { Button } from "@/components/ui/button";
+import { useCopy } from "@/lib/clipboard";
 
 type CopyButtonProps = {
   text: string;
@@ -16,13 +16,7 @@ export function CopyButton({
   hint = "Copy address",
   size = "icon",
 }: CopyButtonProps) {
-  const [copied, setCopied] = useState(false);
-
-  async function copy() {
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
+  const { copied, copy } = useCopy();
 
   return (
     <Hint label={copied ? "Copied" : hint} open={copied}>
@@ -31,7 +25,7 @@ export function CopyButton({
         variant="ghost"
         size={size}
         aria-label={copied ? "Copied" : label}
-        onClick={copy}
+        onClick={() => copy(text)}
       >
         {copied ? <Check /> : <Copy />}
       </Button>

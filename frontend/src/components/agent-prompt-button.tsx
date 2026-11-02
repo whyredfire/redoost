@@ -1,5 +1,4 @@
 import { Bot, Check } from "lucide-react";
-import { useState } from "react";
 import { AgentLogos } from "@/components/agent-logos";
 import { Button } from "@/components/ui/button";
 import {
@@ -7,18 +6,11 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useCopy } from "@/lib/clipboard";
 
 // The prompt only points at the setup steps, which agents fetch and follow
 export function AgentPromptButton() {
-  const [copied, setCopied] = useState(false);
-
-  async function copy() {
-    await navigator.clipboard.writeText(
-      `Fetch and follow the instructions to set me up for redoost from ${location.origin}/agent-setup.md`,
-    );
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
+  const { copied, copy } = useCopy();
 
   return (
     <Tooltip open={copied}>
@@ -30,7 +22,11 @@ export function AgentPromptButton() {
           aria-label={
             copied ? "Copied" : "Copy a prompt that sets up your agent"
           }
-          onClick={copy}
+          onClick={() =>
+            copy(
+              `Fetch and follow the instructions to set me up for redoost from ${location.origin}/agent-setup.md`,
+            )
+          }
         >
           {copied ? (
             <Check className="sm:hidden" />
