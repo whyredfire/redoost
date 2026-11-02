@@ -1,4 +1,4 @@
-import { checkResponse, readResponse } from "./deploy";
+import { authorization, checkResponse, readResponse } from "./api";
 import { clearSession, clearToken, loadToken, saveToken } from "./session";
 
 type Provider = "google";
@@ -48,7 +48,7 @@ async function checkToken() {
   const token = loadToken();
   if (!token) return;
   const response = await fetch("/api/auth/me", {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: authorization(token),
   }).catch(() => null);
   if (response?.status === 401) clearToken();
   if (response?.ok) {
@@ -150,17 +150,17 @@ export async function deleteAccount() {
   if (!token) return;
   const response = await fetch("/api/auth/me", {
     method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
+    headers: authorization(token),
   });
   await checkResponse(response);
   signOut();
 }
 
 // Lets the CLI that started this sign-in act as the signed-in user
-export async function approveCliLogin(id: string) {
+export async function approveCliLogin(id: string, token: string) {
   const response = await fetch(`/api/auth/cli/${id}`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${loadToken()}` },
+    headers: authorization(token),
   });
   await checkResponse(response);
 }

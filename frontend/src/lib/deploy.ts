@@ -1,4 +1,4 @@
-import type { SiteFile } from "./site-files";
+import { authorization, checkResponse, readResponse } from "./api";
 
 export type ManifestFile = {
   path: string;
@@ -44,46 +44,6 @@ export type UploadSession = {
 };
 
 export type DeploymentChange = { enabled?: boolean; description?: string };
-
-export class ApiError extends Error {
-  constructor(
-    readonly status: number,
-    message: string,
-  ) {
-    super(message);
-  }
-}
-
-class UploadError extends Error {
-  constructor(
-    readonly status: number,
-    key: string,
-  ) {
-    super(`Upload failed (${status}) for ${key}.`);
-  }
-}
-
-export async function checkResponse(response: Response) {
-  if (!response.ok) {
-    const body = await response.json().catch(() => null);
-    const detail = body?.detail;
-    const message = Array.isArray(detail)
-      ? detail.map((item: { msg: string }) => item.msg).join("; ")
-      : typeof detail === "string"
-        ? detail
-        : `Request failed (${response.status}).`;
-    throw new ApiError(response.status, message);
-  }
-}
-
-export async function readResponse<T>(response: Response): Promise<T> {
-  await checkResponse(response);
-  return response.json() as Promise<T>;
-}
-
-function authorization(token: string) {
-  return { Authorization: `Bearer ${token}` };
-}
 
 export async function createDeployment(
   files: ManifestFile[],
@@ -169,6 +129,11 @@ export async function readUsage(token: string) {
   return readResponse<Usage>(response);
 }
 
+export async function readLimits() {
+  const response = await fetch("/api/deployments/limits");
+  return readResponse<Limits>(response);
+}
+
 export async function changeDeployment(
   slug: string,
   change: DeploymentChange,
@@ -176,7 +141,7 @@ export async function changeDeployment(
 ) {
   const response = await fetch(`/api/deployments/${slug}`, {
     method: "PATCH",
-    headers: { ...authorization(token), "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authorization(token) },
     body: JSON.stringify(change),
   });
   return readResponse<Deployment>(response);
@@ -227,148 +192,8 @@ export function changeDeployments(
   return inBatches(slugs, (query) =>
     fetch(`/api/deployments?${query}`, {
       method: "PATCH",
-      headers: { ...authorization(token), "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authorization(token) },
       body: JSON.stringify({ enabled }),
     }),
   );
-}
-
-// An upload with no progress for this long has stalled, so it's retried
-const stallTimeout = 60_000;
-
-// XHR instead of fetch because fetch can't report upload progress
-function postFile(
-  url: string,
-  fields: Record<string, string>,
-  file: File,
-  signal: AbortSignal,
-  onProgress: (bytes: number) => void,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (signal.aborted) {
-      reject(new DOMException("Upload cancelled", "AbortError"));
-      return;
-    }
-    const form = new FormData();
-    for (const [name, value] of Object.entries(fields))
-      form.append(name, value);
-    form.append("file", file, file.name);
-
-    const request = new XMLHttpRequest();
-    const aborted = () => request.abort();
-    let stalled = false;
-    const stall = () => {
-      stalled = true;
-      request.abort();
-    };
-    let timer = setTimeout(stall, stallTimeout);
-    const finish = () => {
-      clearTimeout(timer);
-      signal.removeEventListener("abort", aborted);
-    };
-    request.open("POST", url);
-    request.upload.onprogress = (event) => {
-      clearTimeout(timer);
-      timer = setTimeout(stall, stallTimeout);
-      onProgress(Math.min(event.loaded, file.size));
-    };
-    request.onload = () => {
-      finish();
-      if (request.status >= 200 && request.status < 300) resolve();
-      else reject(new UploadError(request.status, fields.key ?? file.name));
-    };
-    request.onerror = () => {
-      finish();
-      reject(new Error(`Network error uploading ${fields.key}.`));
-    };
-    request.onabort = () => {
-      finish();
-      reject(
-        stalled
-          ? new Error(`Upload of ${fields.key} stalled.`)
-          : new DOMException("Upload cancelled", "AbortError"),
-      );
-    };
-    signal.addEventListener("abort", aborted, { once: true });
-    request.send(form);
-  });
-}
-
-async function uploadWithRetry(
-  url: string,
-  fields: Record<string, string>,
-  file: File,
-  signal: AbortSignal,
-  onProgress: (bytes: number) => void,
-) {
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      await postFile(url, fields, file, signal, onProgress);
-      return;
-    } catch (error) {
-      if (
-        signal.aborted ||
-        attempt === 2 ||
-        (error instanceof UploadError &&
-          error.status < 500 &&
-          error.status !== 429)
-      ) {
-        throw error;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));
-    }
-  }
-}
-
-const parallelUploads = 32;
-
-export async function uploadFiles(
-  deployment: DeploymentUploads,
-  files: SiteFile[],
-  signal: AbortSignal,
-  onProgress: (path: string, bytes: number, complete: boolean) => void,
-) {
-  const policies = new Map(
-    deployment.uploads.map((upload) => [upload.path, upload.fields]),
-  );
-  let next = 0;
-  let error: Error | undefined;
-
-  async function worker() {
-    while (!error && !signal.aborted && next < files.length) {
-      const { path, file } = files[next++]!;
-      const fields = policies.get(path);
-      if (!fields) {
-        error = new Error(`No upload policy for ${path}.`);
-        return;
-      }
-
-      try {
-        await uploadWithRetry(
-          deployment.upload_url,
-          fields,
-          file,
-          signal,
-          (bytes) => onProgress(path, bytes, false),
-        );
-        onProgress(path, file.size, true);
-      } catch (cause) {
-        error ??= cause instanceof Error ? cause : new Error(String(cause));
-        return;
-      }
-    }
-  }
-
-  await Promise.all(
-    Array.from({ length: Math.min(parallelUploads, files.length) }, () =>
-      worker(),
-    ),
-  );
-  if (error) throw error;
-  if (signal.aborted) throw new DOMException("Upload cancelled", "AbortError");
-}
-
-export async function readLimits() {
-  const response = await fetch("/api/deployments/limits");
-  return readResponse<Limits>(response);
 }

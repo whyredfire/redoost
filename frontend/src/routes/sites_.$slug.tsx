@@ -14,8 +14,8 @@ import { SiteAddress } from "@/components/site-address";
 import { SiteDescription } from "@/components/site-description";
 import { SitePreview } from "@/components/site-preview";
 import { Switch } from "@/components/ui/switch";
+import { ApiError } from "@/lib/api";
 import {
-  ApiError,
   changeDeployment,
   deleteDeployment,
   readDeployment,

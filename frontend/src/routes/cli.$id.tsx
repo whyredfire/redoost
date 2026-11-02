@@ -3,8 +3,8 @@ import { CircleCheck } from "lucide-react";
 import { useState } from "react";
 import { SignInPrompt } from "@/components/sign-in-prompt";
 import { Button } from "@/components/ui/button";
+import { ApiError } from "@/lib/api";
 import { approveCliLogin, signedInUser } from "@/lib/auth";
-import { ApiError } from "@/lib/deploy";
 import { errorMessage } from "@/lib/format";
 import { useToken } from "@/lib/session";
 
@@ -38,10 +38,11 @@ function CliLoginPage() {
   }
 
   async function approve() {
+    if (!token) return;
     setApproving(true);
     setError("");
     try {
-      await approveCliLogin(id);
+      await approveCliLogin(id, token);
       setApproved(true);
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 404) {

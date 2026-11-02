@@ -7,8 +7,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { ApiError } from "./api";
 import {
-  ApiError,
   cancelUpload,
   completeDeployment,
   createDeployment,
@@ -16,7 +16,6 @@ import {
   readFiles,
   readLimits,
   updateDeployment,
-  uploadFiles,
   type DeploymentUploads,
   type Limits,
   type ManifestFile,
@@ -36,6 +35,7 @@ import {
   type SiteFile,
   type UploadFile,
 } from "./site-files";
+import { uploadFiles } from "./upload-files";
 
 export type Stage =
   | "idle"

@@ -16,8 +16,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ApiError } from "@/lib/api";
 import {
-  ApiError,
   changeDeployments,
   deleteDeployments,
   listDeployments,
