@@ -58,6 +58,20 @@ function sameManifest(a: ManifestFile[], b: ManifestFile[]) {
   );
 }
 
+// Batched, since each update re-renders every listed file
+function batched(update: () => void) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  function flush() {
+    clearTimeout(timer);
+    timer = undefined;
+    update();
+  }
+  function schedule() {
+    timer ??= setTimeout(flush, 100);
+  }
+  return { schedule, flush };
+}
+
 function useUploadState() {
   const [files, setFiles] = useState<SiteFile[]>([]);
   const [compressed, setCompressed] = useState<Record<string, UploadFile>>({});
@@ -131,6 +145,14 @@ function useUploadState() {
       .catch(() => {});
   }, []);
 
+  function forgetSite() {
+    clearSession();
+    setSession(null);
+    setTarget(null);
+    setStoredFiles(null);
+    setDescription(null);
+  }
+
   function clearFiles() {
     preparation.current = null;
     setFiles([]);
@@ -161,13 +183,7 @@ function useUploadState() {
       return;
     }
     // A published site is done with; new files start a new one
-    if (live) {
-      clearSession();
-      setSession(null);
-      setTarget(null);
-      setStoredFiles(null);
-      setDescription(null);
-    }
+    if (live) forgetSite();
     clearFiles();
     setStage("idle");
     // Before any file is read, so an oversized one can't fill the tab's memory
@@ -178,21 +194,16 @@ function useUploadState() {
     }
 
     let batch: Record<string, UploadFile> = {};
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    function flush() {
-      clearTimeout(timer);
-      timer = undefined;
+    const { schedule, flush } = batched(() => {
       const prepared = batch;
       batch = {};
       if (preparation.current === run) {
         setCompressed((current) => ({ ...current, ...prepared }));
       }
-    }
-
-    // Batched, since each update re-renders every listed file
+    });
     const run = prepareFiles(selected, (file) => {
       batch[file.path] = file;
-      timer ??= setTimeout(flush, 100);
+      schedule();
     });
     preparation.current = run;
     try {
@@ -211,11 +222,7 @@ function useUploadState() {
     if (session && session.deployment.state !== "ready" && token) {
       cancelUpload(session.deployment.slug, token).catch(() => {});
     }
-    clearSession();
-    setSession(null);
-    setTarget(null);
-    setStoredFiles(null);
-    setDescription(null);
+    forgetSite();
     clearFiles();
     setStage("idle");
   }
@@ -326,22 +333,18 @@ function useUploadState() {
       // Pages go last, so a live site never links to assets still uploading
       const pages = pending.filter(({ path }) => /\.html?$/i.test(path));
       const assets = pending.filter((file) => !pages.includes(file));
-      // Batched, since each update re-renders every listed file
       const progress = new Map<string, number>();
       let done = 0;
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      function flush() {
-        clearTimeout(timer);
-        timer = undefined;
+      const { schedule, flush } = batched(() => {
         setLoaded(
           [...progress.values()].reduce((sum, bytes) => sum + bytes, 0),
         );
         setUploaded(done);
-      }
+      });
       const onProgress = (path: string, bytes: number, complete: boolean) => {
         progress.set(path, bytes);
         if (complete) done++;
-        timer ??= setTimeout(flush, 100);
+        schedule();
       };
       setLoaded(0);
       setUploaded(0);
@@ -400,7 +403,6 @@ function useUploadState() {
     uploadCount,
     busy,
     live,
-    totalSize,
     compressedSize,
     percentage,
     clearFiles,
