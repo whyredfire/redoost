@@ -36,10 +36,6 @@ def server_release(server: str) -> dict[str, Any]:
     return found if isinstance(found, dict) else {}
 
 
-def server_version(server: str) -> str | None:
-    return server_release(server).get("version")
-
-
 def cached_server_version(server: str) -> str | None:
     path = config.config_path().with_name("updates.json")
     try:
@@ -50,7 +46,7 @@ def cached_server_version(server: str) -> str | None:
     if entry and time.time() - entry["checked"] < check_every:
         return entry["version"]
 
-    found = server_version(server)
+    found = server_release(server).get("version")
     cache[server] = {"checked": time.time(), "version": found}
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(cache))

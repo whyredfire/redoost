@@ -8,7 +8,7 @@ import pytest
 
 from redoost import config, main
 from redoost.api import Api
-from redoost.files import compress, read_site
+from redoost.files import compress, default_limits, read_site
 
 SERVER = "https://redoost.example.com"
 UPLOAD_URL = "https://s3.example.com/sites"
@@ -23,11 +23,7 @@ class FakeServer:
         self.pending_polls = 1
         self.upload_status = 204
         self.stored: list[dict[str, str]] = []
-        self.limits = {
-            "max_file_size": 20 * 1024**2,
-            "max_deployment_size": 150 * 1024**2,
-            "max_deployment_files": 2000,
-        }
+        self.limits = dict(default_limits)
         # None for servers from before usage was reported
         self.usage: dict[str, int] | None = {"used": 3565158, "limit": 1024**3}
 
@@ -361,9 +357,7 @@ def test_removed_files_are_a_change(
     assert "PUT /api/deployments/brave-otter-1a2b" in server.routes()
 
 
-def test_list_and_delete(
-    server: FakeServer, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_list(server: FakeServer, capsys: pytest.CaptureFixture[str]) -> None:
     signed_in()
 
     out, _ = run(capsys, "list")
@@ -372,9 +366,6 @@ def test_list_and_delete(
         "  Portfolio draft\n"
         "https://quiet-heron-7f3c.sites.test  1 file  900 B  2026-10-09  offline\n"
     )
-    out, _ = run(capsys, "delete", "brave-otter-1a2b")
-    assert out == "Deleted brave-otter-1a2b\n"
-    assert server.requests[-1].url.params.get_list("slug") == ["brave-otter-1a2b"]
 
 
 def test_delete_several_sites(
