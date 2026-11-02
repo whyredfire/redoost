@@ -8,7 +8,7 @@
   },
   "packageRules": [
     {
-      "description": "Tagged by the build workflow on every push",
+      "description": "Tagged by the release workflow",
       "matchPackageNames": [
         "ghcr.io/whyredfire/redoost-api",
         "ghcr.io/whyredfire/redoost-frontend"

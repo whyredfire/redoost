@@ -212,7 +212,6 @@ async def read_deployment(deployment: OwnedDeployment) -> DeploymentBase:
     return deployment
 
 
-# Lets the frontend show what an update changes before it starts
 @router.patch("/{slug}")
 async def change_deployment(
     change: DeploymentChange, deployment: OwnedDeployment, session: Session
@@ -265,6 +264,7 @@ async def discard_retired(session: Session, deployment: Deployment) -> None:
     deployment.retired_size = 0
 
 
+# Lets the frontend show what an update changes before it starts
 @router.get("/{slug}/files")
 async def read_files(deployment: OwnedDeployment, session: Session) -> list[StoredFile]:
     if deployment.folder is None:

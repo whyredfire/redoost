@@ -5,7 +5,8 @@ in Compose (see the root README).
 
 ## Users
 
-Every request apart from `/health`, the limits, and the auth config sends
+Every request apart from `/health`, `/api/version`, the limits, the auth
+config, starting and claiming a CLI sign-in, and `/internal/sites` sends
 `Authorization: Bearer <token>`, a JWT the API issues. Missing, expired, or
 unknown tokens get 401, and other users' deployments 403. Tokens are valid for
 30 days, and users sign in one of two ways:
@@ -22,9 +23,20 @@ scope to sign in with as `oidc`, and whether dev sign-in is on as `dev`. `GET /a
 returns the token's user, and `DELETE /api/auth/me` deletes them with all their
 sites, files first, after which their tokens get 401.
 
+The CLI signs in through the browser: `POST /api/auth/cli` returns an `id` and
+`secret`, and the CLI prints `<app origin>/cli/<id>` for a signed-in user to
+approve with `POST /api/auth/cli/{id}`. Meanwhile it polls
+`POST /api/auth/cli/{id}/token` with `{"secret"}`, which returns 202 until the
+link is approved, then a token once. Links expire after 10 minutes.
+
 ## API
 
 - `GET /health`
+- `GET /api/version`: the deployed version, and the SHA-256 of the CLI wheel
+  released with it, which `redoost update` checks before installing.
+- `GET /api/deployments/limits`: the file, deployment, and file count limits.
+- `GET /api/deployments/usage`: bytes the user's sites take up, and the most
+  they can.
 - `POST /api/deployments`: create a deployment from a manifest of
   `{"path", "size", "sha256", "gzip"}` files, where `sha256` is the
   base64-encoded digest. Size and digest are of the bytes as uploaded; files
@@ -33,6 +45,8 @@ sites, files first, after which their tokens get 401.
   get 403.
 - `GET /api/deployments`: the user's ready deployments, newest first.
 - `GET /api/deployments/{slug}`: deployment status.
+- `PATCH /api/deployments/{slug}`: changes the site's `description`, or takes
+  it offline or puts it online with `enabled`.
 - `GET /api/deployments/{slug}/files`: the site's stored files as
   `{"path", "sha256"}`, sorted by path, so an update can be previewed. Each
   version's files are recorded when it's published, so this and updates never
@@ -56,10 +70,9 @@ sites, files first, after which their tokens get 401.
   offline or puts them online, with `{"enabled": false}` or `true`, returning
   `{"changed": [...]}`.
 - `DELETE /api/deployments?slug=…&slug=…`: deletes up to 100 of the user's
-  sites at once, returning `{"deleted": [...]}`.
-
-Both leave out sites that don't exist, so repeating them is safe, and return
-403 without changing anything if any of the sites belongs to someone else.
+  sites at once, returning `{"deleted": [...]}`. Both bulk requests leave out
+  sites that don't exist, so repeating them is safe, and return 403 without
+  changing anything if any of the sites belongs to someone else.
 - `GET /internal/sites/{slug}`: readiness check for Nginx. Not exposed publicly.
 
 Manifests need a root `index.html`. Default limits are 20 MiB per file,
@@ -93,8 +106,10 @@ if a model changes without a migration.
 ## Cleanup
 
 `python -m scripts.cleanup` removes deployments still uploading after their
-upload window, and bucket folders without a deployment, up to 100 of each per
-run. The chart runs it as a CronJob (`cleanup.schedule`, hourly by default),
+upload window and bucket folders without a deployment, lets go of updates
+nobody finished and versions an update replaced, deletes the folders let go of
+once their upload window has passed, and removes expired CLI sign-ins. It
+handles up to 100 of each per run. The chart runs it as a CronJob (`cleanup.schedule`, hourly by default),
 keeping the last 10 successful and failed runs (`cleanup.successfulJobsHistoryLimit`,
 `cleanup.failedJobsHistoryLimit`); in Compose, run it with
 `docker compose exec api uv run --no-sync python -m scripts.cleanup`.

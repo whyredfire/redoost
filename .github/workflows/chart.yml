@@ -23,6 +23,6 @@ jobs:
       - uses: azure/setup-helm@v5
         with:
           version: v4.3.1
-      # s3.existingSecret is the only required value; the policies are optional
+      # Missing required values only warn while linting; the policies are optional
       - run: helm lint --strict chart --set s3.existingSecret=redoost-s3
       - run: helm lint --strict chart --set s3.existingSecret=redoost-s3 --set networkPolicy.enabled=true

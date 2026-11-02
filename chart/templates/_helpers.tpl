@@ -56,7 +56,7 @@ capabilities:
 {{- end }}
 
 {{/*
-Settings shared by the API, its migrations, and the bucket setup Job
+Settings shared by the API, its migrations, the bucket setup Job, and cleanup
 */}}
 {{- define "redoost.apiEnvFrom" -}}
 - configMapRef:
