@@ -37,7 +37,7 @@
       "groupName": "Bun"
     },
     {
-      "description": "Python stays on 3.14 until upgraded by hand",
+      "description": "Python stays on 3.15 until upgraded by hand",
       "matchDepTypes": ["requires-python"],
       "enabled": false
     },
@@ -46,7 +46,7 @@
       "enabled": false
     },
     {
-      "description": "New 3.14 builds of the base images, but never a new Python version",
+      "description": "New 3.15 builds of the base images, but never a new Python version",
       "matchPackageNames": ["registry.access.redhat.com/hi/python"],
       "matchUpdateTypes": ["major", "minor", "patch"],
       "enabled": false

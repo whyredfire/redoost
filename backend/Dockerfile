@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/hi/python:3.14-builder@sha256:e5e527e2b5ee838c52545c7bb24d504577320114c8e6850ba7713b68e05a0e74 AS builder
+FROM registry.access.redhat.com/hi/python:3.15-builder@sha256:0f1e045db12ce181ff15ac036156225816394e2e76e3c87f51ff61596924f098 AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff /uv /uvx /usr/local/bin/
 
@@ -13,7 +13,7 @@ COPY pyproject.toml uv.lock .python-version ./
 RUN uv sync --locked --no-dev
 
 # Then, use a final image without uv
-FROM registry.access.redhat.com/hi/python:3.14@sha256:3521997789c9b812980f0fa15846949a7a7f6bfd959bf61202b5d83e25efecba
+FROM registry.access.redhat.com/hi/python:3.15@sha256:a8241403eb7003db09cd13f0e0e1aad672c3d0bad0a39cf36d2b3c7ee7b70879
 
 WORKDIR /app
 ENV PATH="/app/.venv/bin:$PATH" \
