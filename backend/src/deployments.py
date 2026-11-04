@@ -226,17 +226,9 @@ async def read_usage(session: Session, user: CurrentUser) -> Usage:
 @router.get("/slugs", dependencies=[needs(Scope.publish)])
 async def suggest_slugs(session: Session, user: CurrentUser) -> list[str]:
     expires_at = datetime.now(UTC) + settings.upload_window
-    slugs: list[str] = []
-    while len(slugs) < slug_options:
-        slug = new_slug()
-        if (
-            slug in slugs
-            or await session.get(Deployment, slug)
-            or await session.get(SlugOffer, slug)
-        ):
-            continue
+    slugs = [new_slug() for _ in range(slug_options)]
+    for slug in slugs:
         session.add(SlugOffer(slug=slug, user_id=user.id, expires_at=expires_at))
-        slugs.append(slug)
     await session.commit()
     return slugs
 
