@@ -10,7 +10,7 @@ type SiteDescriptionProps = {
   description: string;
   onSave: (description: string) => Promise<void>;
   placeholder?: string;
-  // Only a pencil when empty, for rows in a list
+  // Smaller, for rows in a list
   compact?: boolean;
 };
 
@@ -84,6 +84,19 @@ export function SiteDescription({
           </p>
         )}
       </form>
+    );
+  }
+
+  // Reads like an empty field's placeholder, so a row without one stays quiet
+  if (!description && compact) {
+    return (
+      <button
+        type="button"
+        className="text-sm text-muted-foreground/60 transition-colors hover:text-foreground"
+        onClick={edit}
+      >
+        {placeholder}
+      </button>
     );
   }
 

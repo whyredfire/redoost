@@ -135,7 +135,7 @@ export function VersionList({
             key={version.id}
             className="flex items-center justify-between gap-4 px-4 py-2.5"
           >
-            <div className="min-w-0">
+            <div className="min-w-0 space-y-1">
               <p className="flex items-center gap-2">
                 <span className="truncate">
                   {formatDate(version.created_at)} at{" "}
