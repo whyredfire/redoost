@@ -40,48 +40,48 @@ export function LiveSiteCard() {
         initial={reduceMotion ? false : "hidden"}
         animate="shown"
       >
-        <motion.div
-          variants={rise}
-          className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"
-        >
-          <div className="min-w-0 space-y-3 lg:max-w-xl lg:flex-1">
-            <h1 className="text-3xl font-semibold tracking-tighter text-balance sm:text-4xl">
-              {target ? "It's updated." : "It's live."}{" "}
-              <span className="text-muted-foreground">
-                {target ? "Same address, new files." : "Share it with anyone."}
-              </span>
-            </h1>
-            <SiteAddress slug={slug} />
-            {session.deployment.description && (
-              <p className="text-sm break-words text-muted-foreground">
-                {session.deployment.description}
-              </p>
-            )}
-            {session.originalSize !== undefined && (
-              <CompressionSaving
-                original={session.originalSize}
-                uploaded={session.deployment.total_size}
-              />
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            {url && (
-              <Button asChild>
-                <a href={url} target="_blank" rel="noreferrer">
-                  <ExternalLink />
-                  Open site
-                </a>
+        <motion.div variants={rise} className="min-w-0 space-y-3">
+          <h1 className="text-3xl font-semibold tracking-tighter text-balance sm:text-4xl">
+            {target ? "It's updated." : "It's live."}{" "}
+            <span className="text-muted-foreground">
+              {target ? "Same address, new files." : "Share it with anyone."}
+            </span>
+          </h1>
+          {/* The actions sit on the address's row, as what to do with it */}
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0 lg:max-w-xl lg:flex-1">
+              <SiteAddress slug={slug} />
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              {url && (
+                <Button asChild>
+                  <a href={url} target="_blank" rel="noreferrer">
+                    <ExternalLink />
+                    Open site
+                  </a>
+                </Button>
+              )}
+              <Button variant="outline" asChild>
+                <Link to="/sites/$slug" params={{ slug }}>
+                  Manage site
+                </Link>
               </Button>
-            )}
-            <Button variant="outline" asChild>
-              <Link to="/sites/$slug" params={{ slug }}>
-                Manage site
-              </Link>
-            </Button>
-            <Button type="button" variant="ghost" onClick={startOver}>
-              Publish another site
-            </Button>
+              <Button type="button" variant="ghost" onClick={startOver}>
+                Publish another site
+              </Button>
+            </div>
           </div>
+          {session.deployment.description && (
+            <p className="text-sm break-words text-muted-foreground">
+              {session.deployment.description}
+            </p>
+          )}
+          {session.originalSize !== undefined && (
+            <CompressionSaving
+              original={session.originalSize}
+              uploaded={session.deployment.total_size}
+            />
+          )}
         </motion.div>
         {url && (
           <motion.div variants={rise} className="flex min-h-0 flex-1 flex-col">
