@@ -129,3 +129,19 @@
     }
   }
 }
+
+/* A faint grid of dots that fades out toward the edges */
+@utility dot-grid {
+  background-image: radial-gradient(
+    circle,
+    var(--border) 0.75px,
+    transparent 1px
+  );
+  background-size: 12px 12px;
+  background-position: center;
+  mask-image: radial-gradient(
+    ellipse 70% 70% at 50% 50%,
+    black 30%,
+    transparent 80%
+  );
+}

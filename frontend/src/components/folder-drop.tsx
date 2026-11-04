@@ -78,13 +78,14 @@ export function FolderDrop({
   return (
     <div
       className={cn(
-        "relative flex flex-col rounded-xl border-2 text-center transition-colors duration-300 motion-safe:animate-in motion-safe:fade-in",
+        "relative isolate flex flex-col rounded-xl border-2 text-center transition-colors duration-300 motion-safe:animate-in motion-safe:fade-in",
         dragging
           ? "border-solid border-foreground/20 bg-muted"
           : "border-dashed border-border",
         className,
       )}
     >
+      <div aria-hidden className="dot-grid absolute inset-0 -z-10" />
       <div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
         {/* The prompt, drop hint and error blur into each other in one spot */}
         <div className="grid w-full max-w-2xl grid-cols-[minmax(0,1fr)] place-items-center">
