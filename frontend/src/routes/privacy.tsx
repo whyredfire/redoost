@@ -8,12 +8,14 @@ export const Route = createFileRoute("/privacy")({
 
 function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Policy" updated="13 October 2026">
+    <LegalPage title="Privacy Policy" updated="4 November 2026">
       <Section title="What we store">
         <p>
           When you sign in with Google, we store your Google account ID, email
-          address, and name, to know which sites are yours. We don't receive
-          your password or access anything else in your Google account.
+          address, and name, to know which sites are yours, and the address of
+          your profile picture, which your browser loads from Google to show it.
+          We don't receive your password or access anything else in your Google
+          account.
         </p>
         <p>
           The files of sites you publish are stored until you delete them, and

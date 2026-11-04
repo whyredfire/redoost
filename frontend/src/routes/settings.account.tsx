@@ -5,6 +5,7 @@ import {
 } from "@tanstack/react-router";
 import { DangerAction } from "@/components/danger-action";
 import { SettingsSection } from "@/components/settings-section";
+import { UserAvatar } from "@/components/user-avatar";
 import { deleteAccount, providerNames, signedInUser } from "@/lib/auth";
 import { useUpload } from "@/lib/upload";
 
@@ -26,29 +27,41 @@ function AccountSettings() {
     await router.invalidate();
   }
 
+  // Name and email head the card, beside the picture
   const details = [
-    { label: "Name", value: user?.name },
-    { label: "Email", value: user?.email },
     { label: "Signed in with", value: user && providerNames[user.provider] },
   ];
 
   return (
     <div className="space-y-10">
       <SettingsSection title="Account" description="Who you're signed in as.">
-        <dl className="divide-y rounded-xl border text-sm">
-          {details.map(
-            ({ label, value }) =>
-              value && (
-                <div
-                  key={label}
-                  className="flex justify-between gap-4 px-4 py-3"
-                >
-                  <dt className="shrink-0 text-muted-foreground">{label}</dt>
-                  <dd className="min-w-0 truncate">{value}</dd>
-                </div>
-              ),
-          )}
-        </dl>
+        <div className="divide-y rounded-xl border text-sm">
+          <div className="flex items-center gap-3 px-4 py-3">
+            <UserAvatar user={user} className="size-10" />
+            <div className="min-w-0">
+              <p className="truncate font-medium">
+                {user?.name ?? user?.email}
+              </p>
+              {user?.name && user.email && (
+                <p className="truncate text-muted-foreground">{user.email}</p>
+              )}
+            </div>
+          </div>
+          <dl className="divide-y">
+            {details.map(
+              ({ label, value }) =>
+                value && (
+                  <div
+                    key={label}
+                    className="flex justify-between gap-4 px-4 py-3"
+                  >
+                    <dt className="shrink-0 text-muted-foreground">{label}</dt>
+                    <dd className="min-w-0 truncate">{value}</dd>
+                  </div>
+                ),
+            )}
+          </dl>
+        </div>
       </SettingsSection>
       <DangerAction
         title="Delete account"

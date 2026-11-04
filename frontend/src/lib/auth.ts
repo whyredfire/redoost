@@ -19,6 +19,7 @@ export type User = {
   provider: Provider;
   email: string | null;
   name: string | null;
+  picture: string | null;
 };
 
 export const providerNames: Record<Provider, string> = { google: "Google" };

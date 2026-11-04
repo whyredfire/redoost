@@ -36,6 +36,7 @@ def test_dev_sign_in(client: TestClient) -> None:
         "provider": "google",
         "email": "dev@localhost",
         "name": "Dev User",
+        "picture": None,
     }
     claims = jwt.decode(body["token"], options={"verify_signature": False})
     expires_in = datetime.fromtimestamp(claims["exp"], UTC) - datetime.now(UTC)
@@ -473,13 +474,14 @@ def sign_in(
     monkeypatch: pytest.MonkeyPatch,
     subject: str = "subject-1",
     email: str = "ada@example.com",
+    picture: str | None = "https://lh3.googleusercontent.com/a/ada",
 ) -> Response:
     async def read_userinfo(
         code: str, code_verifier: str, redirect_uri: str
     ) -> UserInfo:
         assert (code, code_verifier) == ("code", "verifier")
         assert redirect_uri == "https://redoost.example.com/auth/callback"
-        return UserInfo(sub=subject, email=email, name="Ada Lovelace")
+        return UserInfo(sub=subject, email=email, name="Ada Lovelace", picture=picture)
 
     monkeypatch.setattr(oidc, "read_userinfo", read_userinfo)
     return accounts.post(
@@ -525,6 +527,7 @@ def test_sign_in(accounts: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
         "provider": "google",
         "email": "ada@example.com",
         "name": "Ada Lovelace",
+        "picture": "https://lh3.googleusercontent.com/a/ada",
     }
     claims = jwt.decode(body["token"], options={"verify_signature": False})
     expires_in = datetime.fromtimestamp(claims["exp"], UTC) - datetime.now(UTC)
@@ -544,6 +547,17 @@ def test_signing_in_again_finds_the_same_user(
     # Profile details follow the provider
     assert again["email"] == "ada@example.org"
     assert other["id"] != first["id"]
+    removed = sign_in(accounts, monkeypatch, picture=None).json()["user"]
+    assert removed["picture"] is None
+
+
+def test_keeps_only_secure_pictures() -> None:
+    def picture(url: str) -> str | None:
+        return UserInfo(sub="subject", picture=url).picture
+
+    assert picture("https://lh3.googleusercontent.com/a/ada") is not None
+    assert picture("http://example.com/ada.png") is None
+    assert picture("javascript:alert(1)") is None
 
 
 def test_failed_sign_in(accounts: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:

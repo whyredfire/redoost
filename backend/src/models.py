@@ -356,6 +356,9 @@ class UserBase(SQLModel):
     provider: Provider = Field(description="Who the user signs in with")
     email: str | None = Field(default=None, description="Email from the provider")
     name: str | None = Field(default=None, description="Name from the provider")
+    picture: str | None = Field(
+        default=None, description="Profile picture URL from the provider"
+    )
 
 
 class User(UserBase, table=True):
@@ -392,6 +395,15 @@ class UserInfo(SQLModel):
     sub: str = Field(description="The provider's stable ID for the user")
     email: str | None = Field(default=None, description="The user's email")
     name: str | None = Field(default=None, description="The user's name")
+    picture: str | None = Field(
+        default=None, description="The user's profile picture URL"
+    )
+
+    # Shown as an image, so only addresses a browser fetches over TLS are kept
+    @field_validator("picture")
+    @classmethod
+    def secure(cls, picture: str | None) -> str | None:
+        return picture if picture and picture.startswith("https://") else None
 
 
 class SignIn(SQLModel):
