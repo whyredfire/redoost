@@ -44,7 +44,7 @@ async def cleanup(session: AsyncSession) -> tuple[int, int, int]:
     expired_query = (
         select(Deployment)
         .where(col(Deployment.state) == DeploymentState.uploading)
-        .where(col(Deployment.expires_at) < datetime.now(UTC))
+        .where(col(Deployment.locked_until) < datetime.now(UTC))
         .limit(batch_size)
     )
     expired = (await session.exec(expired_query)).all()
@@ -75,7 +75,7 @@ async def cleanup(session: AsyncSession) -> tuple[int, int, int]:
         .add_columns(col(Deployment.folder).label("served"))
         .where(col(Deployment.state) == DeploymentState.ready)
         .where(col(Deployment.pending_folder).is_not(None))
-        .where(col(Deployment.expires_at) < now)
+        .where(col(Deployment.locked_until) < now)
         .limit(batch_size)
         .with_for_update(skip_locked=True)
         .subquery()

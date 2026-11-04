@@ -263,8 +263,8 @@ function useUploadState() {
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
         const current = await readDeployment(slug, token);
-        if (Date.parse(current.expires_at) > Date.now()) {
-          setLockedUntil(current.expires_at);
+        if (Date.parse(current.locked_until) > Date.now()) {
+          setLockedUntil(current.locked_until);
         }
       }
       throw error;
@@ -337,7 +337,7 @@ function useUploadState() {
         };
         saveSession(active);
         setSession(active);
-      } else if (Date.now() >= Date.parse(active.deployment.expires_at)) {
+      } else if (Date.now() >= Date.parse(active.deployment.locked_until)) {
         throw new Error("The upload window has closed. Start over.");
       } else if (!sameManifest(manifest, active.manifest)) {
         throw new Error("Select the same folder to resume, or start over.");

@@ -175,9 +175,9 @@ class DeploymentBase(SQLModel):
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC), description="Creation time"
     )
-    expires_at: datetime = Field(
+    locked_until: datetime = Field(
         default_factory=lambda: datetime.now(UTC) + settings.upload_window,
-        description="When the latest upload's policies expire; uploads are locked until then",
+        description="Until when the latest upload holds the site; its policies expire then",
     )
 
 
@@ -192,7 +192,9 @@ class DeploymentChange(SQLModel):
 
 class Deployment(DeploymentBase, table=True):
     # For cleanup, which looks for uploads past their window
-    __table_args__ = (Index("ix_deployment_state_expires_at", "state", "expires_at"),)
+    __table_args__ = (
+        Index("ix_deployment_state_locked_until", "state", "locked_until"),
+    )
 
     owner_id: str = Field(
         foreign_key="users.id", index=True, description="User who owns the site"

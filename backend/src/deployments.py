@@ -85,7 +85,7 @@ def in_use() -> ColumnElement[bool]:
     # Abandoned uploads don't count, though cleanup hasn't run
     return or_(
         col(Deployment.state) == DeploymentState.ready,
-        col(Deployment.expires_at) > datetime.now(UTC),
+        col(Deployment.locked_until) > datetime.now(UTC),
     )
 
 
@@ -151,7 +151,7 @@ def discard_upload(session: Session, deployment: Deployment) -> None:
             folder=folder,
             owner_id=deployment.owner_id,
             size=size,
-            delete_after=max(deployment.expires_at, datetime.now(UTC)),
+            delete_after=max(deployment.locked_until, datetime.now(UTC)),
         )
     )
 
@@ -347,13 +347,13 @@ async def update_deployment(
 
     # Locked, so two uploads to a site never overlap
     await session.refresh(deployment, with_for_update=True)
-    if deployment.expires_at > now:
+    if deployment.locked_until > now:
         raise HTTPException(
             status.HTTP_409_CONFLICT, "Another upload to this site is in progress"
         )
     # An earlier update nobody finished or cancelled, whose window has closed
     abandoned = deployment.pending_folder
-    deployment.expires_at = now + settings.upload_window
+    deployment.locked_until = now + settings.upload_window
     deployment.pending_folder = folder
     deployment.pending_size = pending_size
     deployment.pending_digest = manifest_digest(manifest)
@@ -373,7 +373,7 @@ async def complete_deployment(
 ) -> DeploymentBase:
     now = datetime.now(UTC)
     folder = deployment.pending_folder
-    if deployment.expires_at <= now or folder is None:
+    if deployment.locked_until <= now or folder is None:
         # Repeats a completion whose response was lost
         if deployment.state == DeploymentState.ready and deployment.folder:
             served = await served_files(session, deployment.folder)
@@ -469,7 +469,7 @@ async def complete_deployment(
     if manifest.description is not None:
         deployment.description = manifest.description
     # Frees the site for its next update
-    deployment.expires_at = now
+    deployment.locked_until = now
     await trim_versions(session, deployment, now)
     session.add(deployment)
     await session.commit()
@@ -527,7 +527,7 @@ async def restore_version(
     now = datetime.now(UTC)
     # Locked, as an update completing meanwhile would switch folders too
     await session.refresh(deployment, with_for_update=True)
-    if deployment.expires_at > now:
+    if deployment.locked_until > now:
         raise HTTPException(
             status.HTTP_409_CONFLICT, "Another upload to this site is in progress"
         )
@@ -596,7 +596,7 @@ async def cancel_upload(deployment: OwnedDeployment, session: Session) -> None:
     deployment.pending_folder = None
     deployment.pending_size = 0
     deployment.pending_digest = None
-    deployment.expires_at = datetime.now(UTC)
+    deployment.locked_until = datetime.now(UTC)
     session.add(deployment)
     await session.commit()
 

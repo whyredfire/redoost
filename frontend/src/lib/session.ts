@@ -9,8 +9,8 @@ export function loadSession(): UploadSession | null {
     const saved = sessionStorage.getItem(storageKey);
     if (saved) {
       const session = JSON.parse(saved) as UploadSession;
-      const { state, expires_at } = session.deployment;
-      if (state === "ready" || Date.now() < Date.parse(expires_at)) {
+      const { state, locked_until } = session.deployment;
+      if (state === "ready" || Date.now() < Date.parse(locked_until)) {
         return session;
       }
     }

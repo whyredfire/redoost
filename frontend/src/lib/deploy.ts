@@ -18,7 +18,7 @@ export type Deployment = {
   enabled: boolean;
   description: string;
   created_at: string;
-  expires_at: string;
+  locked_until: string;
 };
 
 export type StoredFile = { path: string; sha256: string | null };

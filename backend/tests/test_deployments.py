@@ -87,7 +87,7 @@ def test_create_deployment(client: TestClient, token: str) -> None:
     assert re.fullmatch(r"[a-z]+(-[a-z]+)+-[0-9a-f]{4}", body["slug"])
     assert len(body["slug"]) <= 63
     assert body["state"] == "uploading"
-    assert datetime.fromisoformat(body["expires_at"]) > datetime.now(UTC)
+    assert datetime.fromisoformat(body["locked_until"]) > datetime.now(UTC)
     assert body["file_count"] == 4
     assert body["total_size"] == 35
     assert "token" not in body and "owner_id" not in body
@@ -375,7 +375,7 @@ def test_complete_marks_deployment_ready(
     response = complete(client, created, "index.html", "app.js")
     assert response.status_code == 200
     assert response.json()["state"] == "ready"
-    assert datetime.fromisoformat(response.json()["expires_at"]) <= datetime.now(UTC)
+    assert datetime.fromisoformat(response.json()["locked_until"]) <= datetime.now(UTC)
 
     # Repeating a completion succeeds while the files still match
     assert complete(client, created, "index.html", "app.js").status_code == 200
@@ -600,7 +600,7 @@ def test_update_signs_only_new_and_changed_files(
     # Into a folder of its own, while the site keeps serving its current one
     key = body["uploads"][0]["fields"]["key"]
     assert key == f"{folder_of(body)}app.js" and folder_of(body) != folder_of(created)
-    assert datetime.fromisoformat(body["expires_at"]) > datetime.now(UTC)
+    assert datetime.fromisoformat(body["locked_until"]) > datetime.now(UTC)
     assert "token" not in body
 
 
