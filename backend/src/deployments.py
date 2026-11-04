@@ -23,14 +23,17 @@ from .models import (
     Limits,
     Manifest,
     ManifestFile,
+    NewSite,
     Scope,
     SitesChange,
+    SlugOffer,
     StoredFile,
     Usage,
     User,
     Version,
     VersionChange,
     VersionInfo,
+    new_slug,
 )
 from .storage import (
     StoredObject,
@@ -48,6 +51,8 @@ router = APIRouter(prefix="/api/deployments", tags=["deployments"])
 # Nginx caches which folder a site serves for a few seconds, and keeps serving it
 # while the API is unreachable, so the previous one stays a while before it's deleted
 retire_after = timedelta(minutes=2)
+# How many addresses are offered at a time
+slug_options = 4
 
 # Short enough for a URL, as each one is a query parameter
 max_bulk_sites = 100
@@ -155,9 +160,21 @@ def discard_upload(session: Session, deployment: Deployment) -> None:
     "", status_code=status.HTTP_201_CREATED, dependencies=[needs(Scope.publish)]
 )
 async def create_deployment(
-    manifest: Manifest, session: Session, user: CurrentUser
+    manifest: NewSite, session: Session, user: CurrentUser
 ) -> DeploymentUploads:
+    if manifest.slug:
+        offer = await session.get(SlugOffer, manifest.slug)
+        if (
+            offer is None
+            or offer.user_id != user.id
+            or offer.expires_at <= datetime.now(UTC)
+        ):
+            raise HTTPException(
+                status.HTTP_409_CONFLICT, "That address is no longer on offer"
+            )
+        await session.delete(offer)
     deployment = Deployment(
+        slug=manifest.slug or new_slug(),
         owner_id=user.id,
         file_count=len(manifest.files),
         total_size=manifest.total_size,
@@ -202,6 +219,26 @@ async def read_limits() -> Limits:
 async def read_usage(session: Session, user: CurrentUser) -> Usage:
     used = await used_storage(session, user)
     return Usage(used=used, limit=settings.max_account_size)
+
+
+# Unused addresses to publish a new site at, held for the user as long as an upload
+# window, so only what was offered can be picked
+@router.get("/slugs", dependencies=[needs(Scope.publish)])
+async def suggest_slugs(session: Session, user: CurrentUser) -> list[str]:
+    expires_at = datetime.now(UTC) + settings.upload_window
+    slugs: list[str] = []
+    while len(slugs) < slug_options:
+        slug = new_slug()
+        if (
+            slug in slugs
+            or await session.get(Deployment, slug)
+            or await session.get(SlugOffer, slug)
+        ):
+            continue
+        session.add(SlugOffer(slug=slug, user_id=user.id, expires_at=expires_at))
+        slugs.append(slug)
+    await session.commit()
+    return slugs
 
 
 @router.get("/{slug}")

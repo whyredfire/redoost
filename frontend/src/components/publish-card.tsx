@@ -2,6 +2,7 @@ import { cn } from "cn";
 import { ChevronRight, FolderOpen } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { ThinkingOrb } from "thinking-orbs";
+import { AddressPicker } from "@/components/address-picker";
 import { SizeInfo, Sizes } from "@/components/compression-saving";
 import { stageSize } from "@/components/folder-drop";
 import { Button } from "@/components/ui/button";
@@ -170,6 +171,8 @@ export function PublishCard() {
     clearFiles,
     startOver,
     chooseTarget,
+    slug,
+    setSlug,
     setDescription,
     note,
     setNote,
@@ -295,6 +298,9 @@ export function PublishCard() {
                     Updates <span className="font-mono">{target}</span>
                   </p>
                 )
+              )}
+              {!target && !session && (
+                <AddressPicker slug={slug} onChange={setSlug} disabled={busy} />
               )}
               {diff && (
                 <p className="mt-2 text-sm text-muted-foreground">

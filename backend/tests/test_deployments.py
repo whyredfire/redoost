@@ -19,7 +19,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from scripts import cleanup
 from src import database, deployments
 from src.config import settings
-from src.models import Version
+from src.models import SlugOffer, Version
 from src.storage import StoredObject, content_type
 
 URL = "/api/deployments"
@@ -155,6 +155,80 @@ def test_slugs_are_unique(client: TestClient, token: str) -> None:
     slugs = {create(client, token, "index.html")["slug"] for _ in range(20)}
 
     assert len(slugs) == 20
+
+
+def test_offers_addresses_to_pick_from(client: TestClient, token: str) -> None:
+    assert client.get(f"{URL}/slugs").status_code == 401
+    response = client.get(f"{URL}/slugs", headers=bearer(token))
+
+    assert response.status_code == 200
+    slugs = response.json()
+    assert len(slugs) == 4 and len(set(slugs)) == 4
+    assert all(re.fullmatch(r"[a-z]+(-[a-z]+)+-[0-9a-f]{4}", slug) for slug in slugs)
+    # Another batch, for whoever wants other options
+    assert not set(client.get(f"{URL}/slugs", headers=bearer(token)).json()) & set(
+        slugs
+    )
+
+
+def test_publishes_at_the_picked_address(client: TestClient, token: str) -> None:
+    slug = client.get(f"{URL}/slugs", headers=bearer(token)).json()[0]
+    site = {**manifest("index.html"), "slug": slug}
+    response = client.post(URL, json=site, headers=bearer(token))
+
+    assert response.status_code == 201
+    assert response.json()["slug"] == slug
+    # Taken now, by anyone
+    response = client.post(URL, json=site, headers=bearer(token))
+    assert response.status_code == 409
+
+
+def test_publishes_only_at_offered_addresses(
+    client: TestClient, token: str, new_token: Callable[[], str]
+) -> None:
+    def publish(slug: str, token: str) -> int:
+        site = {**manifest("index.html"), "slug": slug}
+        return client.post(URL, json=site, headers=bearer(token)).status_code
+
+    # Well-formed, but never offered
+    assert publish("brave-otter-1a2b", token) == 409
+    # Offered to someone else
+    slug = client.get(f"{URL}/slugs", headers=bearer(new_token())).json()[0]
+    assert publish(slug, token) == 409
+
+
+def test_offers_lapse(
+    client: TestClient, token: str, run_cleanup: Callable[[], tuple[int, int, int]]
+) -> None:
+    slug = client.get(f"{URL}/slugs", headers=bearer(token)).json()[0]
+
+    async def expire() -> None:
+        async with AsyncSession(database.engine) as session:
+            offer = await session.get(SlugOffer, slug)
+            assert offer is not None
+            offer.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+            session.add(offer)
+            await session.commit()
+
+    async def offered() -> bool:
+        async with AsyncSession(database.engine) as session:
+            return await session.get(SlugOffer, slug) is not None
+
+    asyncio.run(expire())
+    site = {**manifest("index.html"), "slug": slug}
+    assert client.post(URL, json=site, headers=bearer(token)).status_code == 409
+    assert asyncio.run(offered())
+    run_cleanup()
+    assert not asyncio.run(offered())
+
+
+@pytest.mark.parametrize(
+    "slug", ["Brave-Otter-1a2b", "otter-1a2b", "brave-otter", "brave-otter-1a2b/", ""]
+)
+def test_rejects_malformed_addresses(client: TestClient, token: str, slug: str) -> None:
+    site = {**manifest("index.html"), "slug": slug}
+
+    assert client.post(URL, json=site, headers=bearer(token)).status_code == 422
 
 
 def test_read_deployment_requires_its_owner(

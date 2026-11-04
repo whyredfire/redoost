@@ -18,6 +18,16 @@ from .config import Provider, settings
 version_folder = re.compile(r"v-[0-9a-f]{12}/")
 
 
+def new_slug() -> str:
+    return f"{generate_slug(2)}-{secrets.token_hex(2)}"
+
+
+# The shape Nginx takes slugs in: two or more words and a hex tail
+Slug = Annotated[
+    str, StringConstraints(pattern=r"^[a-z]+(-[a-z]+)+-[0-9a-f]{4}$", max_length=63)
+]
+
+
 class DeploymentState(StrEnum):
     uploading = "uploading"
     ready = "ready"
@@ -100,6 +110,26 @@ class Manifest(SQLModel):
         return all(file.path != "404.html" for file in self.files)
 
 
+class NewSite(Manifest):
+    slug: Slug | None = Field(
+        default=None,
+        description="Subdomain to publish at, from those GET /api/deployments/slugs "
+        "offered; picked when missing",
+    )
+
+
+class SlugOffer(SQLModel, table=True):
+    """An address offered for a new site, held for whoever it was offered to."""
+
+    __tablename__ = "slug_offer"  # pyright: ignore[reportAssignmentType]
+
+    slug: str = Field(primary_key=True, description="Site subdomain on offer")
+    user_id: str = Field(
+        foreign_key="users.id", ondelete="CASCADE", description="Who it was offered to"
+    )
+    expires_at: datetime = Field(index=True, description="When the offer lapses")
+
+
 class Limits(SQLModel):
     max_file_size: int = Field(ge=0, description="Largest allowed file in bytes")
     max_deployment_size: int = Field(ge=0, description="Largest allowed site in bytes")
@@ -113,7 +143,7 @@ class Usage(SQLModel):
 
 class DeploymentBase(SQLModel):
     slug: str = Field(
-        default_factory=lambda: f"{generate_slug(2)}-{secrets.token_hex(2)}",
+        default_factory=new_slug,
         primary_key=True,
         description="Site subdomain",
     )

@@ -59,8 +59,17 @@ export type UploadSession = {
 
 type DeploymentChange = { enabled?: boolean; description?: string };
 
+// Unused addresses to publish a new site at
+export async function suggestSlugs(token: string) {
+  const response = await fetch("/api/deployments/slugs", {
+    headers: authorization(token),
+  });
+  return readResponse<string[]>(response);
+}
+
 export async function createDeployment(
   files: ManifestFile[],
+  slug: string | null,
   description: string | undefined,
   note: string | undefined,
   token: string,
@@ -69,7 +78,12 @@ export async function createDeployment(
   const response = await fetch("/api/deployments", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authorization(token) },
-    body: JSON.stringify({ files, description, version_description: note }),
+    body: JSON.stringify({
+      files,
+      slug: slug ?? undefined,
+      description,
+      version_description: note,
+    }),
     signal,
   });
   return readResponse<DeploymentUploads>(response);

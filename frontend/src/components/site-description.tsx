@@ -1,3 +1,4 @@
+import { cn } from "cn";
 import { Pencil } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Hint } from "@/components/hint";
@@ -46,7 +47,7 @@ export function SiteDescription({
 
   if (editing) {
     return (
-      <form onSubmit={save} className="space-y-2">
+      <form onSubmit={save} className={cn("space-y-2", compact && "my-1.5")}>
         <div className="flex gap-2">
           <Input
             aria-label="Description"
@@ -59,14 +60,19 @@ export function SiteDescription({
             maxLength={200}
             disabled={saving}
             autoFocus
-            className="min-w-0 flex-1"
+            className={cn("min-w-0 flex-1", compact && "h-8")}
           />
-          <Button type="submit" disabled={saving}>
+          <Button
+            type="submit"
+            size={compact ? "sm" : "default"}
+            disabled={saving}
+          >
             Save
           </Button>
           <Button
             type="button"
             variant="ghost"
+            size={compact ? "sm" : "default"}
             onClick={() => setEditing(false)}
           >
             Cancel

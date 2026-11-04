@@ -16,6 +16,7 @@ from src.models import (
     Deployment,
     DeploymentState,
     DiscardedFolder,
+    SlugOffer,
 )
 from src.storage import delete_folder, delete_sites, slug_pages
 
@@ -108,9 +109,10 @@ async def cleanup(session: AsyncSession) -> tuple[int, int, int]:
         await delete_folder(folder.folder)
         await session.delete(folder)
 
-    # CLI sign-ins nobody finished, and tokens past their expiry
+    # CLI sign-ins nobody finished, tokens past their expiry, and addresses nobody took
     await session.exec(delete(CliLogin).where(col(CliLogin.expires_at) < now))
     await session.exec(delete(ApiToken).where(col(ApiToken.expires_at) < now))
+    await session.exec(delete(SlugOffer).where(col(SlugOffer.expires_at) < now))
     await session.commit()
     return len(expired), len(orphaned), len(discarded)
 

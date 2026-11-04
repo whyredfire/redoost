@@ -51,12 +51,16 @@ account: those take the dashboard's JWT.
 - `GET /api/deployments/limits`: the file, deployment, and file count limits.
 - `GET /api/deployments/usage`: bytes the user's sites take up, and the most
   they can.
+- `GET /api/deployments/slugs`: four unused addresses to publish a new site
+  at, different each time and held for the user for `REDOOST_UPLOAD_WINDOW`.
 - `POST /api/deployments`: create a deployment from a manifest of
   `{"path", "size", "sha256", "gzip"}` files, where `sha256` is the
   base64-encoded digest. Size and digest are of the bytes as uploaded; files
-  sent gzip-compressed set `gzip` and are served with `Content-Encoding: gzip`. Returns the slug and one signed upload policy
-  per file. Users whose sites would exceed `REDOOST_MAX_ACCOUNT_SIZE` in total
-  get 403.
+  sent gzip-compressed set `gzip` and are served with `Content-Encoding: gzip`.
+  An optional `slug` picks one of the addresses offered to the user, and gets
+  409 once the offer lapsed or was used; without one, the server picks. Returns the
+  slug and one signed upload policy per file. Users whose sites would exceed
+  `REDOOST_MAX_ACCOUNT_SIZE` in total get 403.
 - `GET /api/deployments`: the user's ready deployments, newest first, each
   with `storage_size` and `version_count` for its kept versions.
 - `GET /api/deployments/{slug}`: deployment status.
@@ -140,7 +144,7 @@ if a model changes without a migration.
 upload window and bucket folders without a deployment, lets go of updates
 nobody finished, deletes the folders let go of once their upload window has
 passed or Nginx can no longer have them cached, and removes expired CLI sign-in
-links and API tokens. It handles up to 100 of each per run. The chart runs it as a CronJob (`cleanup.schedule`, hourly by default),
+links, API tokens, and address offers. It handles up to 100 of each per run. The chart runs it as a CronJob (`cleanup.schedule`, hourly by default),
 keeping the last 10 successful and failed runs (`cleanup.successfulJobsHistoryLimit`,
 `cleanup.failedJobsHistoryLimit`); in Compose, run it with
 `docker compose exec api uv run --no-sync python -m scripts.cleanup`.

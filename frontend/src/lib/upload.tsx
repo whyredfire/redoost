@@ -82,6 +82,8 @@ function useUploadState() {
   const [message, setMessage] = useState("");
   // The site whose files the next publish replaces
   const [target, setTarget] = useState<string | null>(null);
+  // The address picked for a new site; null leaves it to the server
+  const [slug, setSlug] = useState<string | null>(null);
   // When another tab's or device's upload to the target frees it
   const [lockedUntil, setLockedUntil] = useState<string | null>(null);
   // The target's files, to show what the update changes
@@ -151,6 +153,7 @@ function useUploadState() {
     clearSession();
     setSession(null);
     setTarget(null);
+    setSlug(null);
     setStoredFiles(null);
     setDescription(null);
     setNote("");
@@ -309,13 +312,21 @@ function useUploadState() {
           deployment = await prepareUpdate(target, manifest, abort.signal);
         } else {
           const token = publishToken();
-          deployment = await createDeployment(
-            manifest,
-            description ?? undefined,
-            note || undefined,
-            token,
-            abort.signal,
-          );
+          try {
+            deployment = await createDeployment(
+              manifest,
+              slug,
+              description ?? undefined,
+              note || undefined,
+              token,
+              abort.signal,
+            );
+          } catch (error) {
+            // Offers lapse; dropping the choice has fresh ones fetched
+            if (error instanceof ApiError && error.status === 409)
+              setSlug(null);
+            throw error;
+          }
         }
         active = {
           deployment,
@@ -417,6 +428,8 @@ function useUploadState() {
     startOver,
     selectUpdate,
     chooseTarget,
+    slug,
+    setSlug,
     setDescription,
     note,
     setNote,
