@@ -109,6 +109,7 @@ class FakeServer:
                 "total_size": 900,
                 "description": "",
                 "enabled": False,
+                "expires_at": "2099-01-01T00:00:00Z",
             }
             return httpx2.Response(200, json=[site, offline])
         if route == "GET /api/deployments/brave-otter-1a2b/versions":
@@ -404,6 +405,59 @@ def test_prune(server: FakeServer, capsys: pytest.CaptureFixture[str]) -> None:
     assert server.routes() == ["DELETE /api/deployments/brave-otter-1a2b/versions"]
 
 
+def test_expire(server: FakeServer, capsys: pytest.CaptureFixture[str]) -> None:
+    signed_in()
+
+    out, _ = run(capsys, "expire", "brave-otter-1a2b", "2099-12-31")
+    # A date keeps the site online through that day, in local time
+    assert out == "brave-otter-1a2b goes offline at 2100-01-01 00:00\n"
+    out, _ = run(capsys, "expire", "brave-otter-1a2b", "2099-12-31T18:30")
+    assert out == "brave-otter-1a2b goes offline at 2099-12-31 18:30\n"
+    out, _ = run(capsys, "expire", "brave-otter-1a2b", "never")
+    assert out == "brave-otter-1a2b no longer expires\n"
+    sent_at = [
+        change["expires_at"]
+        for change in sent(server, "PATCH /api/deployments/brave-otter-1a2b")
+    ]
+    assert sent_at[0] == main.expiry("2099-12-31")
+    assert sent_at[0].startswith("2100-01-01T00:00:00")
+    assert sent_at[1].startswith("2099-12-31T18:30:00")
+    assert sent_at[2] is None
+
+    with pytest.raises(SystemExit):
+        run(capsys, "expire", "brave-otter-1a2b", "next week")
+    assert "expected a date like 2026-12-31" in capsys.readouterr().err
+
+
+def test_publish_with_an_expiry(
+    server: FakeServer, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    signed_in()
+    site = tmp_path / "site"
+    site.mkdir()
+    (site / "index.html").write_text("<h1>hi</h1>")
+
+    run(capsys, "publish", str(site), "--expires", "2099-12-31T18:00")
+    [manifest] = sent(server, "POST /api/deployments")
+    assert manifest["expires_at"].startswith("2099-12-31T18:00:00")
+
+    # Nothing to upload, so the expiry is set on its own
+    server.stored = stored_site(site)
+    out, _ = run(
+        capsys,
+        "publish",
+        str(site),
+        "-u",
+        "brave-otter-1a2b",
+        "--expires",
+        "2099-12-31",
+    )
+    assert out == "No changes to publish, but updated the expiry\n"
+    assert sent(server, "PATCH /api/deployments/brave-otter-1a2b") == [
+        {"expires_at": main.expiry("2099-12-31")}
+    ]
+
+
 def test_describe(server: FakeServer, capsys: pytest.CaptureFixture[str]) -> None:
     signed_in()
 
@@ -511,7 +565,8 @@ def test_list(server: FakeServer, capsys: pytest.CaptureFixture[str]) -> None:
     assert out == (
         "https://brave-otter-1a2b.sites.test  2 files  3.4 MiB  2026-10-09"
         "  Portfolio draft\n"
-        "https://quiet-heron-7f3c.sites.test  1 file  900 B  2026-10-09  offline\n"
+        "https://quiet-heron-7f3c.sites.test  1 file  900 B  2026-10-09  offline"
+        "  expires 2099-01-01\n"
     )
 
 

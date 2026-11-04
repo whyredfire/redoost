@@ -8,11 +8,13 @@ import {
 import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import { DangerAction } from "@/components/danger-action";
+import { ExpirySelect } from "@/components/expiry-select";
 import { FolderDrop } from "@/components/folder-drop";
 import { SignInPrompt } from "@/components/sign-in-prompt";
 import { SiteAddress } from "@/components/site-address";
 import { SiteDescription } from "@/components/site-description";
 import { SitePreview } from "@/components/site-preview";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { VersionList } from "@/components/version-list";
 import { ApiError } from "@/lib/api";
@@ -21,6 +23,8 @@ import {
   deleteDeployment,
   deleteVersion,
   describeVersion,
+  expired,
+  online,
   pruneVersions,
   readDeployment,
   readVersions,
@@ -28,7 +32,13 @@ import {
   type Deployment,
   type Version,
 } from "@/lib/deploy";
-import { errorMessage, formatBytes, formatDate, siteUrl } from "@/lib/format";
+import {
+  errorMessage,
+  formatBytes,
+  formatDate,
+  formatTime,
+  siteUrl,
+} from "@/lib/format";
 import {
   clearSession,
   clearToken,
@@ -48,6 +58,58 @@ export const Route = createFileRoute("/sites_/$slug")({
     </p>
   ),
 });
+
+type ExpirySectionProps = {
+  site: Deployment;
+  onSave: (expiresAt: string | null) => Promise<void>;
+};
+
+// Keyed by slug where it's used, so the draft follows the site shown
+function ExpirySection({ site, onSave }: ExpirySectionProps) {
+  const [expiresAt, setExpiresAt] = useState(site.expires_at);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function save() {
+    setSaving(true);
+    setError("");
+    try {
+      await onSave(expiresAt);
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="space-y-3 rounded-xl border px-4 py-3">
+      <h2 className="font-medium">Expires</h2>
+      <ExpirySelect
+        value={expiresAt}
+        onChange={setExpiresAt}
+        disabled={saving}
+      />
+      <p className="text-muted-foreground">
+        {!site.expires_at
+          ? "Stays online until you take it offline."
+          : expired(site)
+            ? `Expired on ${formatDate(site.expires_at)}. Pick a new date, or never, to put it back.`
+            : `Goes offline on ${formatDate(site.expires_at)} at ${formatTime(site.expires_at)}.`}
+      </p>
+      {error && (
+        <p role="alert" className="text-destructive">
+          {error}
+        </p>
+      )}
+      {expiresAt !== site.expires_at && (
+        <Button size="sm" disabled={saving} onClick={save}>
+          {saving ? "Saving…" : "Save"}
+        </Button>
+      )}
+    </section>
+  );
+}
 
 async function loadSite(
   slug: string,
@@ -122,6 +184,13 @@ function SitePage() {
     await router.invalidate();
   }
 
+  async function expire(expires_at: string | null) {
+    const token = loadToken();
+    if (!token || !site) return;
+    await changeDeployment(site.slug, { expires_at }, token);
+    await router.invalidate();
+  }
+
   async function restore(id: string) {
     const token = loadToken();
     if (!token || !site) return;
@@ -160,6 +229,7 @@ function SitePage() {
   }
 
   const url = siteUrl(site.slug);
+  const live = online(site);
   const details = [
     {
       label: "Files",
@@ -171,7 +241,14 @@ function SitePage() {
       value: `${formatBytes(site.storage_size)} · ${site.version_count} ${site.version_count === 1 ? "version" : "versions"}`,
     },
     { label: "Published", value: formatDate(site.created_at) },
-    { label: "Status", value: site.enabled ? "Online" : "Offline" },
+    {
+      label: "Expires",
+      value: site.expires_at ? formatDate(site.expires_at) : "Never",
+    },
+    {
+      label: "Status",
+      value: !site.enabled ? "Offline" : expired(site) ? "Expired" : "Online",
+    },
   ];
 
   return (
@@ -192,8 +269,8 @@ function SitePage() {
 
       <div className="mt-8 grid grid-cols-[minmax(0,1fr)] items-start gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="space-y-4">
-          <SiteAddress slug={site.slug} live={site.enabled} />
-          {url && site.enabled && <SitePreview url={url} />}
+          <SiteAddress slug={site.slug} live={live} />
+          {url && live && <SitePreview url={url} />}
           <section className="space-y-3 pt-6">
             <h2 className="text-sm font-medium">Update</h2>
             {busy ? (
@@ -264,6 +341,7 @@ function SitePage() {
               </p>
             )}
           </section>
+          <ExpirySection key={site.slug} site={site} onSave={expire} />
           <DangerAction
             title="Delete site"
             description="Deletes the site and its files."

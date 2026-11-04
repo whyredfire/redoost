@@ -18,8 +18,19 @@ export type Deployment = {
   enabled: boolean;
   description: string;
   created_at: string;
+  // When it goes offline, if ever
+  expires_at: string | null;
   locked_until: string;
 };
+
+export function expired(site: Deployment) {
+  return site.expires_at !== null && Date.parse(site.expires_at) <= Date.now();
+}
+
+// Whether visitors can reach it
+export function online(site: Deployment) {
+  return site.enabled && !expired(site);
+}
 
 export type StoredFile = { path: string; sha256: string | null };
 
@@ -57,7 +68,21 @@ export type UploadSession = {
   note?: string;
 };
 
-type DeploymentChange = { enabled?: boolean; description?: string };
+type DeploymentChange = {
+  enabled?: boolean;
+  description?: string;
+  // Null for never
+  expires_at?: string | null;
+};
+
+export type NewSite = {
+  files: ManifestFile[];
+  // Left out, the server picks these
+  slug?: string;
+  description?: string;
+  version_description?: string;
+  expires_at?: string;
+};
 
 // Unused addresses to publish a new site at
 export async function suggestSlugs(token: string) {
@@ -68,22 +93,14 @@ export async function suggestSlugs(token: string) {
 }
 
 export async function createDeployment(
-  files: ManifestFile[],
-  slug: string | null,
-  description: string | undefined,
-  note: string | undefined,
+  site: NewSite,
   token: string,
   signal: AbortSignal,
 ) {
   const response = await fetch("/api/deployments", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authorization(token) },
-    body: JSON.stringify({
-      files,
-      slug: slug ?? undefined,
-      description,
-      version_description: note,
-    }),
+    body: JSON.stringify(site),
     signal,
   });
   return readResponse<DeploymentUploads>(response);

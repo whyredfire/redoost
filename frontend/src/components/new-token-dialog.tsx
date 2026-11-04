@@ -12,13 +12,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ExpirySelect } from "@/components/expiry-select";
 import { errorMessage } from "@/lib/format";
 import { loadToken } from "@/lib/session";
 import {
@@ -29,22 +23,6 @@ import {
   type Scope,
 } from "@/lib/tokens";
 
-// Days until a new token expires
-const lifetimes = [
-  ["never", "Never expires"],
-  ["7", "Expires in a week"],
-  ["30", "Expires in 30 days"],
-  ["90", "Expires in 90 days"],
-  ["365", "Expires in a year"],
-] as const;
-
-function expiry(days: string) {
-  if (days === "never") return null;
-  const date = new Date();
-  date.setDate(date.getDate() + Number(days));
-  return date.toISOString();
-}
-
 type NewTokenDialogProps = { onCreated: () => Promise<void> };
 
 // Asks what the token is for, then shows it the one time it can be copied
@@ -52,7 +30,7 @@ export function NewTokenDialog({ onCreated }: NewTokenDialogProps) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [chosen, setChosen] = useState<Scope[]>(["read", "publish"]);
-  const [lifetime, setLifetime] = useState<string>("never");
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState<CreatedToken | null>(null);
   const [error, setError] = useState("");
@@ -63,7 +41,7 @@ export function NewTokenDialog({ onCreated }: NewTokenDialogProps) {
     if (!next) {
       setName("");
       setChosen(["read", "publish"]);
-      setLifetime("never");
+      setExpiresAt(null);
       setCreated(null);
       setError("");
     }
@@ -85,7 +63,7 @@ export function NewTokenDialog({ onCreated }: NewTokenDialogProps) {
     setError("");
     try {
       const made = await createToken(
-        { name, scopes: chosen, expires_at: expiry(lifetime) },
+        { name, scopes: chosen, expires_at: expiresAt },
         token,
       );
       await onCreated();
@@ -191,22 +169,12 @@ export function NewTokenDialog({ onCreated }: NewTokenDialogProps) {
               <label htmlFor="token-expiry" className="text-sm font-medium">
                 Expiry
               </label>
-              <Select
-                value={lifetime}
-                onValueChange={setLifetime}
+              <ExpirySelect
+                id="token-expiry"
+                value={expiresAt}
+                onChange={setExpiresAt}
                 disabled={creating}
-              >
-                <SelectTrigger id="token-expiry" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {lifetimes.map(([days, label]) => (
-                    <SelectItem key={days} value={days}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              />
             </div>
             {error && (
               <p role="alert" className="text-sm text-destructive">

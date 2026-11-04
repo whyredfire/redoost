@@ -19,7 +19,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from scripts import cleanup
 from src import database, deployments
 from src.config import settings
-from src.models import SlugOffer, Version
+from src.models import Deployment, SlugOffer, Version
 from src.storage import StoredObject, content_type
 
 URL = "/api/deployments"
@@ -1195,6 +1195,69 @@ def test_resolve_site_once_ready(
 
 def test_resolve_unknown_site(client: TestClient) -> None:
     assert resolve(client, "missing-slug-0000").status_code == 403
+
+
+def test_sites_expire(
+    client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    soon = datetime.now(UTC) + timedelta(days=1)
+    site = {**manifest("index.html"), "expires_at": soon.isoformat()}
+    created = client.post(URL, json=site, headers=bearer(token)).json()
+    assert datetime.fromisoformat(created["expires_at"]) == soon
+    monkeypatch.setattr(deployments, "read_objects", stored("index.html"))
+    complete(client, {**created, "token": token})
+    url = f"{URL}/{created['slug']}"
+    assert resolve(client, created["slug"]).status_code == 204
+
+    async def expire() -> None:
+        async with AsyncSession(database.engine) as session:
+            deployment = await session.get(Deployment, created["slug"])
+            assert deployment is not None
+            deployment.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+            session.add(deployment)
+            await session.commit()
+
+    asyncio.run(expire())
+    assert resolve(client, created["slug"]).status_code == 403
+    # Kept, so it can be put back
+    assert client.get(url, headers=bearer(token)).json()["enabled"] is True
+    response = client.patch(url, json={"expires_at": None}, headers=bearer(token))
+    assert response.json()["expires_at"] is None
+    assert resolve(client, created["slug"]).status_code == 204
+
+    # Other changes leave it alone
+    client.patch(url, json={"expires_at": soon.isoformat()}, headers=bearer(token))
+    response = client.patch(url, json={"enabled": True}, headers=bearer(token))
+    assert datetime.fromisoformat(response.json()["expires_at"]) == soon
+
+
+def test_updates_set_expiries_once_complete(
+    client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    created = published(client, token, monkeypatch, "index.html")
+    url = f"{URL}/{created['slug']}"
+    soon = datetime.now(UTC) + timedelta(days=1)
+    body = {**manifest("index.html"), "expires_at": soon.isoformat()}
+
+    client.put(url, json=body, headers=bearer(token))
+    assert client.get(url, headers=bearer(token)).json()["expires_at"] is None
+    response = client.post(f"{url}/complete", json=body, headers=bearer(token))
+    assert datetime.fromisoformat(response.json()["expires_at"]) == soon
+
+    # Updates without one keep the expiry
+    update(client, created, "index.html")
+    expires_at = complete(client, created).json()["expires_at"]
+    assert datetime.fromisoformat(expires_at) == soon
+
+
+def test_rejects_past_expiries(client: TestClient, token: str) -> None:
+    past = (datetime.now(UTC) - timedelta(seconds=1)).isoformat()
+    site = {**manifest("index.html"), "expires_at": past}
+    assert client.post(URL, json=site, headers=bearer(token)).status_code == 422
+    created = create(client, token, "index.html")
+    url = f"{URL}/{created['slug']}"
+    response = client.patch(url, json={"expires_at": past}, headers=bearer(token))
+    assert response.status_code == 422
 
 
 def test_cleanup_removes_expired_uploads_and_orphans(

@@ -7,6 +7,7 @@ import sys
 import tempfile
 import time
 from collections.abc import Callable
+from datetime import date, datetime, timedelta, timezone
 from importlib.metadata import version
 from pathlib import Path
 from typing import Any
@@ -140,18 +141,23 @@ def publish(args: argparse.Namespace) -> None:
         manifest["description"] = args.description
     if args.message is not None:
         manifest["version_description"] = args.message
+    if args.expires is not None:
+        manifest["expires_at"] = args.expires
     if args.update and unchanged(api, args.update, manifest):
         url = site_url(api, args.update)
-        if args.description is None:
-            response = api.request("GET", f"/api/deployments/{args.update}")
-            text = "No changes to publish"
-        else:
+        labels = {"description": "description", "expires_at": "expiry"}
+        changed = [name for name in labels if name in manifest]
+        if changed:
             response = api.request(
                 "PATCH",
                 f"/api/deployments/{args.update}",
-                json={"description": args.description},
+                json={name: manifest[name] for name in changed},
             )
-            text = "No changes to publish, but updated the description"
+            updated = " and ".join(labels[name] for name in changed)
+            text = f"No changes to publish, but updated the {updated}"
+        else:
+            response = api.request("GET", f"/api/deployments/{args.update}")
+            text = "No changes to publish"
         output(args, {**response.json(), "url": url}, text)
         return
 
@@ -217,6 +223,26 @@ def preview_site(args: argparse.Namespace) -> None:
             server.serve_forever()
 
 
+def expiry(text: str) -> str:
+    """A date, online through that day, or a time, as the server takes it."""
+    try:
+        if len(text) == 10:
+            day = date.fromisoformat(text) + timedelta(days=1)
+            moment = datetime.combine(day, datetime.min.time())
+        else:
+            moment = datetime.fromisoformat(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            "expected a date like 2026-12-31 or a time like 2026-12-31T18:00"
+        ) from None
+    # Local time, unless it says otherwise
+    return moment.astimezone().isoformat()
+
+
+def expiry_or_never(text: str) -> str | None:
+    return None if text == "never" else expiry(text)
+
+
 def site_line(site: dict[str, Any]) -> str:
     parts = [
         site["url"] or site["slug"],
@@ -231,6 +257,11 @@ def site_line(site: dict[str, Any]) -> str:
         )
     if not site.get("enabled", True):
         parts.append("offline")
+    if site.get("expires_at"):
+        # Python 3.10 doesn't read a Z suffix
+        expires_at = datetime.fromisoformat(site["expires_at"].replace("Z", "+00:00"))
+        expired = expires_at <= datetime.now(timezone.utc)
+        parts.append("expired" if expired else f"expires {site['expires_at'][:10]}")
     if site.get("description"):
         parts.append(site["description"])
     return "  ".join(parts)
@@ -411,6 +442,18 @@ def describe(args: argparse.Namespace) -> None:
     output(args, response.json(), text)
 
 
+def expire(args: argparse.Namespace) -> None:
+    response = signed_in(args).request(
+        "PATCH", f"/api/deployments/{args.slug}", json={"expires_at": args.when}
+    )
+    text = (
+        f"{args.slug} no longer expires"
+        if args.when is None
+        else f"{args.slug} goes offline at {args.when[:16].replace('T', ' ')}"
+    )
+    output(args, response.json(), text)
+
+
 def delete(args: argparse.Namespace) -> None:
     deleted, missing = change_sites(args, "DELETE", "deleted")
     report(args, "deleted", deleted, missing, f"Deleted {', '.join(deleted)}")
@@ -459,6 +502,13 @@ def parse(argv: list[str] | None) -> argparse.Namespace:
     )
     publish_parser.add_argument(
         "-m", "--message", help="what this version changes, shown in redoost versions"
+    )
+    publish_parser.add_argument(
+        "--expires",
+        type=expiry,
+        metavar="WHEN",
+        help="when the site goes offline: a date like 2026-12-31, online through "
+        "that day, or a time like 2026-12-31T18:00",
     )
     preview_parser = commands.add_parser(
         "preview",
@@ -511,6 +561,16 @@ def parse(argv: list[str] | None) -> argparse.Namespace:
     describe_parser.add_argument(
         "description", help='the new description, or "" to clear it'
     )
+    expire_parser = commands.add_parser(
+        "expire", parents=[common], help="set when a site goes offline"
+    )
+    expire_parser.add_argument("slug")
+    expire_parser.add_argument(
+        "when",
+        type=expiry_or_never,
+        help="a date like 2026-12-31, online through that day, a time like "
+        "2026-12-31T18:00, or never",
+    )
     commands.add_parser(
         "update", parents=[common], help="update the CLI to the server's version"
     )
@@ -533,6 +593,7 @@ commands: dict[str, Command] = {
     "rollback": rollback,
     "prune": prune,
     "describe": describe,
+    "expire": expire,
     "delete": delete,
     "update": update,
 }

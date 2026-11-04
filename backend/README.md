@@ -58,14 +58,18 @@ account: those take the dashboard's JWT.
   base64-encoded digest. Size and digest are of the bytes as uploaded; files
   sent gzip-compressed set `gzip` and are served with `Content-Encoding: gzip`.
   An optional `slug` picks one of the addresses offered to the user, and gets
-  409 once the offer lapsed or was used; without one, the server picks. Returns the
+  409 once the offer lapsed or was used; without one, the server picks. An
+  optional `expires_at` is when the site goes offline, a future time; without
+  it, it never does. Returns the
   slug and one signed upload policy per file. Users whose sites would exceed
   `REDOOST_MAX_ACCOUNT_SIZE` in total get 403.
 - `GET /api/deployments`: the user's ready deployments, newest first, each
   with `storage_size` and `version_count` for its kept versions.
 - `GET /api/deployments/{slug}`: deployment status.
-- `PATCH /api/deployments/{slug}`: changes the site's `description`, or takes
-  it offline or puts it online with `enabled`.
+- `PATCH /api/deployments/{slug}`: changes the site's `description`, takes
+  it offline or puts it online with `enabled`, or sets `expires_at`, when it
+  goes offline on its own; `null` for never. Expired sites keep their files
+  and versions, and come back once the expiry is moved or cleared.
 - `GET /api/deployments/{slug}/versions`: the site's kept versions, newest
   first, as `{"id", "created_at", "file_count", "size", "description",
   "current"}`. A manifest's optional `version_description` says what the
@@ -93,6 +97,7 @@ account: those take the dashboard's JWT.
 - `POST /api/deployments/{slug}/complete`: send the manifest again; marks the
   deployment `ready` once every file is stored with its checksum, then
   deletes files not in the manifest and frees the site for its next update.
+  The manifest's `description` and `expires_at`, if sent, are applied then.
   Returns 409 while files are missing or the manifest isn't the one the upload
   started with, and 410 after the upload window.
 - `POST /api/deployments/{slug}/cancel`: frees the site for another update and

@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { ThinkingOrb } from "thinking-orbs";
 import { AddressPicker } from "@/components/address-picker";
 import { SizeInfo, Sizes } from "@/components/compression-saving";
+import { ExpirySelect } from "@/components/expiry-select";
 import { stageSize } from "@/components/folder-drop";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -173,6 +174,8 @@ export function PublishCard() {
     chooseTarget,
     slug,
     setSlug,
+    expiresAt,
+    setExpiresAt,
     setDescription,
     note,
     setNote,
@@ -300,7 +303,27 @@ export function PublishCard() {
                 )
               )}
               {!target && !session && (
-                <AddressPicker slug={slug} onChange={setSlug} disabled={busy} />
+                <>
+                  <AddressPicker
+                    slug={slug}
+                    onChange={setSlug}
+                    disabled={busy}
+                  />
+                  <div className="mt-4 space-y-1.5">
+                    <label
+                      htmlFor="site-expiry"
+                      className="text-sm text-muted-foreground"
+                    >
+                      Expires
+                    </label>
+                    <ExpirySelect
+                      id="site-expiry"
+                      value={expiresAt}
+                      onChange={setExpiresAt}
+                      disabled={busy}
+                    />
+                  </div>
+                </>
               )}
               {diff && (
                 <p className="mt-2 text-sm text-muted-foreground">

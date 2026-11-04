@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, HTTPException, Response, status
 
 from .database import Session
@@ -15,6 +17,10 @@ async def resolve_site(slug: str, session: Session, response: Response) -> None:
         deployment is None
         or deployment.state != DeploymentState.ready
         or not deployment.enabled
+        or (
+            deployment.expires_at is not None
+            and deployment.expires_at <= datetime.now(UTC)
+        )
     ):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Site not available")
     response.headers["X-Site-Spa"] = "1" if deployment.spa else "0"

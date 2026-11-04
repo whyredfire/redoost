@@ -22,6 +22,7 @@ import {
   changeDeployments,
   deleteDeployments,
   listDeployments,
+  online,
   readUsage,
   type Deployment,
   type Usage,
@@ -85,7 +86,7 @@ function SitesPage() {
         site.description.toLowerCase().includes(search),
     )
     .filter(
-      (site) => status === "all" || site.enabled === (status === "online"),
+      (site) => status === "all" || online(site) === (status === "online"),
     )
     .toSorted(orders[order]);
   // Only what's listed, so a filter can't hide a site that would be deleted
@@ -252,7 +253,7 @@ function SitesPage() {
 type SidebarProps = { sites: Deployment[]; usage: Usage | null };
 
 function Sidebar({ sites, usage }: SidebarProps) {
-  const offline = sites.filter((site) => !site.enabled).length;
+  const offline = sites.filter((site) => !online(site)).length;
 
   return (
     <aside className="space-y-4 text-sm">

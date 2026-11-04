@@ -84,6 +84,8 @@ function useUploadState() {
   const [target, setTarget] = useState<string | null>(null);
   // The address picked for a new site; null leaves it to the server
   const [slug, setSlug] = useState<string | null>(null);
+  // When a new site goes offline; null for never
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
   // When another tab's or device's upload to the target frees it
   const [lockedUntil, setLockedUntil] = useState<string | null>(null);
   // The target's files, to show what the update changes
@@ -154,6 +156,7 @@ function useUploadState() {
     setSession(null);
     setTarget(null);
     setSlug(null);
+    setExpiresAt(null);
     setStoredFiles(null);
     setDescription(null);
     setNote("");
@@ -314,10 +317,13 @@ function useUploadState() {
           const token = publishToken();
           try {
             deployment = await createDeployment(
-              manifest,
-              slug,
-              description ?? undefined,
-              note || undefined,
+              {
+                files: manifest,
+                slug: slug ?? undefined,
+                description: description ?? undefined,
+                version_description: note || undefined,
+                expires_at: expiresAt ?? undefined,
+              },
               token,
               abort.signal,
             );
@@ -430,6 +436,8 @@ function useUploadState() {
     chooseTarget,
     slug,
     setSlug,
+    expiresAt,
+    setExpiresAt,
     setDescription,
     note,
     setNote,

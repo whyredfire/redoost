@@ -60,6 +60,11 @@ without a file extension serve `index.html`.
   so and publishes nothing. Without `--description`, the site keeps its
   description.
 - `redoost publish ... -m "<what changed>"` notes what a version changes.
+- `redoost publish ... --expires <when>` makes a site go offline on its own,
+  for drafts and previews: a date like `2026-12-31`, online through that day,
+  or a time like `2026-12-31T18:00`. `redoost expire <slug> <when>` sets it
+  later, and `redoost expire <slug> never` clears it. Expired sites keep their
+  files and come back when the expiry is changed.
 - `redoost versions <slug>` lists the versions a site keeps, newest first, and
   `redoost rollback <slug> [version]` serves one of them again right away, the
   previous one by default. `redoost prune <slug>` deletes every version but the

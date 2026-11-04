@@ -181,6 +181,7 @@ async def create_deployment(
         storage_size=manifest.total_size,
         spa=manifest.spa,
         description=manifest.description or "",
+        expires_at=manifest.expires_at,
     )
     deployment.pending_folder = new_folder(deployment.slug)
     deployment.pending_digest = manifest_digest(manifest)
@@ -246,6 +247,9 @@ async def change_deployment(
         deployment.enabled = change.enabled
     if change.description is not None:
         deployment.description = change.description
+    # Null clears it, unlike the others, so only a missing one is left alone
+    if "expires_at" in change.model_fields_set:
+        deployment.expires_at = change.expires_at
     session.add(deployment)
     await session.commit()
     return deployment
@@ -468,6 +472,8 @@ async def complete_deployment(
     # Set here rather than when the update starts, so a failed update keeps the old one
     if manifest.description is not None:
         deployment.description = manifest.description
+    if manifest.expires_at is not None:
+        deployment.expires_at = manifest.expires_at
     # Frees the site for its next update
     deployment.locked_until = now
     await trim_versions(session, deployment, now)

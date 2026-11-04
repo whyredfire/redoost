@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { ChevronRight } from "lucide-react";
 import { LiveDot } from "@/components/live-dot";
 import { Card } from "@/components/ui/card";
-import type { Deployment } from "@/lib/deploy";
+import { expired, online, type Deployment } from "@/lib/deploy";
 import { formatBytes, formatDate, siteUrl } from "@/lib/format";
 
 type SiteListProps = {
@@ -52,7 +52,7 @@ function SiteSummary({ site }: { site: Deployment }) {
   return (
     <div className="min-w-0 flex-1">
       <p className="flex items-center gap-2.5 font-mono text-sm">
-        <LiveDot off={!site.enabled} />
+        <LiveDot off={!online(site)} />
         <span className="truncate">
           <span className="font-medium">{site.slug}</span>
           <span className="hidden text-muted-foreground sm:inline">
@@ -71,6 +71,10 @@ function SiteSummary({ site }: { site: Deployment }) {
         {site.version_count > 1 && ` in ${site.version_count} versions`} ·{" "}
         <span className="whitespace-nowrap">{formatDate(site.created_at)}</span>
         {!site.enabled && " · offline"}
+        {site.expires_at &&
+          (expired(site)
+            ? " · expired"
+            : ` · expires ${formatDate(site.expires_at)}`)}
       </p>
     </div>
   );

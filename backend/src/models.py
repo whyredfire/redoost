@@ -5,7 +5,7 @@ from enum import StrEnum
 from typing import Annotated, Any, Self
 
 from coolname import generate_slug
-from pydantic import StringConstraints, field_validator, model_validator
+from pydantic import AfterValidator, StringConstraints, field_validator, model_validator
 from sqlalchemy import BigInteger, Index, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
@@ -67,6 +67,18 @@ class ManifestFile(SQLModel):
 
 # Short enough to show in a list next to the site's address
 Description = Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)]
+
+
+def ahead(moment: datetime) -> datetime:
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=UTC)
+    if moment <= datetime.now(UTC):
+        raise ValueError("Must be in the future")
+    return moment
+
+
+# A time still to come, as expiries are set
+Expiry = Annotated[datetime, AfterValidator(ahead)]
 TokenName = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)
 ]
@@ -84,6 +96,11 @@ class Manifest(SQLModel):
     )
     version_description: Description | None = Field(
         default=None, description="What this version changes, shown with it"
+    )
+    expires_at: Expiry | None = Field(
+        default=None,
+        description="When the site goes offline; a new site never does without it, "
+        "and an update keeps it as it is",
     )
 
     @model_validator(mode="after")
@@ -175,6 +192,9 @@ class DeploymentBase(SQLModel):
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC), description="Creation time"
     )
+    expires_at: datetime | None = Field(
+        default=None, description="When the site goes offline, if ever"
+    )
     locked_until: datetime = Field(
         default_factory=lambda: datetime.now(UTC) + settings.upload_window,
         description="Until when the latest upload holds the site; its policies expire then",
@@ -187,6 +207,9 @@ class DeploymentChange(SQLModel):
     )
     description: Description | None = Field(
         default=None, description="Note to tell the site apart"
+    )
+    expires_at: Expiry | None = Field(
+        default=None, description="When the site goes offline; null for never"
     )
 
 
@@ -446,7 +469,7 @@ class TokenSource(StrEnum):
 class ApiTokenCreate(SQLModel):
     name: TokenName = Field(description="What the token is for, like GitHub Actions")
     scopes: list[Scope] = Field(min_length=1, description="What it may do")
-    expires_at: datetime | None = Field(
+    expires_at: Expiry | None = Field(
         default=None, description="When it stops working, if ever"
     )
 
@@ -454,15 +477,6 @@ class ApiTokenCreate(SQLModel):
     @classmethod
     def distinct(cls, scopes: list[Scope]) -> list[Scope]:
         return list(dict.fromkeys(scopes))
-
-    @field_validator("expires_at")
-    @classmethod
-    def ahead(cls, expires_at: datetime | None) -> datetime | None:
-        if expires_at is not None and expires_at.tzinfo is None:
-            expires_at = expires_at.replace(tzinfo=UTC)
-        if expires_at is not None and expires_at <= datetime.now(UTC):
-            raise ValueError("Must be in the future")
-        return expires_at
 
 
 # Acts as its user: made by redoost login, or by hand for pipelines
