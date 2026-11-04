@@ -1,6 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { LogOut, Settings, UserRound } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { LogOut, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,17 +9,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { UserAvatar } from "@/components/user-avatar";
 import type { User } from "@/lib/auth";
-
-function initials(user: User | null) {
-  const words = user?.name?.trim().split(/\s+/) ?? [];
-  if (words.length > 0) {
-    return words.length > 1
-      ? `${words[0]![0]}${words.at(-1)![0]}`.toUpperCase()
-      : words[0]![0]!.toUpperCase();
-  }
-  return user?.email?.[0]?.toUpperCase() ?? null;
-}
 
 type AccountMenuProps = {
   user: User | null;
@@ -28,8 +18,6 @@ type AccountMenuProps = {
 };
 
 export function AccountMenu({ user, onSignOut }: AccountMenuProps) {
-  const letters = initials(user);
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -39,11 +27,7 @@ export function AccountMenu({ user, onSignOut }: AccountMenuProps) {
           className="rounded-full"
           aria-label="Your account"
         >
-          <Avatar className="size-7">
-            <AvatarFallback className="text-xs font-medium">
-              {letters ?? <UserRound className="size-4" />}
-            </AvatarFallback>
-          </Avatar>
+          <UserAvatar user={user} className="size-7" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">

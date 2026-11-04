@@ -321,13 +321,20 @@ async def sign_in_user(
     subject: str,
     email: str | None,
     name: str | None,
+    picture: str | None = None,
 ) -> User:
     """Finds or creates the user in one statement, keeping their details current."""
-    new = User(provider=provider, subject=subject, email=email, name=name)
+    new = User(
+        provider=provider, subject=subject, email=email, name=name, picture=picture
+    )
     upsert = insert(User).values(**new.model_dump())
     upsert = upsert.on_conflict_do_update(
         index_elements=[col(User.provider), col(User.subject)],
-        set_={"email": upsert.excluded.email, "name": upsert.excluded.name},
+        set_={
+            "email": upsert.excluded.email,
+            "name": upsert.excluded.name,
+            "picture": upsert.excluded.picture,
+        },
     ).returning(col(User.id))
     user_id = (await session.exec(upsert)).scalar_one()
     await session.commit()
@@ -354,8 +361,8 @@ async def sign_in(body: SignIn, session: Session) -> Token:
     except oidc.OidcError as error:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(error)) from error
 
-    # Email and name are kept current, since users can change them at the provider
+    # Kept current, since users can change them at the provider
     user = await sign_in_user(
-        session, settings.oidc_provider, info.sub, info.email, info.name
+        session, settings.oidc_provider, info.sub, info.email, info.name, info.picture
     )
     return create_token(user)
