@@ -10,7 +10,7 @@ build step. It takes a finished site: a folder with `index.html` at its root, a
 .zip of one, or a single HTML file. Build the project first if it needs it.
 
 By default, files can be up to 20 MiB, sites up to 150 MiB and 2000 files, and
-each account's sites up to 1 GiB in total.
+each account's sites up to 500 MiB in total.
 
 ## Install the CLI
 

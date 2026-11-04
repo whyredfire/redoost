@@ -64,7 +64,8 @@ class Settings(BaseSettings):
         default=2000, description="Maximum number of files in a deployment"
     )
     max_account_size: ByteSize = Field(
-        default=ByteSize(1024**3), description="Maximum total size of a user's sites"
+        default=ByteSize(500 * 1024**2),
+        description="Maximum total size of a user's sites",
     )
     kept_versions: int = Field(
         default=5,

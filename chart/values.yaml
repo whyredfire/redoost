@@ -77,7 +77,7 @@ api:
   maxDeploymentSize: 150MiB
   maxDeploymentFiles: 2000
   # Total size of each user's sites
-  maxAccountSize: 1GiB
+  maxAccountSize: 500MiB
   # Versions each site keeps, counting the one being served, all counting toward
   # its owner's storage
   keptVersions: 5
