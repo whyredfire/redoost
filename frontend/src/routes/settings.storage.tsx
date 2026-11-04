@@ -1,4 +1,5 @@
 import { Link, createFileRoute, useRouter } from "@tanstack/react-router";
+import { cn } from "cn";
 import { Eraser } from "lucide-react";
 import { ConfirmButton } from "@/components/confirm-button";
 import { SettingsSection } from "@/components/settings-section";
@@ -36,10 +37,13 @@ export const Route = createFileRoute("/settings/storage")({
 function SiteUsage({
   site,
   used,
+  aligned,
   onPrune,
 }: {
   site: Deployment;
   used: number;
+  // Whether any row has the button, so sizes line up with it
+  aligned: boolean;
   onPrune: () => Promise<void>;
 }) {
   const share = used ? (site.storage_size / used) * 100 : 0;
@@ -89,8 +93,7 @@ function SiteUsage({
           </Button>
         </ConfirmButton>
       ) : (
-        // Keeps the sizes lined up with rows that have the button
-        <span aria-hidden className="size-9 shrink-0" />
+        aligned && <span aria-hidden className="size-9 shrink-0" />
       )}
     </li>
   );
@@ -110,6 +113,7 @@ function StorageSettings() {
   }
 
   const largest = sites.toSorted((a, b) => b.storage_size - a.storage_size);
+  const prunable = sites.some((site) => site.version_count > 1);
   // Uploads in progress, and versions waiting out Nginx's cache before deletion
   const elsewhere =
     usage.used - sites.reduce((sum, site) => sum + site.storage_size, 0);
@@ -145,13 +149,14 @@ function StorageSettings() {
                 key={site.slug}
                 site={site}
                 used={usage.used}
+                aligned={prunable}
                 onPrune={() => prune(site.slug)}
               />
             ))}
             {elsewhere > 0 && (
               <li className="flex justify-between gap-4 px-4 py-3 text-muted-foreground">
                 <span>Uploads in progress and versions being deleted</span>
-                <span className="mr-13 shrink-0 font-mono">
+                <span className={cn("shrink-0 font-mono", prunable && "mr-13")}>
                   {formatBytes(elsewhere)}
                 </span>
               </li>
