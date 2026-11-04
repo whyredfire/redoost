@@ -13,7 +13,7 @@ import { AgentPromptButton } from "@/components/agent-prompt-button";
 import { PageHeading } from "@/components/page-heading";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { deleteAccount, signOut, signedInUser } from "@/lib/auth";
+import { signOut, signedInUser } from "@/lib/auth";
 import { repository } from "@/lib/config";
 import { useToken } from "@/lib/session";
 import { useUpload } from "@/lib/upload";
@@ -37,6 +37,8 @@ function contentWidth(pathname: string) {
   if (["/", "/publish"].includes(pathname) || pathname.startsWith("/sites")) {
     return "max-w-6xl";
   }
+  // Room for the section list beside each section
+  if (pathname.startsWith("/settings")) return "max-w-5xl";
   return "max-w-3xl";
 }
 
@@ -94,11 +96,6 @@ function Layout() {
     await router.invalidate();
   }
 
-  async function removeAccount() {
-    await deleteAccount();
-    await leave();
-  }
-
   return (
     <div className="flex min-h-screen flex-col">
       <HeadContent />
@@ -131,13 +128,7 @@ function Layout() {
           <div className="ml-auto flex items-center gap-1">
             <AgentPromptButton />
             <ThemeToggle />
-            {token && (
-              <AccountMenu
-                user={signedInUser()}
-                onSignOut={leave}
-                onDelete={removeAccount}
-              />
-            )}
+            {token && <AccountMenu user={signedInUser()} onSignOut={leave} />}
           </div>
         </div>
       </header>

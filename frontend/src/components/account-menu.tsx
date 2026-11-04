@@ -1,6 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { KeyRound, LogOut, Settings, UserRound } from "lucide-react";
-import { useState } from "react";
+import { LogOut, Settings, UserRound } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,7 +10,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { SettingsDialog } from "@/components/settings-dialog";
 import type { User } from "@/lib/auth";
 
 function initials(user: User | null) {
@@ -27,68 +25,54 @@ function initials(user: User | null) {
 type AccountMenuProps = {
   user: User | null;
   onSignOut: () => void;
-  onDelete: () => Promise<void>;
 };
 
-export function AccountMenu({ user, onSignOut, onDelete }: AccountMenuProps) {
+export function AccountMenu({ user, onSignOut }: AccountMenuProps) {
   const letters = initials(user);
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
-    <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="rounded-full"
-            aria-label="Your account"
-          >
-            <Avatar className="size-7">
-              <AvatarFallback className="text-xs font-medium">
-                {letters ?? <UserRound className="size-4" />}
-              </AvatarFallback>
-            </Avatar>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-60">
-          {user && (
-            <>
-              <DropdownMenuLabel className="font-normal">
-                {user.name && (
-                  <p className="truncate text-sm font-medium">{user.name}</p>
-                )}
-                {user.email && (
-                  <p className="truncate text-xs text-muted-foreground">
-                    {user.email}
-                  </p>
-                )}
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-            </>
-          )}
-          <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="rounded-full"
+          aria-label="Your account"
+        >
+          <Avatar className="size-7">
+            <AvatarFallback className="text-xs font-medium">
+              {letters ?? <UserRound className="size-4" />}
+            </AvatarFallback>
+          </Avatar>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-60">
+        {user && (
+          <>
+            <DropdownMenuLabel className="font-normal">
+              {user.name && (
+                <p className="truncate text-sm font-medium">{user.name}</p>
+              )}
+              {user.email && (
+                <p className="truncate text-xs text-muted-foreground">
+                  {user.email}
+                </p>
+              )}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+          </>
+        )}
+        <DropdownMenuItem asChild>
+          <Link to="/settings">
             <Settings />
             Settings
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link to="/tokens">
-              <KeyRound />
-              API tokens
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={onSignOut}>
-            <LogOut />
-            Sign out
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <SettingsDialog
-        user={user}
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-        onDelete={onDelete}
-      />
-    </>
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={onSignOut}>
+          <LogOut />
+          Sign out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

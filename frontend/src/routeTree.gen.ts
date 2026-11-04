@@ -12,11 +12,14 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PublishRouteImport } from './routes/publish'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SitesRouteImport } from './routes/sites'
 import { Route as TermsRouteImport } from './routes/terms'
-import { Route as TokensRouteImport } from './routes/tokens'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as CliIdRouteImport } from './routes/cli.$id'
+import { Route as SettingsIndexRouteImport } from './routes/settings.index'
+import { Route as SettingsAccountRouteImport } from './routes/settings.account'
+import { Route as SettingsTokensRouteImport } from './routes/settings.tokens'
 import { Route as SitesSlugRouteImport } from './routes/sites_.$slug'
 
 const IndexRoute = IndexRouteImport.update({
@@ -34,6 +37,11 @@ const PublishRoute = PublishRouteImport.update({
   path: '/publish',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SitesRoute = SitesRouteImport.update({
   id: '/sites',
   path: '/sites',
@@ -42,11 +50,6 @@ const SitesRoute = SitesRouteImport.update({
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TokensRoute = TokensRouteImport.update({
-  id: '/tokens',
-  path: '/tokens',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
@@ -59,6 +62,21 @@ const CliIdRoute = CliIdRouteImport.update({
   path: '/cli/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsIndexRoute = SettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsAccountRoute = SettingsAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsTokensRoute = SettingsTokensRouteImport.update({
+  id: '/tokens',
+  path: '/tokens',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const SitesSlugRoute = SitesSlugRouteImport.update({
   id: '/sites_/$slug',
   path: '/sites/$slug',
@@ -69,12 +87,15 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/privacy': typeof PrivacyRoute
   '/publish': typeof PublishRoute
+  '/settings': typeof SettingsRouteWithChildren
   '/sites': typeof SitesRoute
   '/terms': typeof TermsRoute
-  '/tokens': typeof TokensRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/cli/$id': typeof CliIdRoute
+  '/settings/account': typeof SettingsAccountRoute
+  '/settings/tokens': typeof SettingsTokensRoute
   '/sites/$slug': typeof SitesSlugRoute
+  '/settings/': typeof SettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -82,22 +103,27 @@ export interface FileRoutesByTo {
   '/publish': typeof PublishRoute
   '/sites': typeof SitesRoute
   '/terms': typeof TermsRoute
-  '/tokens': typeof TokensRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/cli/$id': typeof CliIdRoute
+  '/settings/account': typeof SettingsAccountRoute
+  '/settings/tokens': typeof SettingsTokensRoute
   '/sites/$slug': typeof SitesSlugRoute
+  '/settings': typeof SettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/privacy': typeof PrivacyRoute
   '/publish': typeof PublishRoute
+  '/settings': typeof SettingsRouteWithChildren
   '/sites': typeof SitesRoute
   '/terms': typeof TermsRoute
-  '/tokens': typeof TokensRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/cli/$id': typeof CliIdRoute
+  '/settings/account': typeof SettingsAccountRoute
+  '/settings/tokens': typeof SettingsTokensRoute
   '/sites_/$slug': typeof SitesSlugRoute
+  '/settings/': typeof SettingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -105,12 +131,15 @@ export interface FileRouteTypes {
     | '/'
     | '/privacy'
     | '/publish'
+    | '/settings'
     | '/sites'
     | '/terms'
-    | '/tokens'
     | '/auth/callback'
     | '/cli/$id'
+    | '/settings/account'
+    | '/settings/tokens'
     | '/sites/$slug'
+    | '/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -118,30 +147,35 @@ export interface FileRouteTypes {
     | '/publish'
     | '/sites'
     | '/terms'
-    | '/tokens'
     | '/auth/callback'
     | '/cli/$id'
+    | '/settings/account'
+    | '/settings/tokens'
     | '/sites/$slug'
+    | '/settings'
   id:
     | '__root__'
     | '/'
     | '/privacy'
     | '/publish'
+    | '/settings'
     | '/sites'
     | '/terms'
-    | '/tokens'
     | '/auth/callback'
     | '/cli/$id'
+    | '/settings/account'
+    | '/settings/tokens'
     | '/sites_/$slug'
+    | '/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   PrivacyRoute: typeof PrivacyRoute
   PublishRoute: typeof PublishRoute
+  SettingsRoute: typeof SettingsRouteWithChildren
   SitesRoute: typeof SitesRoute
   TermsRoute: typeof TermsRoute
-  TokensRoute: typeof TokensRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   CliIdRoute: typeof CliIdRoute
   SitesSlugRoute: typeof SitesSlugRoute
@@ -170,6 +204,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublishRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sites': {
       id: '/sites'
       path: '/sites'
@@ -182,13 +223,6 @@ declare module '@tanstack/react-router' {
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/tokens': {
-      id: '/tokens'
-      path: '/tokens'
-      fullPath: '/tokens'
-      preLoaderRoute: typeof TokensRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/callback': {
@@ -205,6 +239,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CliIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/': {
+      id: '/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof SettingsIndexRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/account': {
+      id: '/settings/account'
+      path: '/account'
+      fullPath: '/settings/account'
+      preLoaderRoute: typeof SettingsAccountRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/tokens': {
+      id: '/settings/tokens'
+      path: '/tokens'
+      fullPath: '/settings/tokens'
+      preLoaderRoute: typeof SettingsTokensRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/sites_/$slug': {
       id: '/sites_/$slug'
       path: '/sites/$slug'
@@ -215,13 +270,29 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface SettingsRouteChildren {
+  SettingsAccountRoute: typeof SettingsAccountRoute
+  SettingsTokensRoute: typeof SettingsTokensRoute
+  SettingsIndexRoute: typeof SettingsIndexRoute
+}
+
+const SettingsRouteChildren: SettingsRouteChildren = {
+  SettingsAccountRoute: SettingsAccountRoute,
+  SettingsTokensRoute: SettingsTokensRoute,
+  SettingsIndexRoute: SettingsIndexRoute,
+}
+
+const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
+  SettingsRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   PrivacyRoute: PrivacyRoute,
   PublishRoute: PublishRoute,
+  SettingsRoute: SettingsRouteWithChildren,
   SitesRoute: SitesRoute,
   TermsRoute: TermsRoute,
-  TokensRoute: TokensRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   CliIdRoute: CliIdRoute,
   SitesSlugRoute: SitesSlugRoute,

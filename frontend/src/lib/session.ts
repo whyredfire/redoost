@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { ApiError } from "./api";
 import type { UploadSession } from "./deploy";
 
 const storageKey = "redoost.upload";
@@ -62,4 +63,21 @@ function subscribeToken(listener: () => void) {
 
 export function useToken() {
   return useSyncExternalStore(subscribeToken, loadToken);
+}
+
+// Null when signed out, or when the token turns out expired, so pages ask to sign in
+export async function loadSignedIn<T>(
+  load: (token: string) => Promise<T>,
+): Promise<T | null> {
+  const token = loadToken();
+  if (!token) return null;
+  try {
+    return await load(token);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      clearToken();
+      return null;
+    }
+    throw error;
+  }
 }
