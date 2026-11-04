@@ -22,7 +22,8 @@ export function ConfirmButton({
   onConfirm,
   children,
 }: {
-  label: string;
+  // A tooltip, for buttons that are only an icon
+  label?: string;
   question: string;
   warning: string;
   action: string;
@@ -56,9 +57,13 @@ export function ConfirmButton({
 
   return (
     <AlertDialog open={confirming} onOpenChange={changeOpen}>
-      <Hint label={label}>
+      {label ? (
+        <Hint label={label}>
+          <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>
+        </Hint>
+      ) : (
         <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>
-      </Hint>
+      )}
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{question}</AlertDialogTitle>

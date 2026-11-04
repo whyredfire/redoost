@@ -1,10 +1,7 @@
 import { Link, createFileRoute, useRouter } from "@tanstack/react-router";
-import { cn } from "cn";
-import { Eraser } from "lucide-react";
 import { ConfirmButton } from "@/components/confirm-button";
 import { SettingsSection } from "@/components/settings-section";
 import { StorageUsage } from "@/components/storage-usage";
-import { Button } from "@/components/ui/button";
 import {
   listDeployments,
   pruneVersions,
@@ -37,64 +34,57 @@ export const Route = createFileRoute("/settings/storage")({
 function SiteUsage({
   site,
   used,
-  aligned,
   onPrune,
 }: {
   site: Deployment;
   used: number;
-  // Whether any row has the button, so sizes line up with it
-  aligned: boolean;
   onPrune: () => Promise<void>;
 }) {
   const share = used ? (site.storage_size / used) * 100 : 0;
   const older = site.version_count - 1;
 
   return (
-    <li className="flex items-center gap-4 px-4 py-3">
-      <div className="min-w-0 flex-1 space-y-1.5">
-        <div className="flex items-baseline justify-between gap-4">
-          <Link
-            to="/sites/$slug"
-            params={{ slug: site.slug }}
-            className="truncate font-mono hover:underline"
-          >
-            {site.slug}
-          </Link>
-          <span className="shrink-0 font-mono text-muted-foreground">
-            {formatBytes(site.storage_size)}
-          </span>
-        </div>
-        <div className="h-1 overflow-hidden rounded-full bg-muted">
-          <div
-            className="h-full rounded-full bg-brand"
-            style={{ width: `${Math.max(share, 1)}%` }}
-          />
-        </div>
-        <p className="text-xs text-muted-foreground">
-          {site.version_count}{" "}
-          {site.version_count === 1 ? "version" : "versions"}
-          {site.description && ` · ${site.description}`}
-        </p>
-      </div>
-      {older > 0 ? (
-        <ConfirmButton
-          label="Delete older versions"
-          question={`Delete ${site.slug}'s older versions?`}
-          warning={`${older === 1 ? "Its older version is" : `Its ${older} older versions are`} removed, keeping the one visitors see. This can't be undone.`}
-          action="Delete older versions"
-          onConfirm={onPrune}
+    <li className="space-y-1.5 px-4 py-3">
+      <div className="flex items-baseline justify-between gap-4">
+        <Link
+          to="/sites/$slug"
+          params={{ slug: site.slug }}
+          className="truncate font-mono hover:underline"
         >
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Delete older versions"
-          >
-            <Eraser />
-          </Button>
-        </ConfirmButton>
-      ) : (
-        aligned && <span aria-hidden className="size-9 shrink-0" />
-      )}
+          {site.slug}
+        </Link>
+        <span className="shrink-0 font-mono text-muted-foreground">
+          {formatBytes(site.storage_size)}
+        </span>
+      </div>
+      <div className="h-1 overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-full rounded-full bg-brand"
+          style={{ width: `${Math.max(share, 1)}%` }}
+        />
+      </div>
+      <p className="truncate text-xs text-muted-foreground">
+        {site.version_count} {site.version_count === 1 ? "version" : "versions"}
+        {older > 0 && (
+          <>
+            {" · "}
+            <ConfirmButton
+              question={`Delete ${site.slug}'s older versions?`}
+              warning={`${older === 1 ? "Its older version is" : `Its ${older} older versions are`} removed, keeping the one visitors see. This can't be undone.`}
+              action="Delete older versions"
+              onConfirm={onPrune}
+            >
+              <button
+                type="button"
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                Delete older versions
+              </button>
+            </ConfirmButton>
+          </>
+        )}
+        {site.description && ` · ${site.description}`}
+      </p>
     </li>
   );
 }
@@ -113,7 +103,6 @@ function StorageSettings() {
   }
 
   const largest = sites.toSorted((a, b) => b.storage_size - a.storage_size);
-  const prunable = sites.some((site) => site.version_count > 1);
   // Uploads in progress, and versions waiting out Nginx's cache before deletion
   const elsewhere =
     usage.used - sites.reduce((sum, site) => sum + site.storage_size, 0);
@@ -149,14 +138,13 @@ function StorageSettings() {
                 key={site.slug}
                 site={site}
                 used={usage.used}
-                aligned={prunable}
                 onPrune={() => prune(site.slug)}
               />
             ))}
             {elsewhere > 0 && (
               <li className="flex justify-between gap-4 px-4 py-3 text-muted-foreground">
                 <span>Uploads in progress and versions being deleted</span>
-                <span className={cn("shrink-0 font-mono", prunable && "mr-13")}>
+                <span className="shrink-0 font-mono">
                   {formatBytes(elsewhere)}
                 </span>
               </li>
