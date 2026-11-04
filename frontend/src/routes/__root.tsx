@@ -14,7 +14,6 @@ import { PageHeading } from "@/components/page-heading";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { signOut, signedInUser } from "@/lib/auth";
-import { repository } from "@/lib/config";
 import { useToken } from "@/lib/session";
 import { useUpload } from "@/lib/upload";
 
@@ -30,8 +29,6 @@ const navClass =
 const footerLink =
   "whitespace-nowrap underline-offset-4 hover:text-foreground hover:underline";
 
-const version: string = import.meta.env.VITE_VERSION || "dev";
-
 // Pages meant for reading stay narrow; the rest use the width
 function contentWidth(pathname: string) {
   if (["/", "/publish"].includes(pathname) || pathname.startsWith("/sites")) {
@@ -42,40 +39,24 @@ function contentWidth(pathname: string) {
   return "max-w-3xl";
 }
 
-// Releases link to their notes, and builds between them to their commit
-function versionUrl(version: string) {
-  if (/^\d+\.\d+\.\d+$/.test(version)) {
-    return `${repository}/releases/tag/v${version}`;
-  }
-  const commit = /^\d+\.\d+\.\d+-([0-9a-f]{7,40})$/.exec(version)?.[1];
-  return commit ? `${repository}/commit/${commit}` : null;
+// Signed in, About is a tab in settings instead
+function footerLinks(signedIn: boolean) {
+  return [
+    ...(signedIn
+      ? []
+      : [
+          <Link to="/about" className={footerLink}>
+            About
+          </Link>,
+        ]),
+    <Link to="/privacy" className={footerLink}>
+      Privacy Policy
+    </Link>,
+    <Link to="/terms" className={footerLink}>
+      Terms of Service
+    </Link>,
+  ];
 }
-
-const versionLink = versionUrl(version);
-
-const footerLinks = [
-  <a className={footerLink} href={repository} target="_blank" rel="noreferrer">
-    Open source on GitHub
-  </a>,
-  <Link to="/privacy" className={footerLink}>
-    Privacy Policy
-  </Link>,
-  <Link to="/terms" className={footerLink}>
-    Terms of Service
-  </Link>,
-  versionLink ? (
-    <a
-      className={footerLink}
-      href={versionLink}
-      target="_blank"
-      rel="noreferrer"
-    >
-      {version}
-    </a>
-  ) : (
-    <span>{version}</span>
-  ),
-];
 
 function Layout() {
   const { busy, startOver } = useUpload();
@@ -143,7 +124,7 @@ function Layout() {
         <div className="mx-auto flex max-w-7xl flex-col items-center gap-3 px-5 py-6 text-sm text-muted-foreground sm:flex-row sm:justify-between">
           {/* Phones wrap between links rather than inside them, without the dots */}
           <nav className="flex flex-wrap justify-center gap-x-4 gap-y-1 sm:gap-x-0">
-            {footerLinks.map((link, index) => (
+            {footerLinks(Boolean(token)).map((link, index) => (
               <Fragment key={index}>
                 {index > 0 && (
                   <span aria-hidden className="hidden px-1.5 sm:inline">

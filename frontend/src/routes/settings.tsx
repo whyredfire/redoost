@@ -1,5 +1,5 @@
 import { Link, Outlet, createFileRoute } from "@tanstack/react-router";
-import { KeyRound, UserRound } from "lucide-react";
+import { HardDrive, Info, KeyRound, Palette, UserRound } from "lucide-react";
 import { PageHeading } from "@/components/page-heading";
 import { SignInPrompt } from "@/components/sign-in-prompt";
 import { useToken } from "@/lib/session";
@@ -10,7 +10,10 @@ export const Route = createFileRoute("/settings")({
 
 const sections = [
   { to: "/settings/account", label: "Account", icon: UserRound },
+  { to: "/settings/storage", label: "Storage", icon: HardDrive },
   { to: "/settings/tokens", label: "API tokens", icon: KeyRound },
+  { to: "/settings/appearance", label: "Appearance", icon: Palette },
+  { to: "/settings/about", label: "About", icon: Info },
 ] as const;
 
 function SettingsLayout() {
@@ -22,7 +25,7 @@ function SettingsLayout() {
         <PageHeading title="Settings" />
         <SignInPrompt
           title="Sign in to see your settings"
-          description="Your account, storage, and API tokens are here."
+          description="Your account, storage, API tokens, and appearance are here."
         />
       </>
     );

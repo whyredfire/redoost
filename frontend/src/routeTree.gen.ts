@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AboutRouteImport } from './routes/about'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PublishRouteImport } from './routes/publish'
 import { Route as SettingsRouteImport } from './routes/settings'
@@ -18,13 +19,21 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as CliIdRouteImport } from './routes/cli.$id'
 import { Route as SettingsIndexRouteImport } from './routes/settings.index'
+import { Route as SettingsAboutRouteImport } from './routes/settings.about'
 import { Route as SettingsAccountRouteImport } from './routes/settings.account'
+import { Route as SettingsAppearanceRouteImport } from './routes/settings.appearance'
+import { Route as SettingsStorageRouteImport } from './routes/settings.storage'
 import { Route as SettingsTokensRouteImport } from './routes/settings.tokens'
 import { Route as SitesSlugRouteImport } from './routes/sites_.$slug'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -67,9 +76,24 @@ const SettingsIndexRoute = SettingsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => SettingsRoute,
 } as any)
+const SettingsAboutRoute = SettingsAboutRouteImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const SettingsAccountRoute = SettingsAccountRouteImport.update({
   id: '/account',
   path: '/account',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsAppearanceRoute = SettingsAppearanceRouteImport.update({
+  id: '/appearance',
+  path: '/appearance',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsStorageRoute = SettingsStorageRouteImport.update({
+  id: '/storage',
+  path: '/storage',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsTokensRoute = SettingsTokensRouteImport.update({
@@ -85,6 +109,7 @@ const SitesSlugRoute = SitesSlugRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/privacy': typeof PrivacyRoute
   '/publish': typeof PublishRoute
   '/settings': typeof SettingsRouteWithChildren
@@ -92,20 +117,27 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/cli/$id': typeof CliIdRoute
+  '/settings/about': typeof SettingsAboutRoute
   '/settings/account': typeof SettingsAccountRoute
+  '/settings/appearance': typeof SettingsAppearanceRoute
+  '/settings/storage': typeof SettingsStorageRoute
   '/settings/tokens': typeof SettingsTokensRoute
   '/sites/$slug': typeof SitesSlugRoute
   '/settings/': typeof SettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/privacy': typeof PrivacyRoute
   '/publish': typeof PublishRoute
   '/sites': typeof SitesRoute
   '/terms': typeof TermsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/cli/$id': typeof CliIdRoute
+  '/settings/about': typeof SettingsAboutRoute
   '/settings/account': typeof SettingsAccountRoute
+  '/settings/appearance': typeof SettingsAppearanceRoute
+  '/settings/storage': typeof SettingsStorageRoute
   '/settings/tokens': typeof SettingsTokensRoute
   '/sites/$slug': typeof SitesSlugRoute
   '/settings': typeof SettingsIndexRoute
@@ -113,6 +145,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/privacy': typeof PrivacyRoute
   '/publish': typeof PublishRoute
   '/settings': typeof SettingsRouteWithChildren
@@ -120,7 +153,10 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/cli/$id': typeof CliIdRoute
+  '/settings/about': typeof SettingsAboutRoute
   '/settings/account': typeof SettingsAccountRoute
+  '/settings/appearance': typeof SettingsAppearanceRoute
+  '/settings/storage': typeof SettingsStorageRoute
   '/settings/tokens': typeof SettingsTokensRoute
   '/sites_/$slug': typeof SitesSlugRoute
   '/settings/': typeof SettingsIndexRoute
@@ -129,6 +165,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/about'
     | '/privacy'
     | '/publish'
     | '/settings'
@@ -136,26 +173,34 @@ export interface FileRouteTypes {
     | '/terms'
     | '/auth/callback'
     | '/cli/$id'
+    | '/settings/about'
     | '/settings/account'
+    | '/settings/appearance'
+    | '/settings/storage'
     | '/settings/tokens'
     | '/sites/$slug'
     | '/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/about'
     | '/privacy'
     | '/publish'
     | '/sites'
     | '/terms'
     | '/auth/callback'
     | '/cli/$id'
+    | '/settings/about'
     | '/settings/account'
+    | '/settings/appearance'
+    | '/settings/storage'
     | '/settings/tokens'
     | '/sites/$slug'
     | '/settings'
   id:
     | '__root__'
     | '/'
+    | '/about'
     | '/privacy'
     | '/publish'
     | '/settings'
@@ -163,7 +208,10 @@ export interface FileRouteTypes {
     | '/terms'
     | '/auth/callback'
     | '/cli/$id'
+    | '/settings/about'
     | '/settings/account'
+    | '/settings/appearance'
+    | '/settings/storage'
     | '/settings/tokens'
     | '/sites_/$slug'
     | '/settings/'
@@ -171,6 +219,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AboutRoute: typeof AboutRoute
   PrivacyRoute: typeof PrivacyRoute
   PublishRoute: typeof PublishRoute
   SettingsRoute: typeof SettingsRouteWithChildren
@@ -188,6 +237,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -246,11 +302,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsIndexRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/settings/about': {
+      id: '/settings/about'
+      path: '/about'
+      fullPath: '/settings/about'
+      preLoaderRoute: typeof SettingsAboutRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/settings/account': {
       id: '/settings/account'
       path: '/account'
       fullPath: '/settings/account'
       preLoaderRoute: typeof SettingsAccountRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/appearance': {
+      id: '/settings/appearance'
+      path: '/appearance'
+      fullPath: '/settings/appearance'
+      preLoaderRoute: typeof SettingsAppearanceRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/storage': {
+      id: '/settings/storage'
+      path: '/storage'
+      fullPath: '/settings/storage'
+      preLoaderRoute: typeof SettingsStorageRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/settings/tokens': {
@@ -271,13 +348,19 @@ declare module '@tanstack/react-router' {
 }
 
 interface SettingsRouteChildren {
+  SettingsAboutRoute: typeof SettingsAboutRoute
   SettingsAccountRoute: typeof SettingsAccountRoute
+  SettingsAppearanceRoute: typeof SettingsAppearanceRoute
+  SettingsStorageRoute: typeof SettingsStorageRoute
   SettingsTokensRoute: typeof SettingsTokensRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
 }
 
 const SettingsRouteChildren: SettingsRouteChildren = {
+  SettingsAboutRoute: SettingsAboutRoute,
   SettingsAccountRoute: SettingsAccountRoute,
+  SettingsAppearanceRoute: SettingsAppearanceRoute,
+  SettingsStorageRoute: SettingsStorageRoute,
   SettingsTokensRoute: SettingsTokensRoute,
   SettingsIndexRoute: SettingsIndexRoute,
 }
@@ -288,6 +371,7 @@ const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AboutRoute: AboutRoute,
   PrivacyRoute: PrivacyRoute,
   PublishRoute: PublishRoute,
   SettingsRoute: SettingsRouteWithChildren,
