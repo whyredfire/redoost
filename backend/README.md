@@ -57,18 +57,35 @@ account: those take the dashboard's JWT.
   sent gzip-compressed set `gzip` and are served with `Content-Encoding: gzip`. Returns the slug and one signed upload policy
   per file. Users whose sites would exceed `REDOOST_MAX_ACCOUNT_SIZE` in total
   get 403.
-- `GET /api/deployments`: the user's ready deployments, newest first.
+- `GET /api/deployments`: the user's ready deployments, newest first, each
+  with `storage_size` and `version_count` for its kept versions.
 - `GET /api/deployments/{slug}`: deployment status.
 - `PATCH /api/deployments/{slug}`: changes the site's `description`, or takes
   it offline or puts it online with `enabled`.
+- `GET /api/deployments/{slug}/versions`: the site's kept versions, newest
+  first, as `{"id", "created_at", "file_count", "size", "description",
+  "current"}`. A manifest's optional `version_description` says what the
+  version changes, and `PATCH /api/deployments/{slug}/versions/{id}` with
+  `{"description"}` changes it later. Each site
+  keeps its last `REDOOST_KEPT_VERSIONS` (default 5), every one counting in full
+  toward `REDOOST_MAX_ACCOUNT_SIZE`; older ones are deleted as updates complete.
+- `POST /api/deployments/{slug}/versions/{id}/restore`: serves that version
+  again, right away and without copying anything; the one it replaces stays
+  kept. Returns 409 while an upload is in progress.
+- `DELETE /api/deployments/{slug}/versions/{id}`: deletes a version other than
+  the one served, which gets 409.
+- `DELETE /api/deployments/{slug}/versions`: deletes every version but the one
+  served, returning the deployment.
 - `GET /api/deployments/{slug}/files`: the site's stored files as
   `{"path", "sha256"}`, sorted by path, so an update can be previewed. Each
   version's files are recorded when it's published, so this and updates never
   read them back from storage.
 - `PUT /api/deployments/{slug}`: updates a ready site in place from a full
-  manifest, counted at its new size against `REDOOST_MAX_ACCOUNT_SIZE`. Returns upload policies only for new and changed files, compared
-  by checksum with what's stored. One upload per site at a time: returns 409
-  while another is in progress.
+  manifest, counted on top of its kept versions against
+  `REDOOST_MAX_ACCOUNT_SIZE`. Returns upload policies only for new and changed
+  files, compared by checksum with what's stored; unchanged ones are copied
+  into the new version when it completes, so each version is complete on its
+  own. One upload per site at a time: returns 409 while another is in progress.
 - `POST /api/deployments/{slug}/complete`: send the manifest again; marks the
   deployment `ready` once every file is stored with its checksum, then
   deletes files not in the manifest and frees the site for its next update.
@@ -121,9 +138,9 @@ if a model changes without a migration.
 
 `python -m scripts.cleanup` removes deployments still uploading after their
 upload window and bucket folders without a deployment, lets go of updates
-nobody finished and versions an update replaced, deletes the folders let go of
-once their upload window has passed, and removes expired CLI sign-in links and
-API tokens. It handles up to 100 of each per run. The chart runs it as a CronJob (`cleanup.schedule`, hourly by default),
+nobody finished, deletes the folders let go of once their upload window has
+passed or Nginx can no longer have them cached, and removes expired CLI sign-in
+links and API tokens. It handles up to 100 of each per run. The chart runs it as a CronJob (`cleanup.schedule`, hourly by default),
 keeping the last 10 successful and failed runs (`cleanup.successfulJobsHistoryLimit`,
 `cleanup.failedJobsHistoryLimit`); in Compose, run it with
 `docker compose exec api uv run --no-sync python -m scripts.cleanup`.

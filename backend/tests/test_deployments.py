@@ -19,7 +19,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from scripts import cleanup
 from src import database, deployments
 from src.config import settings
-from src.models import VersionFiles
+from src.models import Version
 from src.storage import StoredObject, content_type
 
 URL = "/api/deployments"
@@ -406,12 +406,26 @@ def published(
     return created
 
 
+def update_site(
+    client: TestClient,
+    created: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+    *paths: str,
+) -> dict[str, Any]:
+    """Updates a published site to these files and completes the update."""
+    monkeypatch.setattr(deployments, "read_objects", stored(*paths))
+    assert update(client, created, *paths).status_code == 200
+    response = complete(client, created, *paths)
+    assert response.status_code == 200
+    return response.json()
+
+
 def serve(created: dict[str, str], files: dict[str, StoredObject]) -> None:
     """Replaces what the site's current version holds."""
 
     async def write() -> None:
         async with AsyncSession(database.engine) as session:
-            version = await session.get(VersionFiles, folder_of(created))
+            version = await session.get(Version, folder_of(created))
             assert version is not None
             version.files = {
                 path: {"sha256": file.sha256, "size": file.size}
@@ -428,7 +442,7 @@ def versions(slug: str) -> set[str]:
 
     async def read() -> set[str]:
         async with AsyncSession(database.engine) as session:
-            query = select(VersionFiles.folder).where(col(VersionFiles.slug) == slug)
+            query = select(Version.folder).where(col(Version.slug) == slug)
             return set((await session.exec(query)).all())
 
     return asyncio.run(read())
@@ -474,7 +488,9 @@ def test_versions_without_recorded_files_are_uploaded_again(
 
     async def forget() -> None:
         async with AsyncSession(database.engine) as session:
-            await deployments.forget_version(session, folder_of(created))
+            version = await session.get(Version, folder_of(created))
+            assert version is not None
+            await session.delete(version)
             await session.commit()
 
     asyncio.run(forget())
@@ -582,16 +598,167 @@ def test_completing_an_update_switches_folders(
     site = resolve(client, created["slug"])
     assert site.headers["X-Site-Root"] == "/" + folder.removesuffix("/")
     assert site.headers["X-Site-Spa"] == "0"
-    # The old version stays while Nginx may still serve it; only old.html isn't shared
+    # The old version is kept to go back to, and counts in full
     assert ("delete folder", served) not in storage
-    assert usage(client, token) == 3
+    assert body["version_count"] == 2
+    assert body["storage_size"] == 4
+    assert usage(client, token) == 4
     assert versions(created["slug"]) == {served, folder}
 
-    monkeypatch.setattr(cleanup, "retire_after", timedelta(0))
-    run_cleanup()
-    assert ("delete folder", served) in storage
+    listed = client.get(f"{URL}/{created['slug']}/versions", headers=bearer(token))
+    assert [(v["current"], v["size"], v["file_count"]) for v in listed.json()] == [
+        (True, 2, 2),
+        (False, 2, 2),
+    ]
+    assert f"{created['slug']}/{listed.json()[1]['id']}/" == served
+
+
+def test_versions_can_be_described(
+    client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    created = published(client, token, monkeypatch, "index.html")
+    url = f"{URL}/{created['slug']}"
+    monkeypatch.setattr(deployments, "read_objects", stored("index.html", "a.html"))
+    assert update(client, created, "index.html", "a.html").status_code == 200
+    response = client.post(
+        f"{url}/complete",
+        headers=bearer(token),
+        json={**manifest("index.html", "a.html"), "version_description": " Adds a "},
+    )
+    assert response.status_code == 200
+
+    [latest, first] = client.get(f"{url}/versions", headers=bearer(token)).json()
+    assert latest["description"] == "Adds a"
+    assert first["description"] == ""
+
+    response = client.patch(
+        f"{url}/versions/{first['id']}",
+        headers=bearer(token),
+        json={"description": "Launch"},
+    )
+    assert response.status_code == 200
+    assert response.json()["description"] == "Launch"
+    assert response.json()["current"] is False
+    [_, first] = client.get(f"{url}/versions", headers=bearer(token)).json()
+    assert first["description"] == "Launch"
+    response = client.patch(
+        f"{url}/versions/{first['id']}",
+        headers=bearer(token),
+        json={"description": "x" * 201},
+    )
+    assert response.status_code == 422
+
+
+def test_pruning_keeps_only_the_served_version(
+    client: TestClient,
+    token: str,
+    monkeypatch: pytest.MonkeyPatch,
+    storage: list[tuple[str, ...]],
+    run_cleanup: Callable[[], tuple[int, int, int]],
+) -> None:
+    created = published(client, token, monkeypatch, "index.html")
+    first = folder_of(created)
+    update_site(client, created, monkeypatch, "index.html", "a.html")
+    update_site(client, created, monkeypatch, "index.html", "b.html")
+    url = f"{URL}/{created['slug']}"
+    assert usage(client, token) == 5
+
+    response = client.delete(f"{url}/versions", headers=bearer(token))
+    assert response.status_code == 200
+    assert response.json()["version_count"] == 1
+    assert response.json()["storage_size"] == 2
+    assert len(versions(created["slug"])) == 1
     assert usage(client, token) == 2
-    assert versions(created["slug"]) == {folder}
+    # Both were served within the last minutes, so they wait out Nginx's cache
+    assert all(call[0] != "delete folder" for call in storage)
+    run_cleanup()
+    assert all(call[0] != "delete folder" for call in storage)
+    assert first not in versions(created["slug"])
+
+
+def test_sites_keep_a_few_versions(
+    client: TestClient,
+    token: str,
+    monkeypatch: pytest.MonkeyPatch,
+    storage: list[tuple[str, ...]],
+) -> None:
+    monkeypatch.setattr(settings, "kept_versions", 2)
+    monkeypatch.setattr(deployments, "retire_after", timedelta(0))
+    created = published(client, token, monkeypatch, "index.html")
+    first = folder_of(created)
+    update_site(client, created, monkeypatch, "index.html", "a.html")
+    assert ("delete folder", first) not in storage
+
+    body = update_site(client, created, monkeypatch, "index.html", "b.html")
+    assert ("delete folder", first) in storage
+    assert body["version_count"] == 2
+    assert body["storage_size"] == 4
+    assert first not in versions(created["slug"])
+
+
+def test_restoring_a_version(
+    client: TestClient,
+    token: str,
+    monkeypatch: pytest.MonkeyPatch,
+    storage: list[tuple[str, ...]],
+) -> None:
+    created = published(client, token, monkeypatch, "index.html")
+    first = folder_of(created)
+    url = f"{URL}/{created['slug']}"
+    update_site(client, created, monkeypatch, "index.html", "404.html")
+    [latest, old] = client.get(f"{url}/versions", headers=bearer(token)).json()
+
+    response = client.post(f"{url}/versions/{old['id']}/restore", headers=bearer(token))
+    assert response.status_code == 200
+    body = response.json()
+    assert body["file_count"] == 1
+    assert body["total_size"] == 1
+    assert body["spa"] is True
+    assert body["version_count"] == 2
+    assert resolve(client, created["slug"]).headers["X-Site-Root"] == (
+        "/" + first.removesuffix("/")
+    )
+    [restored, replaced] = client.get(f"{url}/versions", headers=bearer(token)).json()
+    assert restored["id"] == latest["id"] and restored["current"] is False
+    assert replaced["id"] == old["id"] and replaced["current"] is True
+    # Nothing was copied or deleted
+    assert all(call[0] not in ("copy", "delete folder") for call in storage[1:])
+
+    # Only versions that exist, and never during an upload
+    assert (
+        client.post(
+            f"{url}/versions/v-0123456789ab/restore", headers=bearer(token)
+        ).status_code
+        == 404
+    )
+    update(client, created, "index.html")
+    response = client.post(
+        f"{url}/versions/{latest['id']}/restore", headers=bearer(token)
+    )
+    assert response.status_code == 409
+
+
+def test_deleting_a_version(
+    client: TestClient,
+    token: str,
+    monkeypatch: pytest.MonkeyPatch,
+    storage: list[tuple[str, ...]],
+) -> None:
+    monkeypatch.setattr(deployments, "retire_after", timedelta(0))
+    created = published(client, token, monkeypatch, "index.html")
+    url = f"{URL}/{created['slug']}"
+    update_site(client, created, monkeypatch, "index.html", "404.html")
+    [current, old] = client.get(f"{url}/versions", headers=bearer(token)).json()
+
+    response = client.delete(f"{url}/versions/{current['id']}", headers=bearer(token))
+    assert response.status_code == 409
+    response = client.delete(f"{url}/versions/{old['id']}", headers=bearer(token))
+    assert response.status_code == 204
+    assert ("delete folder", f"{created['slug']}/{old['id']}/") in storage
+    assert client.get(f"{url}/versions", headers=bearer(token)).json() == [current]
+    assert usage(client, token) == 2
+    response = client.delete(f"{url}/versions/{old['id']}", headers=bearer(token))
+    assert response.status_code == 404
 
 
 def test_cancelling_an_update_deletes_its_files(

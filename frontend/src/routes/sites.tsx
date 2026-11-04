@@ -64,7 +64,7 @@ type Order = "newest" | "largest" | "name";
 
 const orders: Record<Order, (a: Deployment, b: Deployment) => number> = {
   newest: (a, b) => b.created_at.localeCompare(a.created_at),
-  largest: (a, b) => b.total_size - a.total_size,
+  largest: (a, b) => b.storage_size - a.storage_size,
   name: (a, b) => a.slug.localeCompare(b.slug),
 };
 

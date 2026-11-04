@@ -138,6 +138,8 @@ def publish(args: argparse.Namespace) -> None:
     # Left out, an update keeps the site's description
     if args.description is not None:
         manifest["description"] = args.description
+    if args.message is not None:
+        manifest["version_description"] = args.message
     if args.update and unchanged(api, args.update, manifest):
         url = site_url(api, args.update)
         if args.description is None:
@@ -223,6 +225,10 @@ def site_line(site: dict[str, Any]) -> str:
         site["created_at"][:10],
     ]
     # Servers before these settings existed don't report them
+    if site.get("version_count", 1) > 1:
+        parts.append(
+            f"{plural(site['version_count'], 'version')}, {format_bytes(site['storage_size'])}"
+        )
     if not site.get("enabled", True):
         parts.append("offline")
     if site.get("description"):
@@ -238,6 +244,59 @@ def list_sites(args: argparse.Namespace) -> None:
         site["url"] = site_url(api, site["slug"])
     lines = [site_line(site) for site in sites]
     output(args, sites, "\n".join(lines) or "No sites yet")
+
+
+def version_line(version: dict[str, Any]) -> str:
+    parts = [
+        version["id"],
+        version["created_at"][:16].replace("T", " "),
+        plural(version["file_count"], "file"),
+        format_bytes(version["size"]),
+    ]
+    if version["current"]:
+        parts.append("current")
+    if version.get("description"):
+        parts.append(version["description"])
+    return "  ".join(parts)
+
+
+def versions(args: argparse.Namespace) -> None:
+    api = signed_in(args)
+    found = api.request("GET", f"/api/deployments/{args.slug}/versions").json()
+    output(args, found, "\n".join(version_line(version) for version in found))
+
+
+def rollback(args: argparse.Namespace) -> None:
+    api = signed_in(args)
+    version = args.version
+    # Without one, the version before the one being served
+    if version is None:
+        found = api.request("GET", f"/api/deployments/{args.slug}/versions").json()
+        earlier = [entry for entry in found if not entry["current"]]
+        if not earlier:
+            raise ApiError(f"{args.slug} has no other version to go back to.")
+        version = earlier[0]["id"]
+    response = api.request(
+        "POST", f"/api/deployments/{args.slug}/versions/{version}/restore"
+    )
+    url = site_url(api, args.slug)
+    output(
+        args,
+        {**response.json(), "url": url},
+        f"{url or args.slug} now serves {version}",
+    )
+
+
+def prune(args: argparse.Namespace) -> None:
+    response = signed_in(args).request(
+        "DELETE", f"/api/deployments/{args.slug}/versions"
+    )
+    site = response.json()
+    output(
+        args,
+        site,
+        f"Kept only the version {args.slug} serves, {format_bytes(site['storage_size'])}",
+    )
 
 
 def change_sites(
@@ -398,6 +457,9 @@ def parse(argv: list[str] | None) -> argparse.Namespace:
         "--description",
         help="a note to tell the site apart (updates keep the current one without it)",
     )
+    publish_parser.add_argument(
+        "-m", "--message", help="what this version changes, shown in redoost versions"
+    )
     preview_parser = commands.add_parser(
         "preview",
         parents=[common],
@@ -425,6 +487,23 @@ def parse(argv: list[str] | None) -> argparse.Namespace:
         commands.add_parser(name, parents=[common], help=help_text).add_argument(
             "slugs", nargs="+", metavar="slug"
         )
+    commands.add_parser(
+        "versions", parents=[common], help="list a site's kept versions"
+    ).add_argument("slug")
+    rollback_parser = commands.add_parser(
+        "rollback", parents=[common], help="serve an earlier version of a site again"
+    )
+    rollback_parser.add_argument("slug")
+    rollback_parser.add_argument(
+        "version",
+        nargs="?",
+        help="version ID from redoost versions (default: the previous one)",
+    )
+    commands.add_parser(
+        "prune",
+        parents=[common],
+        help="delete a site's versions other than the one served",
+    ).add_argument("slug")
     describe_parser = commands.add_parser(
         "describe", parents=[common], help="change a site's description"
     )
@@ -450,6 +529,9 @@ commands: dict[str, Command] = {
     "list": list_sites,
     "enable": enable,
     "disable": disable,
+    "versions": versions,
+    "rollback": rollback,
+    "prune": prune,
     "describe": describe,
     "delete": delete,
     "update": update,

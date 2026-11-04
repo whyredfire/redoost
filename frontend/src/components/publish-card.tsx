@@ -171,6 +171,8 @@ export function PublishCard() {
     startOver,
     chooseTarget,
     setDescription,
+    note,
+    setNote,
     cancel,
     publish,
     takeOver,
@@ -300,6 +302,24 @@ export function PublishCard() {
                     ? "No changes"
                     : changeSummary(diff.changes, diff.removed.length)}
                 </p>
+              )}
+              {target && !session && (
+                <div className="mt-4 space-y-1.5">
+                  <label
+                    htmlFor="version-description"
+                    className="text-sm text-muted-foreground"
+                  >
+                    What changed (optional)
+                  </label>
+                  <Input
+                    id="version-description"
+                    value={note}
+                    onChange={(event) => setNote(event.target.value)}
+                    placeholder="Shown with this version"
+                    maxLength={200}
+                    disabled={busy}
+                  />
+                </div>
               )}
               {!session ? (
                 <div className="mt-4 space-y-1.5">

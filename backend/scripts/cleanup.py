@@ -10,14 +10,12 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel.sql.sqltypes import UTCDateTime
 
 from src.database import engine
-from src.deployments import retire_after
 from src.models import (
     ApiToken,
     CliLogin,
     Deployment,
     DeploymentState,
     DiscardedFolder,
-    VersionFiles,
 )
 from src.storage import delete_folder, delete_sites, slug_pages
 
@@ -68,9 +66,8 @@ async def cleanup(session: AsyncSession) -> tuple[int, int, int]:
     for deployment in expired:
         await session.delete(deployment)
 
-    # Updates nobody finished or cancelled, and versions replaced by an update. Each
-    # statement takes the folders off their rows and queues them in one go, skipping
-    # rows the API has locked to change them.
+    # Updates nobody finished or cancelled. The statement takes the folders off their
+    # rows and queues them in one go, skipping rows the API has locked to change them.
     now = datetime.now(UTC)
     abandoned = (
         select(Deployment.slug, Deployment.owner_id, Deployment.pending_folder)
@@ -98,21 +95,6 @@ async def cleanup(session: AsyncSession) -> tuple[int, int, int]:
             cleared.c.pending_folder.is_distinct_from(cleared.c.served),
         )
     )
-    replaced = (
-        select(Deployment.slug, Deployment.owner_id, Deployment.retired_folder)
-        .where(col(Deployment.retired_at) < now - retire_after)
-        .limit(batch_size)
-        .with_for_update(skip_locked=True)
-        .subquery()
-    )
-    cleared = (
-        update(Deployment)
-        .where(col(Deployment.slug) == replaced.c.slug)
-        .values(retired_folder=None, retired_at=None, retired_size=0)
-        .returning(replaced.c.retired_folder, replaced.c.owner_id)
-        .cte("cleared")
-    )
-    await session.exec(queue(cleared, "retired_folder", now))
     await session.commit()
 
     # Folders let go above, by cancelled uploads, and by sites deleted mid-upload
@@ -125,11 +107,6 @@ async def cleanup(session: AsyncSession) -> tuple[int, int, int]:
     for folder in discarded:
         await delete_folder(folder.folder)
         await session.delete(folder)
-    await session.exec(
-        delete(VersionFiles).where(
-            col(VersionFiles.folder).in_([folder.folder for folder in discarded])
-        )
-    )
 
     # CLI sign-ins nobody finished, and tokens past their expiry
     await session.exec(delete(CliLogin).where(col(CliLogin.expires_at) < now))

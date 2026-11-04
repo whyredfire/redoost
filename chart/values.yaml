@@ -78,6 +78,9 @@ api:
   maxDeploymentFiles: 2000
   # Total size of each user's sites
   maxAccountSize: 1GiB
+  # Versions each site keeps, counting the one being served, all counting toward
+  # its owner's storage
+  keptVersions: 5
   uploadWindow: PT1H
   resources:
     requests:

@@ -66,6 +66,11 @@ class Settings(BaseSettings):
     max_account_size: ByteSize = Field(
         default=ByteSize(1024**3), description="Maximum total size of a user's sites"
     )
+    kept_versions: int = Field(
+        default=5,
+        ge=1,
+        description="Versions each site keeps, counting the one being served",
+    )
 
     # Garage rejects POST policies signed more than 24 hours ago
     upload_window: timedelta = Field(

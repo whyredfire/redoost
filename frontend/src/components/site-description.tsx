@@ -8,9 +8,17 @@ import { errorMessage } from "@/lib/format";
 type SiteDescriptionProps = {
   description: string;
   onSave: (description: string) => Promise<void>;
+  placeholder?: string;
+  // Only a pencil when empty, for rows in a list
+  compact?: boolean;
 };
 
-export function SiteDescription({ description, onSave }: SiteDescriptionProps) {
+export function SiteDescription({
+  description,
+  onSave,
+  placeholder = "What's this site for?",
+  compact = false,
+}: SiteDescriptionProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(description);
   const [saving, setSaving] = useState(false);
@@ -47,7 +55,7 @@ export function SiteDescription({ description, onSave }: SiteDescriptionProps) {
             onKeyDown={(event) => {
               if (event.key === "Escape") setEditing(false);
             }}
-            placeholder="What's this site for?"
+            placeholder={placeholder}
             maxLength={200}
             disabled={saving}
             autoFocus
@@ -73,7 +81,7 @@ export function SiteDescription({ description, onSave }: SiteDescriptionProps) {
     );
   }
 
-  if (!description) {
+  if (!description && !compact) {
     return (
       <Button
         type="button"
@@ -90,13 +98,17 @@ export function SiteDescription({ description, onSave }: SiteDescriptionProps) {
 
   return (
     <div className="flex items-start gap-1.5">
-      <p className="min-w-0 break-words text-muted-foreground">{description}</p>
-      <Hint label="Edit description">
+      {description && (
+        <p className="min-w-0 break-words text-muted-foreground">
+          {description}
+        </p>
+      )}
+      <Hint label={description ? "Edit description" : "Add a description"}>
         <Button
           type="button"
           variant="ghost"
           size="icon-xs"
-          aria-label="Edit description"
+          aria-label={description ? "Edit description" : "Add a description"}
           onClick={edit}
         >
           <Pencil />

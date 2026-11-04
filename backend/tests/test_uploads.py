@@ -15,7 +15,7 @@ from conftest import bearer
 from fastapi.testclient import TestClient
 
 from scripts import cleanup
-from src import storage
+from src import deployments, storage
 from src.config import settings
 from src.storage import check_storage, content_type
 
@@ -298,11 +298,10 @@ def test_updates_switch_folders_once_complete(
     root = client.get(f"/internal/sites/{slug}").headers["X-Site-Root"]
     assert root == "/" + folder.removesuffix("/")
 
-    # The old version goes once Nginx can no longer have it cached
+    # The old version is kept until it's pruned
     assert keys(s3, served)
-    only_sites(monkeypatch, slug)
-    monkeypatch.setattr(cleanup, "retire_after", timedelta(0))
-    run_cleanup()
+    monkeypatch.setattr(deployments, "retire_after", timedelta(0))
+    assert client.delete(f"{url}/versions", headers=headers).status_code == 200
     assert keys(s3, served) == []
     assert keys(s3, f"{slug}/") == keys(s3, folder)
 

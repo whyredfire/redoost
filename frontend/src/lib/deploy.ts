@@ -12,6 +12,9 @@ export type Deployment = {
   state: "uploading" | "ready";
   file_count: number;
   total_size: number;
+  // Every kept version, which is what counts toward storage
+  storage_size: number;
+  version_count: number;
   enabled: boolean;
   description: string;
   created_at: string;
@@ -19,6 +22,15 @@ export type Deployment = {
 };
 
 export type StoredFile = { path: string; sha256: string | null };
+
+export type Version = {
+  id: string;
+  created_at: string;
+  file_count: number;
+  size: number;
+  description: string;
+  current: boolean;
+};
 
 export type Limits = {
   max_file_size: number;
@@ -41,6 +53,8 @@ export type UploadSession = {
   originalSize?: number;
   // Left out to keep an updated site's description as it is
   description?: string;
+  // What the version changes, if the user said
+  note?: string;
 };
 
 type DeploymentChange = { enabled?: boolean; description?: string };
@@ -48,13 +62,14 @@ type DeploymentChange = { enabled?: boolean; description?: string };
 export async function createDeployment(
   files: ManifestFile[],
   description: string | undefined,
+  note: string | undefined,
   token: string,
   signal: AbortSignal,
 ) {
   const response = await fetch("/api/deployments", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authorization(token) },
-    body: JSON.stringify({ files, description }),
+    body: JSON.stringify({ files, description, version_description: note }),
     signal,
   });
   return readResponse<DeploymentUploads>(response);
@@ -87,13 +102,14 @@ export async function completeDeployment(
   slug: string,
   files: ManifestFile[],
   description: string | undefined,
+  note: string | undefined,
   token: string,
   signal: AbortSignal,
 ) {
   const response = await fetch(`/api/deployments/${slug}/complete`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authorization(token) },
-    body: JSON.stringify({ files, description }),
+    body: JSON.stringify({ files, description, version_description: note }),
     signal,
   });
   return readResponse<Deployment>(response);
@@ -110,6 +126,53 @@ export async function cancelUpload(slug: string, token: string) {
 
 export async function readDeployment(slug: string, token: string) {
   const response = await fetch(`/api/deployments/${slug}`, {
+    headers: authorization(token),
+  });
+  return readResponse<Deployment>(response);
+}
+
+export async function readVersions(slug: string, token: string) {
+  const response = await fetch(`/api/deployments/${slug}/versions`, {
+    headers: authorization(token),
+  });
+  return readResponse<Version[]>(response);
+}
+
+// Points the site at a kept version again; nothing is uploaded
+export async function restoreVersion(slug: string, id: string, token: string) {
+  const response = await fetch(
+    `/api/deployments/${slug}/versions/${id}/restore`,
+    { method: "POST", headers: authorization(token) },
+  );
+  return readResponse<Deployment>(response);
+}
+
+export async function describeVersion(
+  slug: string,
+  id: string,
+  description: string,
+  token: string,
+) {
+  const response = await fetch(`/api/deployments/${slug}/versions/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authorization(token) },
+    body: JSON.stringify({ description }),
+  });
+  return readResponse<Version>(response);
+}
+
+export async function deleteVersion(slug: string, id: string, token: string) {
+  const response = await fetch(`/api/deployments/${slug}/versions/${id}`, {
+    method: "DELETE",
+    headers: authorization(token),
+  });
+  await checkResponse(response);
+}
+
+// Deletes every version but the one being served
+export async function pruneVersions(slug: string, token: string) {
+  const response = await fetch(`/api/deployments/${slug}/versions`, {
+    method: "DELETE",
     headers: authorization(token),
   });
   return readResponse<Deployment>(response);

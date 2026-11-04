@@ -72,6 +72,9 @@ class Manifest(SQLModel):
         default=None,
         description="Note to tell the site apart; kept as it is when missing",
     )
+    version_description: Description | None = Field(
+        default=None, description="What this version changes, shown with it"
+    )
 
     @model_validator(mode="after")
     def validate_files(self) -> Self:
@@ -120,6 +123,15 @@ class DeploymentBase(SQLModel):
     file_count: int = Field(ge=1, description="Number of files in the manifest")
     total_size: int = Field(
         ge=0, sa_type=BigInteger, description="Total manifest size in bytes"
+    )
+    storage_size: int = Field(
+        default=0,
+        ge=0,
+        sa_type=BigInteger,
+        description="Bytes all the site's kept versions take up",
+    )
+    version_count: int = Field(
+        default=0, ge=0, description="Versions kept, counting the one being served"
     )
     spa: bool = Field(
         default=False, description="Serve index.html for missing pages (no 404.html)"
@@ -171,28 +183,14 @@ class Deployment(DeploymentBase, table=True):
         description="SHA-256 of the manifest the current upload was signed for, so "
         "completing it can't publish other files",
     )
-    retired_folder: str | None = Field(
-        default=None,
-        description="Storage prefix of the files served before the last update, kept "
-        "while Nginx may still have the old one cached",
-    )
-    retired_at: datetime | None = Field(
-        default=None, description="When the last update switched folders"
-    )
-    retired_size: int = Field(
-        default=0,
-        sa_type=BigInteger,
-        description="Bytes of the retired folder that the new one doesn't share",
-    )
 
 
-class VersionFiles(SQLModel, table=True):
-    """What a published version folder holds, as verified when it was published.
+class Version(SQLModel, table=True):
+    """A published version of a site, kept so an update can be undone.
 
-    Kept so updates and their checks never read every file back from storage.
+    Its files are recorded as verified when it was published, so updates and their
+    checks never read them back from storage.
     """
-
-    __tablename__ = "version_files"  # pyright: ignore[reportAssignmentType]
 
     folder: str = Field(primary_key=True, description="Storage prefix of the version")
     slug: str = Field(
@@ -201,9 +199,39 @@ class VersionFiles(SQLModel, table=True):
         index=True,
         description="Site the version belongs to",
     )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC), description="When it was published"
+    )
+    retired_at: datetime | None = Field(
+        default=None, description="When it stopped being served, if it has"
+    )
+    file_count: int = Field(ge=1, description="Number of files")
+    size: int = Field(ge=0, sa_type=BigInteger, description="Bytes its files take up")
+    spa: bool = Field(description="Serve index.html for missing pages (no 404.html)")
+    description: str = Field(
+        default="", max_length=200, description="What this version changes"
+    )
     files: dict[str, dict[str, Any]] = Field(
         sa_type=JSONB, description="Each file's SHA-256 and stored size, by path"
     )
+
+    @property
+    def id(self) -> str:
+        """The folder's name inside the site, like v-0123456789ab."""
+        return self.folder.removeprefix(f"{self.slug}/").removesuffix("/")
+
+
+class VersionInfo(SQLModel):
+    id: str = Field(description="Version ID, like v-0123456789ab")
+    created_at: datetime = Field(description="When it was published")
+    file_count: int = Field(description="Number of files")
+    size: int = Field(description="Bytes its files take up")
+    description: str = Field(description="What this version changes")
+    current: bool = Field(description="Whether visitors see this version")
+
+
+class VersionChange(SQLModel):
+    description: Description = Field(description="What this version changes")
 
 
 class DiscardedFolder(SQLModel, table=True):

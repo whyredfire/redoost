@@ -67,7 +67,8 @@ function SiteSummary({ site }: { site: Deployment }) {
       )}
       <p className="mt-1 pl-4.5 font-mono text-xs text-muted-foreground">
         {site.file_count} {site.file_count === 1 ? "file" : "files"} ·{" "}
-        {formatBytes(site.total_size)} ·{" "}
+        {formatBytes(site.storage_size)}
+        {site.version_count > 1 && ` in ${site.version_count} versions`} ·{" "}
         <span className="whitespace-nowrap">{formatDate(site.created_at)}</span>
         {!site.enabled && " · offline"}
       </p>

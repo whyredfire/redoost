@@ -184,7 +184,8 @@ values.
 | `REDOOST_MAX_FILE_SIZE` | `20MiB` | Largest allowed file |
 | `REDOOST_MAX_DEPLOYMENT_SIZE` | `150MiB` | Largest allowed site |
 | `REDOOST_MAX_DEPLOYMENT_FILES` | `2000` | Most files allowed in a site |
-| `REDOOST_MAX_ACCOUNT_SIZE` | `1GiB` | Largest total size of a user's sites, counting uploads in progress |
+| `REDOOST_MAX_ACCOUNT_SIZE` | `1GiB` | Largest total size of a user's sites, counting every kept version and uploads in progress |
+| `REDOOST_KEPT_VERSIONS` | `5` | Versions each site keeps to roll back to, counting the one served |
 | `REDOOST_UPLOAD_WINDOW` | `PT1H` | How long upload policies stay valid (at most 24 hours) |
 | `REDOOST_JWT_SECRET` | | Signs the API's tokens, e.g. from `openssl rand -hex 32` |
 | `REDOOST_OIDC_ISSUER` | | OIDC issuer users sign in with |

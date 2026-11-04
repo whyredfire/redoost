@@ -61,9 +61,12 @@ repository secret:
 | `redoost logout` | Revoke and forget this sign-in |
 | `redoost whoami` | Show who's signed in and how much storage their sites use |
 | `redoost preview <folder\|zip\|file.html>` | Serve a site locally as it would be published, on a free port, and press Enter to open it; `--port` picks one, `--host 0.0.0.0` shares it on your network |
-| `redoost publish <folder\|zip\|file.html>` | Publish a new site; `--description` adds a note to tell it apart |
+| `redoost publish <folder\|zip\|file.html>` | Publish a new site; `--description` adds a note to tell it apart, and `-m` says what the version changes |
 | `redoost publish <path> --update <slug>` | Replace a site's files, uploading only what changed, or nothing if nothing did |
 | `redoost list` | List your sites |
+| `redoost versions <slug>` | List a site's kept versions, newest first |
+| `redoost rollback <slug> [version]` | Serve an earlier version again, the previous one by default; nothing is uploaded |
+| `redoost prune <slug>` | Delete a site's other versions, keeping the one served |
 | `redoost disable <slug>...` | Take sites offline, keeping their files and addresses |
 | `redoost enable <slug>...` | Put offline sites back online |
 | `redoost describe <slug> <text>` | Change a site's description, or clear it with `""` |

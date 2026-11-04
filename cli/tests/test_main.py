@@ -27,6 +27,24 @@ class FakeServer:
         self.limits = dict(default_limits)
         # None for servers from before usage was reported
         self.usage: dict[str, int] | None = {"used": 3565158, "limit": 1024**3}
+        self.versions = [
+            {
+                "id": "v-0123456789ab",
+                "created_at": "2026-10-10T09:30:00Z",
+                "file_count": 2,
+                "size": 3565158,
+                "description": "New header",
+                "current": True,
+            },
+            {
+                "id": "v-fedcba987654",
+                "created_at": "2026-10-09T10:00:00Z",
+                "file_count": 1,
+                "size": 900,
+                "description": "",
+                "current": False,
+            },
+        ]
 
     def handle(self, request: httpx2.Request) -> httpx2.Response:
         self.requests.append(request)
@@ -93,6 +111,19 @@ class FakeServer:
                 "enabled": False,
             }
             return httpx2.Response(200, json=[site, offline])
+        if route == "GET /api/deployments/brave-otter-1a2b/versions":
+            return httpx2.Response(200, json=self.versions)
+        if route.startswith("POST /api/deployments/brave-otter-1a2b/versions/"):
+            version = route.split("/")[-2]
+            if not any(entry["id"] == version for entry in self.versions):
+                return httpx2.Response(404, json={"detail": "Version not found"})
+            return httpx2.Response(
+                200, json={"slug": "brave-otter-1a2b", "state": "ready"}
+            )
+        if route == "DELETE /api/deployments/brave-otter-1a2b/versions":
+            return httpx2.Response(
+                200, json={"slug": "brave-otter-1a2b", "storage_size": 3565158}
+            )
         if route == "PATCH /api/deployments/brave-otter-1a2b":
             change = json.loads(request.content)
             return httpx2.Response(200, json={"slug": "brave-otter-1a2b", **change})
@@ -283,6 +314,21 @@ def test_publish_with_a_description(
         assert sent(server, route)[0]["description"] == "Portfolio draft"
 
 
+def test_publish_with_a_message(
+    server: FakeServer, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    signed_in()
+    (tmp_path / "index.html").write_text("<h1>hello</h1>")
+
+    run(capsys, "publish", str(tmp_path / "index.html"), "-m", "New header")
+
+    for route in (
+        "POST /api/deployments",
+        "POST /api/deployments/brave-otter-1a2b/complete",
+    ):
+        assert sent(server, route)[0]["version_description"] == "New header"
+
+
 def test_updates_keep_the_description_without_one(
     server: FakeServer, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
@@ -311,6 +357,51 @@ def test_unchanged_updates_still_change_the_description(
         {"description": "Final"}
     ]
     assert "PUT /api/deployments/brave-otter-1a2b" not in server.routes()
+
+
+def test_versions(server: FakeServer, capsys: pytest.CaptureFixture[str]) -> None:
+    signed_in()
+
+    out, _ = run(capsys, "versions", "brave-otter-1a2b")
+
+    assert out == (
+        "v-0123456789ab  2026-10-10 09:30  2 files  3.4 MiB  current  New header\n"
+        "v-fedcba987654  2026-10-09 10:00  1 file  900 B\n"
+    )
+
+
+def test_rollback(server: FakeServer, capsys: pytest.CaptureFixture[str]) -> None:
+    signed_in()
+
+    out, _ = run(capsys, "rollback", "brave-otter-1a2b")
+    assert out == "https://brave-otter-1a2b.sites.test now serves v-fedcba987654\n"
+    out, _ = run(capsys, "rollback", "brave-otter-1a2b", "v-0123456789ab")
+    assert out == "https://brave-otter-1a2b.sites.test now serves v-0123456789ab\n"
+    assert [route for route in server.routes() if "restore" in route] == [
+        "POST /api/deployments/brave-otter-1a2b/versions/v-fedcba987654/restore",
+        "POST /api/deployments/brave-otter-1a2b/versions/v-0123456789ab/restore",
+    ]
+
+
+def test_rollback_needs_an_earlier_version(server: FakeServer) -> None:
+    signed_in()
+    server.versions = server.versions[:1]
+
+    with pytest.raises(SystemExit, match="no other version"):
+        main.main(["rollback", "brave-otter-1a2b", "--server", SERVER])
+    with pytest.raises(SystemExit, match="Version not found"):
+        main.main(
+            ["rollback", "brave-otter-1a2b", "v-000000000000", "--server", SERVER]
+        )
+
+
+def test_prune(server: FakeServer, capsys: pytest.CaptureFixture[str]) -> None:
+    signed_in()
+
+    out, _ = run(capsys, "prune", "brave-otter-1a2b")
+
+    assert out == "Kept only the version brave-otter-1a2b serves, 3.4 MiB\n"
+    assert server.routes() == ["DELETE /api/deployments/brave-otter-1a2b/versions"]
 
 
 def test_describe(server: FakeServer, capsys: pytest.CaptureFixture[str]) -> None:

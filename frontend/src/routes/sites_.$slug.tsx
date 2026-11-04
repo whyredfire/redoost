@@ -14,12 +14,19 @@ import { SiteAddress } from "@/components/site-address";
 import { SiteDescription } from "@/components/site-description";
 import { SitePreview } from "@/components/site-preview";
 import { Switch } from "@/components/ui/switch";
+import { VersionList } from "@/components/version-list";
 import { ApiError } from "@/lib/api";
 import {
   changeDeployment,
   deleteDeployment,
+  deleteVersion,
+  describeVersion,
+  pruneVersions,
   readDeployment,
+  readVersions,
+  restoreVersion,
   type Deployment,
+  type Version,
 } from "@/lib/deploy";
 import { errorMessage, formatBytes, formatDate, siteUrl } from "@/lib/format";
 import {
@@ -32,8 +39,8 @@ import type { SiteFile } from "@/lib/site-files";
 import { usePageDrop, useUpload } from "@/lib/upload";
 
 export const Route = createFileRoute("/sites_/$slug")({
-  head: ({ params }) => ({ meta: [{ title: `${params.slug} · redoost` }] }),
   loader: ({ params }) => loadSite(params.slug),
+  head: ({ params }) => ({ meta: [{ title: `${params.slug} · redoost` }] }),
   component: SitePage,
   errorComponent: () => (
     <p role="alert" className="text-sm text-destructive">
@@ -42,12 +49,17 @@ export const Route = createFileRoute("/sites_/$slug")({
   ),
 });
 
-async function loadSite(slug: string) {
+async function loadSite(
+  slug: string,
+): Promise<{ site: Deployment; versions: Version[] } | null> {
   const token = loadToken();
   if (!token) return null;
   try {
-    const site = await readDeployment(slug, token);
-    return site;
+    const [site, versions] = await Promise.all([
+      readDeployment(slug, token),
+      readVersions(slug, token),
+    ]);
+    return { site, versions };
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       clearToken();
@@ -62,7 +74,8 @@ async function loadSite(slug: string) {
 }
 
 function SitePage() {
-  const site: Deployment | null = Route.useLoaderData();
+  const loaded = Route.useLoaderData();
+  const site = loaded?.site ?? null;
   const router = useRouter();
   const navigate = useNavigate();
   const { busy, message, checks, limits, selectUpdate, showError, clearFiles } =
@@ -109,6 +122,34 @@ function SitePage() {
     await router.invalidate();
   }
 
+  async function restore(id: string) {
+    const token = loadToken();
+    if (!token || !site) return;
+    await restoreVersion(site.slug, id, token);
+    await router.invalidate();
+  }
+
+  async function describeVersionOf(id: string, description: string) {
+    const token = loadToken();
+    if (!token || !site) return;
+    await describeVersion(site.slug, id, description, token);
+    await router.invalidate();
+  }
+
+  async function removeVersion(id: string) {
+    const token = loadToken();
+    if (!token || !site) return;
+    await deleteVersion(site.slug, id, token);
+    await router.invalidate();
+  }
+
+  async function prune() {
+    const token = loadToken();
+    if (!token || !site) return;
+    await pruneVersions(site.slug, token);
+    await router.invalidate();
+  }
+
   async function remove() {
     const token = loadToken();
     if (!token || !site) return;
@@ -125,6 +166,10 @@ function SitePage() {
       value: site.file_count.toLocaleString(),
     },
     { label: "Size", value: formatBytes(site.total_size) },
+    {
+      label: "Storage",
+      value: `${formatBytes(site.storage_size)} · ${site.version_count} ${site.version_count === 1 ? "version" : "versions"}`,
+    },
     { label: "Published", value: formatDate(site.created_at) },
     { label: "Status", value: site.enabled ? "Online" : "Offline" },
   ];
@@ -168,6 +213,19 @@ function SitePage() {
               />
             )}
           </section>
+          {loaded && loaded.versions.length > 0 && (
+            <section className="space-y-3 pt-6">
+              <h2 className="text-sm font-medium">Versions</h2>
+              <VersionList
+                versions={loaded.versions}
+                busy={busy}
+                onRestore={restore}
+                onDescribe={describeVersionOf}
+                onDelete={removeVersion}
+                onPrune={prune}
+              />
+            </section>
+          )}
         </div>
 
         <aside className="space-y-4 text-sm">

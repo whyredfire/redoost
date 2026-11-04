@@ -16,6 +16,7 @@ data:
   REDOOST_MAX_DEPLOYMENT_SIZE: {{ .Values.api.maxDeploymentSize | quote }}
   REDOOST_MAX_DEPLOYMENT_FILES: {{ .Values.api.maxDeploymentFiles | quote }}
   REDOOST_MAX_ACCOUNT_SIZE: {{ .Values.api.maxAccountSize | quote }}
+  REDOOST_KEPT_VERSIONS: {{ .Values.api.keptVersions | quote }}
   REDOOST_UPLOAD_WINDOW: {{ .Values.api.uploadWindow | quote }}
   REDOOST_OIDC_ISSUER: {{ required "Set auth.oidc.issuer" .Values.auth.oidc.issuer | quote }}
   REDOOST_OIDC_PROVIDER: {{ .Values.auth.oidc.provider | quote }}

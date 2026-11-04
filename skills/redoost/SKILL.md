@@ -59,6 +59,11 @@ without a file extension serve `index.html`.
   the same address, uploading only what changed. If nothing changed, it says
   so and publishes nothing. Without `--description`, the site keeps its
   description.
+- `redoost publish ... -m "<what changed>"` notes what a version changes.
+- `redoost versions <slug>` lists the versions a site keeps, newest first, and
+  `redoost rollback <slug> [version]` serves one of them again right away, the
+  previous one by default. `redoost prune <slug>` deletes every version but the
+  one served, to free storage.
 - `redoost describe <slug> "<text>"` changes a site's description, and `""`
   clears it.
 - `redoost disable <slug>...` takes sites offline without deleting them, and

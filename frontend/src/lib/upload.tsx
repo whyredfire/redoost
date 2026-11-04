@@ -88,6 +88,8 @@ function useUploadState() {
   const [storedFiles, setStoredFiles] = useState<StoredFile[] | null>(null);
   // Null leaves an updated site's description as it is, as when it couldn't be read
   const [description, setDescription] = useState<string | null>(null);
+  // What the next version changes, shown with it
+  const [note, setNote] = useState("");
   const [checks, setChecks] = useState<SiteCheck[]>([]);
   const [loaded, setLoaded] = useState(0);
   const [uploaded, setUploaded] = useState(0);
@@ -151,6 +153,7 @@ function useUploadState() {
     setTarget(null);
     setStoredFiles(null);
     setDescription(null);
+    setNote("");
   }
 
   function clearFiles() {
@@ -309,6 +312,7 @@ function useUploadState() {
           deployment = await createDeployment(
             manifest,
             description ?? undefined,
+            note || undefined,
             token,
             abort.signal,
           );
@@ -318,6 +322,7 @@ function useUploadState() {
           manifest,
           originalSize: totalSize,
           description: description ?? undefined,
+          note: note || undefined,
         };
         saveSession(active);
         setSession(active);
@@ -364,6 +369,7 @@ function useUploadState() {
         active.deployment.slug,
         active.manifest,
         active.description,
+        active.note,
         token,
         abort.signal,
       );
@@ -412,6 +418,8 @@ function useUploadState() {
     selectUpdate,
     chooseTarget,
     setDescription,
+    note,
+    setNote,
     cancel,
     publish,
     takeOver,

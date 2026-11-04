@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import ARRAY, ColumnElement, String, any_, literal
-from sqlmodel import col, delete, func, or_, select, update
+from sqlmodel import col, func, or_, select, update
 
 from .auth import CurrentUser, needs
 from .config import settings
@@ -28,7 +28,9 @@ from .models import (
     StoredFile,
     Usage,
     User,
-    VersionFiles,
+    Version,
+    VersionChange,
+    VersionInfo,
 )
 from .storage import (
     StoredObject,
@@ -85,10 +87,8 @@ def in_use() -> ColumnElement[bool]:
 async def used_storage(
     session: Session, user: User, replacing: str | None = None
 ) -> int:
-    # Updates and the version they replaced take space until they're finished or deleted
-    footprint = (
-        Deployment.total_size + Deployment.pending_size + Deployment.retired_size
-    )
+    # Every kept version, and the update in progress if any
+    footprint = Deployment.storage_size + Deployment.pending_size
     sites = (
         select(func.coalesce(func.sum(footprint), 0))
         .where(Deployment.owner_id == user.id)
@@ -161,6 +161,7 @@ async def create_deployment(
         owner_id=user.id,
         file_count=len(manifest.files),
         total_size=manifest.total_size,
+        storage_size=manifest.total_size,
         spa=manifest.spa,
         description=manifest.description or "",
     )
@@ -227,16 +228,9 @@ def matches(stored: StoredObject | None, file: ManifestFile) -> bool:
     )
 
 
-def retired_expired(deployment: Deployment, now: datetime) -> bool:
-    return (
-        deployment.retired_at is not None
-        and deployment.retired_at <= now - retire_after
-    )
-
-
 async def served_files(session: Session, folder: str) -> dict[str, StoredObject]:
     """A published version's files, by path."""
-    version = await session.get(VersionFiles, folder)
+    version = await session.get(Version, folder)
     # Only versions an older release published mid-rollout lack them; updating
     # one uploads every file again
     if version is None:
@@ -247,17 +241,43 @@ async def served_files(session: Session, folder: str) -> dict[str, StoredObject]
     }
 
 
-async def forget_version(session: Session, folder: str) -> None:
-    await session.exec(delete(VersionFiles).where(col(VersionFiles.folder) == folder))
+async def discard_version(
+    session: Session, deployment: Deployment, version: Version, now: datetime
+) -> None:
+    """Deletes a version, waiting out Nginx's cache if it was served just now."""
+    if version.retired_at and version.retired_at > now - retire_after:
+        session.add(
+            DiscardedFolder(
+                folder=version.folder,
+                owner_id=deployment.owner_id,
+                delete_after=version.retired_at + retire_after,
+            )
+        )
+    else:
+        await delete_folder(version.folder)
+    await session.delete(version)
+    deployment.storage_size -= version.size
+    deployment.version_count -= 1
 
 
-async def discard_retired(session: Session, deployment: Deployment) -> None:
-    if deployment.retired_folder:
-        await delete_folder(deployment.retired_folder)
-        await forget_version(session, deployment.retired_folder)
-    deployment.retired_folder = None
-    deployment.retired_at = None
-    deployment.retired_size = 0
+async def site_versions(session: Session, deployment: Deployment) -> Sequence[Version]:
+    """The site's versions, newest first."""
+    query = (
+        select(Version)
+        .where(Version.slug == deployment.slug)
+        .order_by(col(Version.created_at).desc())
+    )
+    return (await session.exec(query)).all()
+
+
+async def trim_versions(
+    session: Session, deployment: Deployment, now: datetime
+) -> None:
+    """Drops the oldest versions beyond what each site keeps."""
+    versions = await site_versions(session, deployment)
+    for version in versions[settings.kept_versions :]:
+        if version.folder != deployment.folder:
+            await discard_version(session, deployment, version, now)
 
 
 # Lets the frontend show what an update changes before it starts
@@ -286,14 +306,13 @@ async def update_deployment(
         file for file in manifest.files if not matches(served.get(file.path), file)
     ]
     pending_size = sum(file.size for file in changed)
-    retired_size = 0 if retired_expired(deployment, now) else deployment.retired_size
     folder = new_folder(deployment.slug)
     upload_url, uploads = await sign_uploads(folder, changed)
-    # Both versions are stored until the update finishes
+    # The kept versions stay stored while the update is in progress
     await check_quota(
         session,
         user,
-        deployment.total_size + pending_size + retired_size,
+        deployment.storage_size + pending_size,
         replacing=deployment.slug,
     )
 
@@ -314,10 +333,6 @@ async def update_deployment(
 
     if abandoned and abandoned != deployment.folder:
         await delete_folder(abandoned)
-    if retired_expired(deployment, now):
-        await discard_retired(session, deployment)
-        session.add(deployment)
-        await session.commit()
     return DeploymentUploads(
         **deployment.model_dump(), upload_url=upload_url, uploads=uploads
     )
@@ -368,24 +383,16 @@ async def complete_deployment(
     # Counted from storage, as the manifest's sizes are only the client's word
     stored = {**served, **uploaded}
     total_size = sum(stored[file.path].size for file in manifest.files)
-    # The replaced version's files that the new one doesn't share
-    retired_size = sum(item.size for item in served.values()) - sum(
-        file.size for file in copied
-    )
 
     paths = {file.path for file in manifest.files}
     await delete_paths(folder, [path for path in uploaded if path not in paths])
     if deployment.folder and copied:
         await copy_files(deployment.folder, folder, [file.path for file in copied])
-    # Only the version just replaced is kept, so a burst of updates can't pile them up
-    retired = deployment.retired_folder
-    if retired:
-        await delete_folder(retired)
 
     # Checked again, as other uploads may have finished since this one started
-    await check_quota(
-        session, user, total_size + retired_size, replacing=deployment.slug
-    )
+    replaced = deployment.folder if deployment.folder != folder else None
+    storage_size = deployment.storage_size + total_size if replaced else total_size
+    await check_quota(session, user, storage_size, replacing=deployment.slug)
     # The window may have closed while files were copied, letting cleanup or a new
     # update take the folder; locked, so neither can until this commits
     await session.refresh(deployment, with_for_update=True)
@@ -394,12 +401,15 @@ async def complete_deployment(
         if deployment.folder == folder:
             return deployment
         raise HTTPException(status.HTTP_410_GONE, "Upload window has closed")
-    if retired:
-        await forget_version(session, retired)
     session.add(
-        VersionFiles(
+        Version(
             folder=folder,
             slug=deployment.slug,
+            created_at=now,
+            file_count=len(manifest.files),
+            size=total_size,
+            spa=manifest.spa,
+            description=manifest.version_description or "",
             files={
                 file.path: {
                     "sha256": stored[file.path].sha256,
@@ -409,10 +419,13 @@ async def complete_deployment(
             },
         )
     )
-    replaced = deployment.folder if deployment.folder != folder else None
-    deployment.retired_folder = replaced
-    deployment.retired_at = now if replaced else None
-    deployment.retired_size = retired_size if replaced else 0
+    if replaced:
+        previous = await session.get(Version, replaced)
+        if previous:
+            previous.retired_at = now
+            session.add(previous)
+    deployment.storage_size = storage_size
+    deployment.version_count += 1
 
     # Visitors switch to the new files all at once
     deployment.folder = folder
@@ -428,6 +441,113 @@ async def complete_deployment(
         deployment.description = manifest.description
     # Frees the site for its next update
     deployment.expires_at = now
+    await trim_versions(session, deployment, now)
+    session.add(deployment)
+    await session.commit()
+    return deployment
+
+
+async def get_version(
+    session: Session, deployment: Deployment, version_id: str
+) -> Version:
+    version = await session.get(Version, f"{deployment.slug}/{version_id}/")
+    if version is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Version not found")
+    return version
+
+
+def version_info(version: Version, deployment: Deployment) -> VersionInfo:
+    return VersionInfo.model_validate(
+        version,
+        update={"id": version.id, "current": version.folder == deployment.folder},
+    )
+
+
+@router.get("/{slug}/versions")
+async def list_versions(
+    deployment: OwnedDeployment, session: Session
+) -> list[VersionInfo]:
+    return [
+        version_info(version, deployment)
+        for version in await site_versions(session, deployment)
+    ]
+
+
+@router.patch("/{slug}/versions/{version_id}", dependencies=[needs(Scope.manage)])
+async def change_version(
+    version_id: str,
+    change: VersionChange,
+    deployment: OwnedDeployment,
+    session: Session,
+) -> VersionInfo:
+    version = await get_version(session, deployment, version_id)
+    version.description = change.description
+    session.add(version)
+    await session.commit()
+    return version_info(version, deployment)
+
+
+# Points the site back at a kept version; nothing is uploaded or copied
+@router.post(
+    "/{slug}/versions/{version_id}/restore", dependencies=[needs(Scope.publish)]
+)
+async def restore_version(
+    version_id: str, deployment: OwnedDeployment, session: Session
+) -> DeploymentBase:
+    version = await get_version(session, deployment, version_id)
+    now = datetime.now(UTC)
+    # Locked, as an update completing meanwhile would switch folders too
+    await session.refresh(deployment, with_for_update=True)
+    if deployment.expires_at > now:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Another upload to this site is in progress"
+        )
+    if version.folder == deployment.folder:
+        return deployment
+    current = (
+        await session.get(Version, deployment.folder) if deployment.folder else None
+    )
+    if current:
+        current.retired_at = now
+        session.add(current)
+    version.retired_at = None
+    session.add(version)
+    deployment.folder = version.folder
+    deployment.file_count = version.file_count
+    deployment.total_size = version.size
+    deployment.spa = version.spa
+    session.add(deployment)
+    await session.commit()
+    return deployment
+
+
+@router.delete(
+    "/{slug}/versions/{version_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[needs(Scope.manage)],
+)
+async def delete_version(
+    version_id: str, deployment: OwnedDeployment, session: Session
+) -> None:
+    version = await get_version(session, deployment, version_id)
+    if version.folder == deployment.folder:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "The version being served can't be deleted"
+        )
+    await discard_version(session, deployment, version, datetime.now(UTC))
+    session.add(deployment)
+    await session.commit()
+
+
+# Keeps only the version being served
+@router.delete("/{slug}/versions", dependencies=[needs(Scope.manage)])
+async def prune_versions(
+    deployment: OwnedDeployment, session: Session
+) -> DeploymentBase:
+    now = datetime.now(UTC)
+    for version in await site_versions(session, deployment):
+        if version.folder != deployment.folder:
+            await discard_version(session, deployment, version, now)
     session.add(deployment)
     await session.commit()
     return deployment
