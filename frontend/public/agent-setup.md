@@ -44,7 +44,9 @@ Check with `redoost whoami`, which fails if the user isn't signed in. If they
 aren't, run `redoost login` in the background, since it waits for the user. It
 prints a link right away: give it to the user, ask them to open it on any
 device and click "Continue", then wait for it to print "Signed in as …". The
-link expires after 10 minutes.
+link expires after 10 minutes. Where nobody can open a link, as in CI,
+`redoost login --token <token>` signs in with an API token from the dashboard's
+settings instead, or set it as `REDOOST_TOKEN`.
 
 ## 4. Finish
 

@@ -7,9 +7,9 @@ in Compose (see the root README).
 
 Every request apart from `/health`, `/api/version`, the limits, the auth
 config, starting and claiming a CLI sign-in, and `/internal/sites` sends
-`Authorization: Bearer <token>`, a JWT the API issues. Missing, expired, or
-unknown tokens get 401, and other users' deployments 403. Tokens are valid for
-30 days, and users sign in one of two ways:
+`Authorization: Bearer <token>`: a JWT the API issues to the dashboard, or an
+API token. Missing, expired, or unknown tokens get 401, and other users'
+deployments 403. JWTs are valid for 30 days, and users sign in one of two ways:
 
 - **With an OIDC provider**, when `REDOOST_OIDC_ISSUER` is set: clients sign in
   with the authorization code flow and PKCE, then send the code to
@@ -26,8 +26,22 @@ sites, files first, after which their tokens get 401.
 The CLI signs in through the browser: `POST /api/auth/cli` returns an `id` and
 `secret`, and the CLI prints `<app origin>/cli/<id>` for a signed-in user to
 approve with `POST /api/auth/cli/{id}`. Meanwhile it polls
-`POST /api/auth/cli/{id}/token` with `{"secret"}`, which returns 202 until the
-link is approved, then a token once. Links expire after 10 minutes.
+`POST /api/auth/cli/{id}/token` with `{"secret", "name"}`, which returns 202
+until the link is approved, then an API token once. Links expire after 10
+minutes.
+
+API tokens act as their user. They're prefixed `rdo_`, stored only as a hash,
+and have a name, a `source` of `cli` for sign-ins or `manual` for ones made in
+the dashboard, scopes, and an optional expiry. The scopes are `read`, `publish`
+(creating, updating, completing, and cancelling uploads), and `manage`
+(enabling, disabling, describing, and deleting sites); reading comes with every
+scope, and other requests get 403 without theirs. CLI sign-ins get every scope
+for 30 days. `POST /api/auth/tokens` with `{"name", "scopes", "expires_at"}`
+makes one, returning it just that once; `GET /api/auth/tokens` lists them with
+when each was last used; `DELETE /api/auth/tokens/{id}` revokes one, and
+`DELETE /api/auth/tokens/current` the one making the request, which is how the
+CLI signs out. No token can manage tokens, approve CLI sign-ins, or delete the
+account: those take the dashboard's JWT.
 
 ## API
 
@@ -108,8 +122,8 @@ if a model changes without a migration.
 `python -m scripts.cleanup` removes deployments still uploading after their
 upload window and bucket folders without a deployment, lets go of updates
 nobody finished and versions an update replaced, deletes the folders let go of
-once their upload window has passed, and removes expired CLI sign-ins. It
-handles up to 100 of each per run. The chart runs it as a CronJob (`cleanup.schedule`, hourly by default),
+once their upload window has passed, and removes expired CLI sign-in links and
+API tokens. It handles up to 100 of each per run. The chart runs it as a CronJob (`cleanup.schedule`, hourly by default),
 keeping the last 10 successful and failed runs (`cleanup.successfulJobsHistoryLimit`,
 `cleanup.failedJobsHistoryLimit`); in Compose, run it with
 `docker compose exec api uv run --no-sync python -m scripts.cleanup`.

@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import ARRAY, ColumnElement, String, any_, literal
 from sqlmodel import col, delete, func, or_, select, update
 
-from .auth import CurrentUser
+from .auth import CurrentUser, needs
 from .config import settings
 from .database import Session
 from .models import (
@@ -23,6 +23,7 @@ from .models import (
     Limits,
     Manifest,
     ManifestFile,
+    Scope,
     SitesChange,
     StoredFile,
     Usage,
@@ -150,7 +151,9 @@ def discard_upload(session: Session, deployment: Deployment) -> None:
     )
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "", status_code=status.HTTP_201_CREATED, dependencies=[needs(Scope.publish)]
+)
 async def create_deployment(
     manifest: Manifest, session: Session, user: CurrentUser
 ) -> DeploymentUploads:
@@ -205,7 +208,7 @@ async def read_deployment(deployment: OwnedDeployment) -> DeploymentBase:
     return deployment
 
 
-@router.patch("/{slug}")
+@router.patch("/{slug}", dependencies=[needs(Scope.manage)])
 async def change_deployment(
     change: DeploymentChange, deployment: OwnedDeployment, session: Session
 ) -> DeploymentBase:
@@ -269,7 +272,7 @@ async def read_files(deployment: OwnedDeployment, session: Session) -> list[Stor
     ]
 
 
-@router.put("/{slug}")
+@router.put("/{slug}", dependencies=[needs(Scope.publish)])
 async def update_deployment(
     manifest: Manifest, deployment: OwnedDeployment, session: Session, user: CurrentUser
 ) -> DeploymentUploads:
@@ -320,7 +323,7 @@ async def update_deployment(
     )
 
 
-@router.post("/{slug}/complete")
+@router.post("/{slug}/complete", dependencies=[needs(Scope.publish)])
 async def complete_deployment(
     manifest: Manifest, deployment: OwnedDeployment, session: Session, user: CurrentUser
 ) -> DeploymentBase:
@@ -431,7 +434,11 @@ async def complete_deployment(
 
 
 # Frees the site for another update, deleting what it uploaded so far
-@router.post("/{slug}/cancel", status_code=status.HTTP_204_NO_CONTENT)
+@router.post(
+    "/{slug}/cancel",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[needs(Scope.publish)],
+)
 async def cancel_upload(deployment: OwnedDeployment, session: Session) -> None:
     if deployment.pending_folder and deployment.pending_folder != deployment.folder:
         await delete_folder(deployment.pending_folder)
@@ -470,7 +477,7 @@ async def owned_sites(
 
 
 # Repeating it changes nothing more, as with deleting several
-@router.patch("")
+@router.patch("", dependencies=[needs(Scope.manage)])
 async def change_deployments(
     slugs: Slugs, change: SitesChange, session: Session, user: CurrentUser
 ) -> ChangedSites:
@@ -485,7 +492,7 @@ async def change_deployments(
 
 
 # Sites that don't exist are skipped, so a repeated request deletes nothing twice
-@router.delete("")
+@router.delete("", dependencies=[needs(Scope.manage)])
 async def delete_deployments(
     slugs: Slugs, session: Session, user: CurrentUser
 ) -> DeletedSites:
@@ -495,7 +502,11 @@ async def delete_deployments(
     return DeletedSites(deleted=[deployment.slug for deployment in deployments])
 
 
-@router.delete("/{slug}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{slug}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[needs(Scope.manage)],
+)
 async def delete_deployment(deployment: OwnedDeployment, session: Session) -> None:
     await remove_sites(session, [deployment])
     await session.commit()

@@ -57,6 +57,9 @@ class ManifestFile(SQLModel):
 
 # Short enough to show in a list next to the site's address
 Description = Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)]
+TokenName = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)
+]
 
 
 class Manifest(SQLModel):
@@ -347,3 +350,98 @@ class CliLoginStarted(SQLModel):
 
 class CliLoginClaim(SQLModel):
     secret: str = Field(description="Secret from starting the sign-in")
+    name: TokenName = Field(
+        default="CLI", description="Where the CLI runs, to tell its token apart"
+    )
+
+
+# Prefixed, so the API tells them from its sign-in tokens and secret scanners find them
+api_token_prefix = "rdo_"
+
+
+class Scope(StrEnum):
+    """What a token may do. Reading comes with every scope.
+
+    - read: list the user's sites, their files, and their storage use
+    - publish: create sites and update them, completing or cancelling the upload
+    - manage: take sites offline or online, describe them, and delete them
+    """
+
+    read = "read"
+    publish = "publish"
+    manage = "manage"
+
+
+class TokenSource(StrEnum):
+    """How a token was made.
+
+    - cli: by redoost login, named after the machine, with every scope for 30 days
+    - manual: in the dashboard's settings, with chosen scopes and expiry
+    """
+
+    cli = "cli"
+    manual = "manual"
+
+
+class ApiTokenCreate(SQLModel):
+    name: TokenName = Field(description="What the token is for, like GitHub Actions")
+    scopes: list[Scope] = Field(min_length=1, description="What it may do")
+    expires_at: datetime | None = Field(
+        default=None, description="When it stops working, if ever"
+    )
+
+    @field_validator("scopes")
+    @classmethod
+    def distinct(cls, scopes: list[Scope]) -> list[Scope]:
+        return list(dict.fromkeys(scopes))
+
+    @field_validator("expires_at")
+    @classmethod
+    def ahead(cls, expires_at: datetime | None) -> datetime | None:
+        if expires_at is not None and expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=UTC)
+        if expires_at is not None and expires_at <= datetime.now(UTC):
+            raise ValueError("Must be in the future")
+        return expires_at
+
+
+# Acts as its user: made by redoost login, or by hand for pipelines
+class ApiToken(SQLModel, table=True):
+    __tablename__ = "api_token"  # pyright: ignore[reportAssignmentType]
+
+    id: str = Field(default_factory=lambda: secrets.token_urlsafe(12), primary_key=True)
+    name: str = Field(description="What the token is for")
+    secret_hash: str = Field(unique=True, description="SHA-256 hash of the token")
+    user_id: str = Field(
+        foreign_key="users.id",
+        ondelete="CASCADE",
+        index=True,
+        description="Who the token acts as",
+    )
+    source: TokenSource = Field(description="How the token was made")
+    scopes: list[Scope] = Field(sa_type=JSONB, description="What it may do")
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC), description="Creation time"
+    )
+    last_used_at: datetime | None = Field(
+        default=None, description="When it last authenticated a request"
+    )
+    expires_at: datetime | None = Field(
+        default=None, description="When it stops working, if ever"
+    )
+
+
+class ApiTokenInfo(SQLModel):
+    id: str = Field(description="Token ID, to revoke it")
+    name: str = Field(description="What the token is for")
+    source: TokenSource = Field(description="How the token was made")
+    scopes: list[Scope] = Field(description="What it may do")
+    created_at: datetime = Field(description="Creation time")
+    last_used_at: datetime | None = Field(
+        description="When it last authenticated a request, if ever"
+    )
+    expires_at: datetime | None = Field(description="When it stops working, if ever")
+
+
+class ApiTokenCreated(ApiTokenInfo):
+    token: str = Field(description="The token, shown only this once")

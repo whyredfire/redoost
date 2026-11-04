@@ -41,6 +41,7 @@ async def drop_tables() -> None:
         # drop_all skips enum types whose table is already gone
         await connection.execute(text("DROP TYPE IF EXISTS deploymentstate"))
         await connection.execute(text("DROP TYPE IF EXISTS provider"))
+        await connection.execute(text("DROP TYPE IF EXISTS tokensource"))
 
 
 @pytest.fixture(autouse=True, scope="session")

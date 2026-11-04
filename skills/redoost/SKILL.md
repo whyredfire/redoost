@@ -35,7 +35,9 @@ It uses redoost.whyredfire.dev. For another redoost, add
 2. If not, run `redoost login` in the background, since it waits for the
    user. It prints a link right away: give it to the user, ask them to open it
    on any device and click "Continue", then wait for it to print
-   "Signed in as …". The link expires after 10 minutes.
+   "Signed in as …". The link expires after 10 minutes. Where nobody can open
+   a link, as in CI, `redoost login --token <token>` signs in with an API token
+   from the dashboard's settings instead, or set it as `REDOOST_TOKEN`.
 3. Optionally, check the site first with `redoost preview <path> --json` in the
    background. It serves the site locally as it would be published, without
    signing in, and prints its `url`. Stop it when you're done.

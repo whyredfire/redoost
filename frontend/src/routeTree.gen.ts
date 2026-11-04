@@ -14,6 +14,7 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PublishRouteImport } from './routes/publish'
 import { Route as SitesRouteImport } from './routes/sites'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as TokensRouteImport } from './routes/tokens'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as CliIdRouteImport } from './routes/cli.$id'
 import { Route as SitesSlugRouteImport } from './routes/sites_.$slug'
@@ -43,6 +44,11 @@ const TermsRoute = TermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TokensRoute = TokensRouteImport.update({
+  id: '/tokens',
+  path: '/tokens',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/auth/callback',
   path: '/auth/callback',
@@ -65,6 +71,7 @@ export interface FileRoutesByFullPath {
   '/publish': typeof PublishRoute
   '/sites': typeof SitesRoute
   '/terms': typeof TermsRoute
+  '/tokens': typeof TokensRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/cli/$id': typeof CliIdRoute
   '/sites/$slug': typeof SitesSlugRoute
@@ -75,6 +82,7 @@ export interface FileRoutesByTo {
   '/publish': typeof PublishRoute
   '/sites': typeof SitesRoute
   '/terms': typeof TermsRoute
+  '/tokens': typeof TokensRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/cli/$id': typeof CliIdRoute
   '/sites/$slug': typeof SitesSlugRoute
@@ -86,6 +94,7 @@ export interface FileRoutesById {
   '/publish': typeof PublishRoute
   '/sites': typeof SitesRoute
   '/terms': typeof TermsRoute
+  '/tokens': typeof TokensRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/cli/$id': typeof CliIdRoute
   '/sites_/$slug': typeof SitesSlugRoute
@@ -98,6 +107,7 @@ export interface FileRouteTypes {
     | '/publish'
     | '/sites'
     | '/terms'
+    | '/tokens'
     | '/auth/callback'
     | '/cli/$id'
     | '/sites/$slug'
@@ -108,6 +118,7 @@ export interface FileRouteTypes {
     | '/publish'
     | '/sites'
     | '/terms'
+    | '/tokens'
     | '/auth/callback'
     | '/cli/$id'
     | '/sites/$slug'
@@ -118,6 +129,7 @@ export interface FileRouteTypes {
     | '/publish'
     | '/sites'
     | '/terms'
+    | '/tokens'
     | '/auth/callback'
     | '/cli/$id'
     | '/sites_/$slug'
@@ -129,6 +141,7 @@ export interface RootRouteChildren {
   PublishRoute: typeof PublishRoute
   SitesRoute: typeof SitesRoute
   TermsRoute: typeof TermsRoute
+  TokensRoute: typeof TokensRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   CliIdRoute: typeof CliIdRoute
   SitesSlugRoute: typeof SitesSlugRoute
@@ -171,6 +184,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/tokens': {
+      id: '/tokens'
+      path: '/tokens'
+      fullPath: '/tokens'
+      preLoaderRoute: typeof TokensRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth/callback': {
       id: '/auth/callback'
       path: '/auth/callback'
@@ -201,6 +221,7 @@ const rootRouteChildren: RootRouteChildren = {
   PublishRoute: PublishRoute,
   SitesRoute: SitesRoute,
   TermsRoute: TermsRoute,
+  TokensRoute: TokensRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   CliIdRoute: CliIdRoute,
   SitesSlugRoute: SitesSlugRoute,

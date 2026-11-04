@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import socket
 import subprocess
 import sys
 import tempfile
@@ -26,6 +27,11 @@ def output(args: argparse.Namespace, data: Any, text: str) -> None:
 
 
 def signed_in(args: argparse.Namespace) -> Api:
+    # Pipelines use a token made in the dashboard's settings instead of signing in
+    token = os.environ.get("REDOOST_TOKEN")
+    if token:
+        rejected = f"REDOOST_TOKEN isn't a valid token for {args.server}."
+        return Api(args.server, token, unauthorized=rejected)
     tokens = config.load_tokens()
     token = tokens.get(args.server)
     if token is None:
@@ -41,7 +47,22 @@ def site_url(api: Api, slug: str) -> str | None:
     return f"{scheme}://{slug}.{host}"
 
 
+def save_token(server: str, token: str) -> None:
+    tokens = config.load_tokens()
+    tokens[server] = token
+    config.save_tokens(tokens)
+
+
 def login(args: argparse.Namespace) -> None:
+    # Pipelines sign in with a token made in the dashboard's settings
+    if args.token:
+        rejected = f"{args.server} doesn't accept that token."
+        api = Api(args.server, args.token, unauthorized=rejected)
+        user = api.request("GET", "/api/auth/me").json()
+        save_token(args.server, args.token)
+        output(args, user, f"Signed in as {user['email']}")
+        return
+
     api = Api(args.server)
     response = api.request("POST", "/api/auth/cli")
     started = response.json()
@@ -50,7 +71,9 @@ def login(args: argparse.Namespace) -> None:
         f"Open this link on any device to sign in:\n{args.server}/cli/{started['id']}",
         file=sys.stderr,
     )
-    claim = {"secret": started["secret"]}
+    # Named after this machine, so the dashboard tells its sign-ins apart
+    name = f"CLI on {socket.gethostname()}"[:100]
+    claim = {"secret": started["secret"], "name": name}
     with Spinner("Waiting for you to continue in the browser", args.json):
         # 202 until the link is approved; it expires with a 404
         while response.status_code != 200:
@@ -60,15 +83,19 @@ def login(args: argparse.Namespace) -> None:
             )
 
     signed = response.json()
-    tokens = config.load_tokens()
-    tokens[args.server] = signed["token"]
-    config.save_tokens(tokens)
+    save_token(args.server, signed["token"])
     output(args, signed["user"], f"Signed in as {signed['user']['email']}")
 
 
 def logout(args: argparse.Namespace) -> None:
     tokens = config.load_tokens()
-    tokens.pop(args.server, None)
+    token = tokens.pop(args.server, None)
+    # Revoked on the server too, so the token is dead rather than just forgotten
+    if token:
+        try:
+            Api(args.server, token).request("DELETE", "/api/auth/tokens/current")
+        except ApiError:
+            pass
     config.save_tokens(tokens)
     output(args, {}, "Signed out")
 
@@ -351,7 +378,12 @@ def parse(argv: list[str] | None) -> argparse.Namespace:
         version=f"%(prog)s {version('redoost')}",
     )
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("login", parents=[common], help="sign in through a link")
+    login_parser = commands.add_parser(
+        "login", parents=[common], help="sign in through a link"
+    )
+    login_parser.add_argument(
+        "--token", help="sign in with an API token from the dashboard, as in CI"
+    )
     commands.add_parser("logout", parents=[common], help="forget this sign-in")
     commands.add_parser("whoami", parents=[common], help="show who's signed in")
     publish_parser = commands.add_parser(

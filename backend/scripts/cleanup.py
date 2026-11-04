@@ -12,6 +12,7 @@ from sqlmodel.sql.sqltypes import UTCDateTime
 from src.database import engine
 from src.deployments import retire_after
 from src.models import (
+    ApiToken,
     CliLogin,
     Deployment,
     DeploymentState,
@@ -130,8 +131,9 @@ async def cleanup(session: AsyncSession) -> tuple[int, int, int]:
         )
     )
 
-    # CLI sign-ins nobody finished
+    # CLI sign-ins nobody finished, and tokens past their expiry
     await session.exec(delete(CliLogin).where(col(CliLogin.expires_at) < now))
+    await session.exec(delete(ApiToken).where(col(ApiToken.expires_at) < now))
     await session.commit()
     return len(expired), len(orphaned), len(discarded)
 

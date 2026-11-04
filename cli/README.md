@@ -32,15 +32,33 @@ npx skills add whyredfire/redoost
 and continue; the CLI finishes signing in by itself, so it works without a
 browser on the machine. Links expire after 10 minutes.
 
-Tokens are saved per server in `~/.config/redoost/config.json`, readable only by
-you, and last 30 days. `redoost logout` forgets the token.
+Each sign-in is a token named after the machine, saved per server in
+`~/.config/redoost/config.json`, readable only by you, and good for 30 days. The
+dashboard lists them under Settings → API tokens, where you can sign a machine
+out; `redoost logout` revokes the token and forgets it.
+
+### From a pipeline
+
+Pipelines can't open a link, so they use a token made under Settings → API
+tokens instead, with the scopes they need, usually just read and publish, and
+an expiry if you like. Either set it as `REDOOST_TOKEN` where the CLI runs,
+which takes precedence over a saved sign-in, or run `redoost login --token`
+once to save it. For example, in GitHub Actions, with the token saved as a
+repository secret:
+
+```yaml
+- run: uv tool install "git+https://github.com/whyredfire/redoost#subdirectory=cli"
+- run: redoost publish ./dist --update brave-otter-1a2b
+  env:
+    REDOOST_TOKEN: ${{ secrets.REDOOST_TOKEN }}
+```
 
 ## Commands
 
 | Command | |
 | --- | --- |
-| `redoost login` | Sign in through a link |
-| `redoost logout` | Forget this sign-in |
+| `redoost login` | Sign in through a link; `--token` signs in with an API token instead |
+| `redoost logout` | Revoke and forget this sign-in |
 | `redoost whoami` | Show who's signed in and how much storage their sites use |
 | `redoost preview <folder\|zip\|file.html>` | Serve a site locally as it would be published, on a free port, and press Enter to open it; `--port` picks one, `--host 0.0.0.0` shares it on your network |
 | `redoost publish <folder\|zip\|file.html>` | Publish a new site; `--description` adds a note to tell it apart |
@@ -60,7 +78,8 @@ release, and suggest `redoost update` if so.
 
 Every command takes `--json` to print its result as JSON, with progress on
 stderr, and `--server` (or `REDOOST_SERVER`) to use another redoost, such as
-`http://localhost:8081` for the Compose stack.
+`http://localhost:8081` for the Compose stack. `REDOOST_TOKEN` signs in with an
+API token instead of a saved sign-in.
 
 ## Development
 

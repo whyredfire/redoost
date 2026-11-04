@@ -1,6 +1,7 @@
 import asyncio
 from collections.abc import AsyncIterator, Callable, Iterator
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import jwt
 import pytest
@@ -14,7 +15,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from scripts import cleanup
 from src import auth, database, deployments, oidc, storage
 from src.config import Provider, settings
-from src.models import CliLogin, OidcMetadata, User, UserInfo
+from src.models import ApiToken, CliLogin, OidcMetadata, User, UserInfo
 from src.storage import StoredObject
 
 SHA256 = "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
@@ -157,6 +158,163 @@ def test_deleting_an_account_requires_a_user(client: TestClient) -> None:
     assert client.delete("/api/auth/me").status_code == 401
 
 
+def create_api_token(
+    client: TestClient, token: str, name: str = "CI", **body: Any
+) -> Response:
+    scopes = body.pop("scopes", ["read", "publish", "manage"])
+    return client.post(
+        "/api/auth/tokens",
+        json={"name": name, "scopes": scopes, **body},
+        headers=bearer(token),
+    )
+
+
+def test_api_tokens_publish_without_signing_in(client: TestClient, token: str) -> None:
+    response = create_api_token(client, token, name=" GitHub Actions ")
+    assert response.status_code == 201
+    created = response.json()
+    assert created["name"] == "GitHub Actions"
+    assert created["source"] == "manual"
+    assert created["token"].startswith("rdo_")
+    assert created["last_used_at"] is None
+    assert created["expires_at"] is None
+    api_token = created["token"]
+
+    me = client.get("/api/auth/me", headers=bearer(api_token))
+    assert me.status_code == 200
+    assert (
+        me.json()["id"]
+        == client.get("/api/auth/me", headers=bearer(token)).json()["id"]
+    )
+    published = client.post(
+        "/api/deployments", json=MANIFEST, headers=bearer(api_token)
+    )
+    assert published.status_code == 201
+
+    # Listed without the token itself, which was shown once
+    listed = client.get("/api/auth/tokens", headers=bearer(token)).json()
+    assert [entry["name"] for entry in listed] == ["GitHub Actions"]
+    assert "token" not in listed[0]
+    assert listed[0]["last_used_at"] is not None
+
+
+def test_api_tokens_need_a_name_and_scopes(client: TestClient, token: str) -> None:
+    assert create_api_token(client, token, name="  ").status_code == 422
+    assert create_api_token(client, token, name="x" * 101).status_code == 422
+    assert create_api_token(client, token, scopes=[]).status_code == 422
+    assert create_api_token(client, token, scopes=["admin"]).status_code == 422
+    # Repeats are dropped
+    response = create_api_token(client, token, scopes=["read", "read"])
+    assert response.json()["scopes"] == ["read"]
+
+
+def test_api_tokens_are_held_to_their_scopes(client: TestClient, token: str) -> None:
+    publisher = create_api_token(client, token, scopes=["publish"]).json()["token"]
+    manager = create_api_token(client, token, scopes=["manage"]).json()["token"]
+    reader = create_api_token(client, token, scopes=["read"]).json()["token"]
+
+    # Reading comes with every scope
+    for api_token in (publisher, manager, reader):
+        assert (
+            client.get("/api/deployments", headers=bearer(api_token)).status_code == 200
+        )
+        assert (
+            client.get("/api/deployments/usage", headers=bearer(api_token)).status_code
+            == 200
+        )
+
+    published = client.post(
+        "/api/deployments", json=MANIFEST, headers=bearer(publisher)
+    )
+    assert published.status_code == 201
+    url = f"/api/deployments/{published.json()['slug']}"
+    assert client.post(f"{url}/cancel", headers=bearer(manager)).status_code == 403
+    assert (
+        client.post(
+            "/api/deployments", json=MANIFEST, headers=bearer(reader)
+        ).status_code
+        == 403
+    )
+    change = {"enabled": False}
+    assert client.patch(url, json=change, headers=bearer(reader)).status_code == 403
+    response = client.patch(url, json=change, headers=bearer(publisher))
+    assert response.status_code == 403
+    assert response.json()["detail"] == "This token can't manage sites"
+    assert client.patch(url, json=change, headers=bearer(manager)).status_code == 200
+
+
+def test_api_tokens_can_expire(
+    client: TestClient,
+    token: str,
+    monkeypatch: pytest.MonkeyPatch,
+    run_cleanup: Callable[[], tuple[int, int, int]],
+) -> None:
+    async def slug_pages() -> AsyncIterator[list[str]]:
+        yield []
+
+    monkeypatch.setattr(cleanup, "slug_pages", slug_pages)
+    past = (datetime.now(UTC) - timedelta(minutes=1)).isoformat()
+    assert create_api_token(client, token, expires_at=past).status_code == 422
+
+    soon = datetime.now(UTC) + timedelta(seconds=1)
+    created = create_api_token(client, token, expires_at=soon.isoformat()).json()
+    assert datetime.fromisoformat(created["expires_at"]) == soon
+    assert (
+        client.get("/api/auth/me", headers=bearer(created["token"])).status_code == 200
+    )
+
+    async def expire() -> None:
+        async with AsyncSession(database.engine) as session:
+            api_token = await session.get(ApiToken, created["id"])
+            assert api_token is not None
+            api_token.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+            session.add(api_token)
+            await session.commit()
+
+    asyncio.run(expire())
+    assert (
+        client.get("/api/auth/me", headers=bearer(created["token"])).status_code == 401
+    )
+    run_cleanup()
+    assert client.get("/api/auth/tokens", headers=bearer(token)).json() == []
+
+
+def test_revoked_api_tokens_stop_working(
+    client: TestClient, token: str, new_token: Callable[[], str]
+) -> None:
+    created = create_api_token(client, token).json()
+    url = f"/api/auth/tokens/{created['id']}"
+
+    # Only its owner can revoke it
+    assert client.delete(url, headers=bearer(new_token())).status_code == 404
+    assert client.delete(url, headers=bearer(token)).status_code == 204
+    assert client.delete(url, headers=bearer(token)).status_code == 404
+    assert (
+        client.get("/api/auth/me", headers=bearer(created["token"])).status_code == 401
+    )
+    assert client.get("/api/auth/tokens", headers=bearer(token)).json() == []
+
+
+def test_api_tokens_cannot_manage_the_account(client: TestClient, token: str) -> None:
+    api_token = create_api_token(client, token).json()["token"]
+    login = start_cli_login(client)
+
+    assert create_api_token(client, api_token).status_code == 403
+    assert client.get("/api/auth/tokens", headers=bearer(api_token)).status_code == 403
+    assert client.delete("/api/auth/me", headers=bearer(api_token)).status_code == 403
+    assert approve(client, login, api_token).status_code == 403
+    assert client.get("/api/auth/me", headers=bearer(token)).status_code == 200
+
+
+def test_deleting_an_account_revokes_its_api_tokens(
+    client: TestClient, token: str
+) -> None:
+    api_token = create_api_token(client, token).json()["token"]
+
+    assert client.delete("/api/auth/me", headers=bearer(token)).status_code == 204
+    assert client.get("/api/auth/me", headers=bearer(api_token)).status_code == 401
+
+
 def start_cli_login(client: TestClient) -> dict[str, str]:
     return client.post("/api/auth/cli").json()
 
@@ -179,6 +337,7 @@ def test_cli_sign_in(client: TestClient, token: str) -> None:
 
     assert approve(client, login, token).status_code == 204
     response = claim(client, login)
+    assert response.json()["token"].startswith("rdo_")
 
     assert response.status_code == 200
     me = client.get("/api/auth/me", headers=bearer(response.json()["token"]))
@@ -187,6 +346,37 @@ def test_cli_sign_in(client: TestClient, token: str) -> None:
     )
     # Each link signs in once
     assert claim(client, login).status_code == 404
+
+
+def test_cli_sign_ins_are_tokens_the_dashboard_can_revoke(
+    client: TestClient, token: str
+) -> None:
+    login = start_cli_login(client)
+    approve(client, login, token)
+    response = client.post(
+        f"/api/auth/cli/{login['id']}/token",
+        json={"secret": login["secret"], "name": "CLI on laptop"},
+    )
+    cli_token = response.json()["token"]
+
+    [listed] = client.get("/api/auth/tokens", headers=bearer(token)).json()
+    assert listed["name"] == "CLI on laptop"
+    assert listed["source"] == "cli"
+    assert listed["scopes"] == ["read", "publish", "manage"]
+    expires_in = datetime.fromisoformat(listed["expires_at"]) - datetime.now(UTC)
+    assert timedelta(days=29) < expires_in <= timedelta(days=30)
+
+    # The CLI signs itself out, while a browser session has nothing to revoke
+    assert (
+        client.delete("/api/auth/tokens/current", headers=bearer(token)).status_code
+        == 204
+    )
+    assert (
+        client.delete("/api/auth/tokens/current", headers=bearer(cli_token)).status_code
+        == 204
+    )
+    assert client.get("/api/auth/me", headers=bearer(cli_token)).status_code == 401
+    assert client.get("/api/auth/tokens", headers=bearer(token)).json() == []
 
 
 def test_cli_sign_in_needs_the_cli_secret(client: TestClient, token: str) -> None:

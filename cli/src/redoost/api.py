@@ -34,9 +34,11 @@ class Api:
         server: str,
         token: str | None = None,
         transport: httpx2.BaseTransport | None = None,
+        unauthorized: str = "You're not signed in. Run redoost login.",
     ) -> None:
         headers = {"Authorization": f"Bearer {token}"} if token else {}
         self.server = server
+        self.unauthorized = unauthorized
         self.client = httpx2.Client(
             base_url=server, headers=headers, transport=transport, timeout=30
         )
@@ -49,7 +51,7 @@ class Api:
         except httpx2.HTTPError as error:
             raise ApiError(f"Couldn't reach {self.server}.") from error
         if response.status_code == 401:
-            raise ApiError("You're not signed in. Run redoost login.")
+            raise ApiError(self.unauthorized)
         if response.is_error:
             raise ApiError(error_message(response))
         return response

@@ -1,4 +1,5 @@
-import { LogOut, Settings, UserRound } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { KeyRound, LogOut, Settings, UserRound } from "lucide-react";
 import { useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -69,6 +70,12 @@ export function AccountMenu({ user, onSignOut, onDelete }: AccountMenuProps) {
           <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
             <Settings />
             Settings
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link to="/tokens">
+              <KeyRound />
+              API tokens
+            </Link>
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={onSignOut}>
             <LogOut />

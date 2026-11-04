@@ -1,4 +1,5 @@
 import json
+import socket
 from importlib.metadata import version
 from pathlib import Path
 from typing import Any
@@ -35,7 +36,7 @@ class FakeServer:
         if route == "POST /api/auth/cli":
             return httpx2.Response(201, json={"id": "link", "secret": "secret"})
         if route == "POST /api/auth/cli/link/token":
-            assert json.loads(request.content) == {"secret": "secret"}
+            assert json.loads(request.content)["secret"] == "secret"
             if self.pending_polls:
                 self.pending_polls -= 1
                 return httpx2.Response(202)
@@ -120,7 +121,9 @@ def server(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> FakeServer:
     monkeypatch.setattr(
         main,
         "Api",
-        lambda server, token=None: Api(server, token, transport=transport),
+        lambda server, token=None, **kwargs: Api(
+            server, token, transport=transport, **kwargs
+        ),
     )
     return fake
 
@@ -143,13 +146,54 @@ def test_login_waits_for_approval(
     assert f"{SERVER}/cli/link" in err
     assert out == "Signed in as ada@example.com\n"
     assert server.routes().count("POST /api/auth/cli/link/token") == 2
+    claim = json.loads(server.requests[-1].content)
+    assert claim["name"] == f"CLI on {socket.gethostname()}"
     assert config.load_tokens() == {SERVER: "token"}
+
+
+def test_login_with_a_token(
+    server: FakeServer, capsys: pytest.CaptureFixture[str]
+) -> None:
+    out, _ = run(capsys, "login", "--token", "token")
+
+    assert out == "Signed in as ada@example.com\n"
+    assert server.routes() == ["GET /api/auth/me"]
+    assert config.load_tokens() == {SERVER: "token"}
+
+
+def test_login_with_a_bad_token(server: FakeServer) -> None:
+    with pytest.raises(SystemExit, match="doesn't accept that token"):
+        main.main(["login", "--token", "revoked", "--server", SERVER])
+    assert config.load_tokens() == {}
 
 
 def test_tokens_belong_to_their_server(server: FakeServer) -> None:
     config.save_tokens({"https://other.example.com": "token"})
 
     with pytest.raises(SystemExit, match="not signed in"):
+        main.main(["whoami", "--server", SERVER])
+
+
+def test_token_from_the_environment(
+    server: FakeServer,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config.save_tokens({SERVER: "stale"})
+    monkeypatch.setenv("REDOOST_TOKEN", "token")
+
+    out, _ = run(capsys, "whoami")
+
+    assert out.startswith("ada@example.com\n")
+    assert server.requests[0].headers["Authorization"] == "Bearer token"
+
+
+def test_rejected_environment_token(
+    server: FakeServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("REDOOST_TOKEN", "revoked")
+
+    with pytest.raises(SystemExit, match="REDOOST_TOKEN isn't a valid token"):
         main.main(["whoami", "--server", SERVER])
 
 
@@ -182,6 +226,18 @@ def test_logout_forgets_the_token(
     run(capsys, "logout")
     assert config.load_tokens() == {}
     assert (config.config_path().stat().st_mode & 0o777) == 0o600
+    # Revoked on the server as well
+    assert server.routes() == ["DELETE /api/auth/tokens/current"]
+    assert server.requests[0].headers["Authorization"] == "Bearer token"
+
+
+def test_logout_while_signed_out(
+    server: FakeServer, capsys: pytest.CaptureFixture[str]
+) -> None:
+    out, _ = run(capsys, "logout")
+
+    assert out == "Signed out\n"
+    assert server.routes() == []
 
 
 def test_publish(
