@@ -6,7 +6,8 @@ import { UploadProvider } from "@/lib/upload";
 import { routeTree } from "./routeTree.gen";
 import "../styles/globals.css";
 
-const router = createRouter({ routeTree });
+// Links load their page on hover or touch
+const router = createRouter({ routeTree, defaultPreload: "intent" });
 
 declare module "@tanstack/react-router" {
   interface Register {
