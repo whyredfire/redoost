@@ -243,7 +243,7 @@ function SitePage() {
         <div className="space-y-4">
           <SiteAddress slug={site.slug} live={live} />
           {url && live && <SitePreview url={url} />}
-          <section className="space-y-3 pt-6">
+          <section id="update" className="scroll-mt-20 space-y-3 pt-6">
             <h2 className="text-sm font-medium">Update</h2>
             {busy ? (
               <p className="rounded-xl border px-4 py-6 text-center text-sm text-muted-foreground">

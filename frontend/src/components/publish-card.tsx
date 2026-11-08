@@ -1,3 +1,4 @@
+import { useNavigate } from "@tanstack/react-router";
 import { cn } from "cn";
 import { ChevronRight, FolderOpen } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
@@ -168,7 +169,6 @@ export function PublishCard() {
     busy,
     compressedSize,
     percentage,
-    clearFiles,
     startOver,
     chooseTarget,
     slug,
@@ -184,6 +184,7 @@ export function PublishCard() {
   } = useUpload();
   const dragging = usePageDrop(!busy && stage !== "ready");
   const [sites, setSites] = useState<Deployment[]>([]);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const token = loadToken();
@@ -191,6 +192,19 @@ export function PublishCard() {
     // Without them, files can only go to a new site
     listDeployments(token).then(setSites, () => {});
   }, []);
+
+  // Drops the update as well, returning to the site it was for
+  async function clear() {
+    if (target) {
+      await navigate({
+        to: "/sites/$slug",
+        params: { slug: target },
+        hash: "update",
+        replace: true,
+      });
+    }
+    startOver();
+  }
 
   const listed: ListedFile[] = [
     ...files.map(({ path, file }) => ({
@@ -437,12 +451,7 @@ export function PublishCard() {
                   Cancel
                 </Button>
               ) : (
-                // Otherwise the unfinished upload would expect these files again
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={session ? startOver : clearFiles}
-                >
+                <Button type="button" variant="ghost" onClick={clear}>
                   Clear
                 </Button>
               )}
