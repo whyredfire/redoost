@@ -1,8 +1,11 @@
+/* Kumo's tokens must be registered before Tailwind's */
+@source "../node_modules/@cloudflare/kumo/dist/**/*.{js,jsx,ts,tsx}";
+@import "@cloudflare/kumo/styles";
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:where([data-mode="dark"], [data-mode="dark"] *));
 
 @font-face {
   font-family: "Inter Variable";
@@ -21,81 +24,32 @@
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--color-kumo-canvas);
+  --color-foreground: var(--text-color-kumo-default);
   --color-brand: var(--brand);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --color-ring: var(--color-kumo-focus);
+  --color-border: var(--color-kumo-line);
+  --color-destructive: var(--text-color-kumo-danger);
+  --color-muted-foreground: var(--text-color-kumo-subtle);
+  --color-muted: var(--color-kumo-tint);
+  --color-primary-foreground: var(--text-color-kumo-inverse);
+  --color-primary: var(--color-kumo-contrast);
+  --color-card: var(--color-kumo-base);
   --font-sans: "Inter Variable", sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
 }
 
 :root {
-  /* Native controls like scrollbars follow the theme */
-  color-scheme: light;
   /* Pages that scroll and pages that don't keep the same width */
   scrollbar-gutter: stable;
-  --radius: 0.625rem;
   --brand: oklch(0.65 0.2 40);
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  /* Orange, where Kumo's is blue */
+  --color-kumo-brand: var(--brand);
+  --color-kumo-brand-hover: var(--brand);
 }
 
-.dark {
-  color-scheme: dark;
+[data-mode="dark"] {
   --brand: oklch(0.72 0.17 45);
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
 }
 
 @layer base {
@@ -105,7 +59,10 @@
   button {
     @apply hover:cursor-pointer;
   }
-  /*Inter font ligatures*/
+  /* Kumo's popups set no z-index */
+  [data-base-ui-portal] {
+    @apply relative z-50;
+  }
   body {
     /* prettier-ignore */
     font-feature-settings:
@@ -130,11 +87,10 @@
   }
 }
 
-/* A faint grid of dots that fades out toward the edges */
 @utility dot-grid {
   background-image: radial-gradient(
     circle,
-    var(--border) 0.75px,
+    var(--color-kumo-line) 0.75px,
     transparent 1px
   );
   background-size: 12px 12px;

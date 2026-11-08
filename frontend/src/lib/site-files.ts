@@ -53,8 +53,7 @@ async function readDirectory(
     );
     if (entries.length === 0) break;
     for (const child of entries) {
-      const childFiles = await readEntry(child, prefix);
-      files.push(...childFiles);
+      files.push(...(await readEntry(child, prefix)));
     }
   }
   return files;
@@ -131,14 +130,12 @@ async function unzipped(
   return files;
 }
 
-// A lone zip is unpacked and treated like the folder it contains
 async function toSite(
   files: SiteFile[],
   limits: Limits | null,
 ): Promise<SiteFile[]> {
   if (files.length === 1 && /\.zip$/i.test(files[0]!.path)) {
-    const contents = await unzipped(files[0]!.file, limits);
-    return toPages(contents);
+    return toPages(await unzipped(files[0]!.file, limits));
   }
   return toPages(files.filter(({ path }) => !hidden(path)));
 }
@@ -216,7 +213,6 @@ async function digest(file: File) {
   return btoa(String.fromCharCode(...new Uint8Array(hash)));
 }
 
-// Compresses and hashes a few files at a time, reporting each as it's done
 export async function prepareFiles(
   files: SiteFile[],
   onFile: (file: UploadFile) => void,
@@ -246,8 +242,6 @@ export function fileManifest(files: UploadFile[]): ManifestFile[] {
   }));
 }
 
-// What replacing a site's stored files with the selected ones changes;
-// files still being prepared have no change yet
 export function siteChanges(
   files: SiteFile[],
   prepared: UploadFile[],

@@ -8,18 +8,10 @@ import { ExpirySelect } from "@/components/expiry-select";
 import { stageSize } from "@/components/folder-drop";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
+import { Input } from "@cloudflare/kumo/components/input";
+import { Meter } from "@cloudflare/kumo/components/meter";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select } from "@cloudflare/kumo/components/select";
 import { listDeployments, type Deployment } from "@/lib/deploy";
 import { formatTime } from "@/lib/format";
 import type { FileChange } from "@/lib/site-files";
@@ -146,12 +138,17 @@ function ProgressRow({
         <Working>{children}</Working>
         <span className="text-muted-foreground">{value}%</span>
       </div>
-      <Progress value={value} aria-label={label} />
+      {/* Labelled by the row above */}
+      <Meter
+        value={value}
+        label={label}
+        showValue={false}
+        className="gap-0 [&>:first-child]:sr-only"
+      />
     </div>
   );
 }
 
-// The selected files before publishing
 export function PublishCard() {
   const {
     files,
@@ -263,36 +260,31 @@ export function PublishCard() {
                 <div className="mt-4 space-y-1.5">
                   <p className="text-sm text-muted-foreground">Publish as</p>
                   <Select
+                    aria-label="Publish as"
+                    className={cn("w-full", target && "font-mono")}
                     value={target ?? "new"}
                     onValueChange={(value) =>
-                      chooseTarget(value === "new" ? null : value)
+                      chooseTarget(value === "new" ? null : (value as string))
                     }
+                    // Only the slug, while the options also show descriptions
+                    renderValue={() => target ?? "A new site"}
                   >
-                    <SelectTrigger
-                      className={`w-full ${target ? "font-mono" : ""}`}
-                      aria-label="Publish as"
-                    >
-                      {/* Only the slug, while the options also show descriptions */}
-                      <SelectValue>{target ?? "A new site"}</SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="new">A new site</SelectItem>
-                      <SelectGroup>
-                        <SelectLabel>Update a site</SelectLabel>
-                        {sites.map(({ slug, description }) => (
-                          <SelectItem key={slug} value={slug}>
-                            <span className="flex min-w-0 flex-col">
-                              <span className="font-mono">{slug}</span>
-                              {description && (
-                                <span className="max-w-64 truncate text-xs text-muted-foreground">
-                                  {description}
-                                </span>
-                              )}
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
+                    <Select.Option value="new">A new site</Select.Option>
+                    <Select.Group>
+                      <Select.GroupLabel>Update a site</Select.GroupLabel>
+                      {sites.map(({ slug, description }) => (
+                        <Select.Option key={slug} value={slug}>
+                          <span className="flex min-w-0 flex-col">
+                            <span className="font-mono">{slug}</span>
+                            {description && (
+                              <span className="max-w-64 truncate text-xs text-muted-foreground">
+                                {description}
+                              </span>
+                            )}
+                          </span>
+                        </Select.Option>
+                      ))}
+                    </Select.Group>
                   </Select>
                 </div>
               ) : (
@@ -341,6 +333,7 @@ export function PublishCard() {
                     What changed (optional)
                   </label>
                   <Input
+                    className="w-full"
                     id="version-description"
                     value={note}
                     onChange={(event) => setNote(event.target.value)}
@@ -359,6 +352,7 @@ export function PublishCard() {
                     Description (optional)
                   </label>
                   <Input
+                    className="w-full"
                     id="site-description"
                     value={description ?? ""}
                     onChange={(event) => setDescription(event.target.value)}
@@ -452,7 +446,7 @@ export function PublishCard() {
 
           {/* The fade sits on the scrolling viewport, so it dissolves the rows and not the border */}
           <div className="relative min-h-40 rounded-xl border bg-muted/30 md:min-h-64">
-            {/* Radix pins the root to position: relative, so this div takes the space */}
+            {/* The scroll area is position: relative, so this div takes the space */}
             <div className="absolute inset-0">
               <ScrollArea className="h-full [&>[data-slot=scroll-area-viewport]]:scroll-fade">
                 <ul className="divide-y font-mono text-xs">

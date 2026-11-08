@@ -3,14 +3,13 @@ import { Pencil } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Hint } from "@/components/hint";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Input } from "@cloudflare/kumo/components/input";
 import { errorMessage } from "@/lib/format";
 
 type SiteDescriptionProps = {
   description: string;
   onSave: (description: string) => Promise<void>;
   placeholder?: string;
-  // Smaller, for rows in a list
   compact?: boolean;
 };
 
@@ -100,7 +99,7 @@ export function SiteDescription({
     );
   }
 
-  if (!description && !compact) {
+  if (!description) {
     return (
       <Button
         type="button"
@@ -117,17 +116,13 @@ export function SiteDescription({
 
   return (
     <div className="flex items-start gap-1.5">
-      {description && (
-        <p className="min-w-0 break-words text-muted-foreground">
-          {description}
-        </p>
-      )}
-      <Hint label={description ? "Edit description" : "Add a description"}>
+      <p className="min-w-0 break-words text-muted-foreground">{description}</p>
+      <Hint label="Edit description">
         <Button
           type="button"
           variant="ghost"
           size="icon-xs"
-          aria-label={description ? "Edit description" : "Add a description"}
+          aria-label="Edit description"
           onClick={edit}
         >
           <Pencil />

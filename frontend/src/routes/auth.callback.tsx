@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { finishSignIn, signIn, type Callback } from "@/lib/auth";
 import { errorMessage } from "@/lib/format";
 
-// Where the provider sends users back after they sign in
 export const Route = createFileRoute("/auth/callback")({
   head: () => ({ meta: [{ title: "Signing in · redoost" }] }),
   validateSearch: (search): Callback => ({

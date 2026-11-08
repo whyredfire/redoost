@@ -88,11 +88,9 @@ function useUploadState() {
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   // When another tab's or device's upload to the target frees it
   const [lockedUntil, setLockedUntil] = useState<string | null>(null);
-  // The target's files, to show what the update changes
   const [storedFiles, setStoredFiles] = useState<StoredFile[] | null>(null);
   // Null leaves an updated site's description as it is, as when it couldn't be read
   const [description, setDescription] = useState<string | null>(null);
-  // What the next version changes, shown with it
   const [note, setNote] = useState("");
   const [checks, setChecks] = useState<SiteCheck[]>([]);
   const [loaded, setLoaded] = useState(0);
@@ -115,7 +113,6 @@ function useUploadState() {
       ? compressedFiles.reduce((sum, { file }) => sum + file.size, 0)
       : null;
   const diff = storedFiles && siteChanges(files, compressedFiles, storedFiles);
-  // Known once every file is hashed
   const unchanged =
     diff !== null &&
     compressedSize !== null &&
@@ -133,7 +130,6 @@ function useUploadState() {
       })
       // Without them, the files are listed without changes
       .catch(() => {});
-    // Filled in, so the update can change it
     readDeployment(target, token)
       .then((site) => {
         if (current) setDescription(site.description);
@@ -243,7 +239,6 @@ function useUploadState() {
     setTarget(slug);
   }
 
-  // Keeps the files already picked
   function chooseTarget(slug: string | null) {
     setStoredFiles(null);
     setDescription(null);

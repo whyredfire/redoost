@@ -4,6 +4,7 @@ import { LiveDot } from "@/components/live-dot";
 import { Card } from "@/components/ui/card";
 import { expired, online, type Deployment } from "@/lib/deploy";
 import { formatBytes, formatDate, siteUrl } from "@/lib/format";
+import { Checkbox } from "@cloudflare/kumo/components/checkbox";
 
 type SiteListProps = {
   sites: Deployment[];
@@ -19,13 +20,11 @@ export function SiteList({ sites, selected, onToggle }: SiteListProps) {
         {sites.map((site) => (
           <li key={site.slug}>
             {selected ? (
-              <label className="flex cursor-pointer items-center gap-4 px-5 py-4 transition-colors hover:bg-muted/40 has-checked:bg-muted/60">
-                <input
-                  type="checkbox"
+              <label className="flex cursor-pointer items-center gap-4 px-5 py-4 transition-colors hover:bg-muted/40 has-data-checked:bg-muted/60">
+                <Checkbox
                   checked={selected.has(site.slug)}
-                  onChange={() => onToggle?.(site.slug)}
+                  onCheckedChange={() => onToggle?.(site.slug)}
                   aria-label={`Select ${site.slug}`}
-                  className="size-4 shrink-0 cursor-pointer accent-primary"
                 />
                 <SiteSummary site={site} />
               </label>

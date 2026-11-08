@@ -14,14 +14,13 @@ function initials(user: User | null) {
 
 type UserAvatarProps = { user: User | null; className?: string };
 
-// The provider's picture, or initials until it loads or when there's none
 export function UserAvatar({ user, className }: UserAvatarProps) {
   const letters = initials(user);
 
   return (
     <Avatar className={className}>
       {user?.picture && (
-        // Google's image host can refuse requests that name the page they come from
+        // Google's image host can refuse requests with a referrer
         <AvatarImage src={user.picture} alt="" referrerPolicy="no-referrer" />
       )}
       <AvatarFallback className="text-xs font-medium">

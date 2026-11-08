@@ -1,14 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { LogOut, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenu } from "@cloudflare/kumo/components/dropdown";
 import { UserAvatar } from "@/components/user-avatar";
 import type { User } from "@/lib/auth";
 
@@ -20,7 +13,7 @@ type AccountMenuProps = {
 export function AccountMenu({ user, onSignOut }: AccountMenuProps) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
+      <DropdownMenu.Trigger>
         <Button
           variant="ghost"
           size="icon"
@@ -29,11 +22,11 @@ export function AccountMenu({ user, onSignOut }: AccountMenuProps) {
         >
           <UserAvatar user={user} className="size-7" />
         </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-60">
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Content align="end" className="w-60">
         {user && (
           <>
-            <DropdownMenuLabel className="font-normal">
+            <div className="px-2 py-1.5">
               {user.name && (
                 <p className="truncate text-sm font-medium">{user.name}</p>
               )}
@@ -42,21 +35,17 @@ export function AccountMenu({ user, onSignOut }: AccountMenuProps) {
                   {user.email}
                 </p>
               )}
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
+            </div>
+            <DropdownMenu.Separator />
           </>
         )}
-        <DropdownMenuItem asChild>
-          <Link to="/settings">
-            <Settings />
-            Settings
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={onSignOut}>
-          <LogOut />
+        <DropdownMenu.LinkItem icon={Settings} render={<Link to="/settings" />}>
+          Settings
+        </DropdownMenu.LinkItem>
+        <DropdownMenu.Item icon={LogOut} onClick={onSignOut}>
           Sign out
-        </DropdownMenuItem>
-      </DropdownMenuContent>
+        </DropdownMenu.Item>
+      </DropdownMenu.Content>
     </DropdownMenu>
   );
 }

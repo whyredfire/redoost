@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 type SettingsSectionProps = {
   title: string;
   description: string;
-  // Sits beside the title, like a button to add something
   action?: ReactNode;
   children: ReactNode;
 };

@@ -47,7 +47,7 @@
         (!localStorage.theme &&
           matchMedia("(prefers-color-scheme: dark)").matches)
       ) {
-        document.documentElement.classList.add("dark");
+        document.documentElement.dataset.mode = "dark";
         document
           .querySelector('meta[name="theme-color"]')
           .setAttribute("content", "#0a0a0a");

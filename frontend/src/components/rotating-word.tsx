@@ -29,8 +29,7 @@ export function RotatingWord({ words }: Props) {
   if (reduceMotion) return <span>{words[0]}</span>;
 
   return (
-    // Every word sits invisibly in one cell, so the slot is as wide as the
-    // longest and the text around it never moves
+    // Every word shares one cell, so the slot fits the longest
     <span className="inline-grid text-left whitespace-pre">
       {words.map((word) => (
         <span key={word} className="invisible col-start-1 row-start-1">

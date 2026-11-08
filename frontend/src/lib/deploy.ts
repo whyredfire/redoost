@@ -18,7 +18,6 @@ export type Deployment = {
   enabled: boolean;
   description: string;
   created_at: string;
-  // When it goes offline, if ever
   expires_at: string | null;
   locked_until: string;
 };
@@ -27,7 +26,6 @@ export function expired(site: Deployment) {
   return site.expires_at !== null && Date.parse(site.expires_at) <= Date.now();
 }
 
-// Whether visitors can reach it
 export function online(site: Deployment) {
   return site.enabled && !expired(site);
 }
@@ -64,18 +62,16 @@ export type UploadSession = {
   originalSize?: number;
   // Left out to keep an updated site's description as it is
   description?: string;
-  // What the version changes, if the user said
   note?: string;
 };
 
 type DeploymentChange = {
   enabled?: boolean;
   description?: string;
-  // Null for never
   expires_at?: string | null;
 };
 
-export type NewSite = {
+type NewSite = {
   files: ManifestFile[];
   // Left out, the server picks these
   slug?: string;
@@ -84,7 +80,6 @@ export type NewSite = {
   expires_at?: string;
 };
 
-// Unused addresses to publish a new site at
 export async function suggestSlugs(token: string) {
   const response = await fetch("/api/deployments/slugs", {
     headers: authorization(token),
@@ -146,7 +141,6 @@ export async function completeDeployment(
   return readResponse<Deployment>(response);
 }
 
-// Frees the site for another update
 export async function cancelUpload(slug: string, token: string) {
   const response = await fetch(`/api/deployments/${slug}/cancel`, {
     method: "POST",
@@ -169,7 +163,6 @@ export async function readVersions(slug: string, token: string) {
   return readResponse<Version[]>(response);
 }
 
-// Points the site at a kept version again; nothing is uploaded
 export async function restoreVersion(slug: string, id: string, token: string) {
   const response = await fetch(
     `/api/deployments/${slug}/versions/${id}/restore`,
@@ -200,7 +193,6 @@ export async function deleteVersion(slug: string, id: string, token: string) {
   await checkResponse(response);
 }
 
-// Deletes every version but the one being served
 export async function pruneVersions(slug: string, token: string) {
   const response = await fetch(`/api/deployments/${slug}/versions`, {
     method: "DELETE",
@@ -249,8 +241,8 @@ export async function deleteDeployment(slug: string, token: string) {
   await checkResponse(response);
 }
 
-// The API takes up to 100 sites a request; returns the ones whose request failed.
-// Sites that no longer exist, like ones deleted in another tab, are skipped.
+// The API takes up to 100 sites a request and skips ones that no longer exist;
+// returns the sites whose request failed
 async function inBatches(
   slugs: string[],
   send: (query: URLSearchParams) => Promise<Response>,

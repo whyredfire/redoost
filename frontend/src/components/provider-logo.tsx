@@ -1,6 +1,5 @@
 import type { Provider } from "@/lib/auth";
 
-// Google's brand colors, kept small so sign-in buttons stay quiet
 export function ProviderLogo({ provider }: { provider: Provider }) {
   if (provider !== "google") return null;
 

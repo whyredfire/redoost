@@ -1,8 +1,10 @@
 import { Navigate, createFileRoute } from "@tanstack/react-router";
+import { cn } from "cn";
 import { AddressPreview } from "@/components/address-preview";
 import { CliCommand } from "@/components/cli-command";
-import { FolderDrop, stageSize } from "@/components/folder-drop";
+import { FolderDrop } from "@/components/folder-drop";
 import { SignInButton } from "@/components/sign-in-prompt";
+import { inset } from "@/lib/layout";
 import { useToken } from "@/lib/session";
 import { usePageDrop, useUpload } from "@/lib/upload";
 
@@ -25,7 +27,6 @@ function LandingPage() {
     startOver,
   } = useUpload();
   const token = useToken();
-  // Accounts can't publish until they sign in
   const signedOut = !token;
   const dragging = usePageDrop(!signedOut);
 
@@ -33,9 +34,9 @@ function LandingPage() {
   if (files.length > 0) return <Navigate to="/publish" />;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-1 flex-col">
       {session && stage !== "ready" && (
-        <p className="rounded-xl bg-muted/60 px-4 py-3 text-sm">
+        <p className={cn(inset, "border-b bg-muted/60 py-3 text-sm")}>
           Select the same files to resume{" "}
           <span className="font-mono">{session.deployment.slug}</span>, or{" "}
           <button
@@ -49,7 +50,7 @@ function LandingPage() {
         </p>
       )}
       {target && !session && (
-        <p className="rounded-xl bg-muted/60 px-4 py-3 text-sm">
+        <p className={cn(inset, "border-b bg-muted/60 py-3 text-sm")}>
           Select the new version of <span className="font-mono">{target}</span>{" "}
           to update it, or{" "}
           <button
@@ -63,7 +64,8 @@ function LandingPage() {
         </p>
       )}
       <FolderDrop
-        className={stageSize}
+        // The space between the rules is the drop zone, filling what the footer leaves
+        className="flex-1 rounded-none border-0"
         heading
         prompt={
           <>
@@ -75,11 +77,6 @@ function LandingPage() {
         hint="Publish a built site, a zip, or a single HTML file. No build step, no config, and it stays online until you delete it."
         actions={signedOut ? <SignInButton /> : undefined}
         footer={<AddressPreview className="mt-10 w-full max-w-lg" />}
-        bottom={
-          <div className="flex justify-center">
-            <CliCommand variant="plain" />
-          </div>
-        }
         dragging={dragging}
         limits={limits}
         error={message}
@@ -88,6 +85,9 @@ function LandingPage() {
         onError={showError}
         onDismiss={clearFiles}
       />
+      <div className={cn(inset, "flex justify-center border-t py-4")}>
+        <CliCommand variant="plain" />
+      </div>
     </div>
   );
 }

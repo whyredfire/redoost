@@ -1,10 +1,6 @@
 import { Info } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover } from "@cloudflare/kumo/components/popover";
 import { formatBytes } from "@/lib/format";
 
 // Smaller savings, like a site of mostly images, aren't worth mentioning
@@ -21,7 +17,6 @@ const swap = {
   exit: { opacity: 0, filter: "blur(4px)" },
 };
 
-// Shows "old → new" once compressed, and only the size otherwise
 export function Sizes({ original, compressed }: SizesProps) {
   const reduceMotion = useReducedMotion();
   const smaller =
@@ -52,17 +47,17 @@ export function Sizes({ original, compressed }: SizesProps) {
 export function SizeInfo({ update }: { update: boolean }) {
   return (
     <Popover>
-      <PopoverTrigger
+      <Popover.Trigger
         className="rounded-full transition-colors hover:text-foreground"
         aria-label="What this size means"
       >
         <Info className="size-4" />
-      </PopoverTrigger>
-      <PopoverContent className="text-sm" align="start">
+      </Popover.Trigger>
+      <Popover.Content className="max-w-72" align="start">
         {update
           ? "What this update uploads: only new and changed files. Text files like HTML, CSS, and JavaScript are gzipped in your browser first."
           : "The size of the whole site. Text files like HTML, CSS, and JavaScript are gzipped in your browser before uploading, so less is stored."}
-      </PopoverContent>
+      </Popover.Content>
     </Popover>
   );
 }

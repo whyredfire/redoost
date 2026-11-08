@@ -1,21 +1,15 @@
 import { useState } from "react";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Input } from "@cloudflare/kumo/components/input";
+import { Select } from "@cloudflare/kumo/components/select";
 
 const presets = [
-  ["never", "Never"],
-  ["1", "In a day"],
-  ["7", "In a week"],
-  ["30", "In 30 days"],
-  ["90", "In 90 days"],
-  ["date", "On a date"],
-] as const;
+  { value: "never", label: "Never" },
+  { value: "1", label: "In a day" },
+  { value: "7", label: "In a week" },
+  { value: "30", label: "In 30 days" },
+  { value: "90", label: "In 90 days" },
+  { value: "date", label: "On a date" },
+];
 
 function inDays(days: string) {
   const date = new Date();
@@ -48,7 +42,6 @@ type ExpirySelectProps = {
   disabled?: boolean;
 };
 
-// Presets a few days to months out, or a date picked by hand
 export function ExpirySelect({
   id,
   value,
@@ -65,20 +58,18 @@ export function ExpirySelect({
 
   return (
     <div className="space-y-2">
-      <Select value={preset} onValueChange={choose} disabled={disabled}>
-        <SelectTrigger id={id} className="w-full">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {presets.map(([key, label]) => (
-            <SelectItem key={key} value={key}>
-              {label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <Select
+        id={id}
+        aria-label="Expiry"
+        className="w-full"
+        items={presets}
+        value={preset}
+        onValueChange={(next) => choose(next as string)}
+        disabled={disabled}
+      />
       {preset === "date" && (
         <Input
+          className="w-full"
           type="date"
           aria-label="Last day online"
           value={value ? dayOf(value) : ""}

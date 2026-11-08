@@ -13,7 +13,6 @@ import { useUpload } from "@/lib/upload";
 
 const MotionCardContent = motion.create(CardContent);
 
-// The live page's sections rise in one after another
 const stagger = { shown: { transition: { staggerChildren: 0.08 } } };
 const rise = {
   hidden: { opacity: 0, y: 12, filter: "blur(4px)" },
@@ -47,7 +46,6 @@ export function LiveSiteCard() {
               {target ? "Same address, new files." : "Share it with anyone."}
             </span>
           </h1>
-          {/* The actions sit on the address's row, as what to do with it */}
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0 lg:max-w-xl lg:flex-1">
               <SiteAddress slug={slug} />

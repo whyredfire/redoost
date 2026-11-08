@@ -1,6 +1,8 @@
 import { Link, createFileRoute, useRouter } from "@tanstack/react-router";
 import { Globe, Search } from "lucide-react";
 import { useState } from "react";
+import { Input } from "@cloudflare/kumo/components/input";
+import { Select } from "@cloudflare/kumo/components/select";
 import { CliCommand } from "@/components/cli-command";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeading } from "@/components/page-heading";
@@ -9,15 +11,6 @@ import { SiteList } from "@/components/site-list";
 import { SiteSelection } from "@/components/site-selection";
 import { StorageUsage } from "@/components/storage-usage";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ApiError } from "@/lib/api";
 import {
   changeDeployments,
   deleteDeployments,
@@ -28,7 +21,7 @@ import {
   type Usage,
 } from "@/lib/deploy";
 import { installUrl } from "@/lib/config";
-import { clearToken, loadToken, useToken } from "@/lib/session";
+import { loadSignedIn, loadToken, useToken } from "@/lib/session";
 
 export const Route = createFileRoute("/sites")({
   head: () => ({ meta: [{ title: "Your sites · redoost" }] }),
@@ -42,22 +35,14 @@ export const Route = createFileRoute("/sites")({
 });
 
 async function loadSites() {
-  const token = loadToken();
-  if (!token) return { sites: [], usage: null };
-  try {
+  const loaded = await loadSignedIn(async (token) => {
     const [sites, usage] = await Promise.all([
       listDeployments(token),
       readUsage(token),
     ]);
     return { sites, usage };
-  } catch (error) {
-    // Expired or unknown, so the page asks to sign in again
-    if (error instanceof ApiError && error.status === 401) {
-      clearToken();
-      return { sites: [], usage: null };
-    }
-    throw error;
-  }
+  });
+  return loaded ?? { sites: [], usage: null };
 }
 
 type Status = "all" | "online" | "offline";
@@ -149,49 +134,39 @@ function SitesPage() {
                 {sites.length > 5 && (
                   <>
                     <div className="relative flex-1">
-                      <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                      <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
                         type="search"
                         value={query}
                         onChange={(event) => setQuery(event.target.value)}
                         placeholder="Search sites"
                         aria-label="Search sites"
-                        className="h-10 rounded-xl pl-10 font-mono [&::-webkit-search-cancel-button]:hidden"
+                        className="w-full pl-9 font-mono [&::-webkit-search-cancel-button]:hidden"
                       />
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 *:flex-1 sm:*:w-32">
                       <Select
+                        aria-label="Show"
+                        className="w-full"
+                        items={{
+                          all: "All sites",
+                          online: "Online",
+                          offline: "Offline",
+                        }}
                         value={status}
                         onValueChange={(value) => setStatus(value as Status)}
-                      >
-                        <SelectTrigger
-                          className="h-10! flex-1 rounded-xl sm:w-32"
-                          aria-label="Show"
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All sites</SelectItem>
-                          <SelectItem value="online">Online</SelectItem>
-                          <SelectItem value="offline">Offline</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      />
                       <Select
+                        aria-label="Sort by"
+                        className="w-full"
+                        items={{
+                          newest: "Newest",
+                          largest: "Largest",
+                          name: "Name",
+                        }}
                         value={order}
                         onValueChange={(value) => setOrder(value as Order)}
-                      >
-                        <SelectTrigger
-                          className="h-10! flex-1 rounded-xl sm:w-32"
-                          aria-label="Sort by"
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="newest">Newest</SelectItem>
-                          <SelectItem value="largest">Largest</SelectItem>
-                          <SelectItem value="name">Name</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      />
                     </div>
                   </>
                 )}
@@ -199,7 +174,7 @@ function SitesPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-10 rounded-xl sm:ml-auto"
+                    className="max-sm:w-full sm:ml-auto"
                     onClick={() => setSelecting(new Set())}
                   >
                     Select

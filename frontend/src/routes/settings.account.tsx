@@ -27,11 +27,6 @@ function AccountSettings() {
     await router.invalidate();
   }
 
-  // Name and email head the card, beside the picture
-  const details = [
-    { label: "Signed in with", value: user && providerNames[user.provider] },
-  ];
-
   return (
     <div className="space-y-10">
       <SettingsSection title="Account" description="Who you're signed in as.">
@@ -47,18 +42,16 @@ function AccountSettings() {
               )}
             </div>
           </div>
-          <dl className="divide-y">
-            {details.map(
-              ({ label, value }) =>
-                value && (
-                  <div
-                    key={label}
-                    className="flex justify-between gap-4 px-4 py-3"
-                  >
-                    <dt className="shrink-0 text-muted-foreground">{label}</dt>
-                    <dd className="min-w-0 truncate">{value}</dd>
-                  </div>
-                ),
+          <dl>
+            {user && (
+              <div className="flex justify-between gap-4 px-4 py-3">
+                <dt className="shrink-0 text-muted-foreground">
+                  Signed in with
+                </dt>
+                <dd className="min-w-0 truncate">
+                  {providerNames[user.provider]}
+                </dd>
+              </div>
             )}
           </dl>
         </div>

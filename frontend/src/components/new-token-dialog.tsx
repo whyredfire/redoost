@@ -1,17 +1,9 @@
-import { Plus } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { CopyButton } from "@/components/copy-button";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { Dialog } from "@cloudflare/kumo/components/dialog";
+import { Input } from "@cloudflare/kumo/components/input";
 import { ExpirySelect } from "@/components/expiry-select";
 import { errorMessage } from "@/lib/format";
 import { loadToken } from "@/lib/session";
@@ -22,10 +14,10 @@ import {
   type CreatedToken,
   type Scope,
 } from "@/lib/tokens";
+import { Checkbox } from "@cloudflare/kumo/components/checkbox";
 
 type NewTokenDialogProps = { onCreated: () => Promise<void> };
 
-// Asks what the token is for, then shows it the one time it can be copied
 export function NewTokenDialog({ onCreated }: NewTokenDialogProps) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -76,22 +68,35 @@ export function NewTokenDialog({ onCreated }: NewTokenDialogProps) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={changeOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus />
-          New token
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
+    <Dialog.Root open={open} onOpenChange={changeOpen}>
+      <Dialog.Trigger
+        render={
+          <Button>
+            <Plus />
+            New token
+          </Button>
+        }
+      />
+      <Dialog size="lg" className="flex flex-col gap-6 p-6">
+        <Dialog.Close
+          aria-label="Close"
+          className="absolute top-4 right-4"
+          render={
+            <Button variant="ghost" size="icon-sm">
+              <X />
+            </Button>
+          }
+        />
         {created ? (
           <>
-            <DialogHeader>
-              <DialogTitle>{created.name}</DialogTitle>
-              <DialogDescription>
+            <div className="flex flex-col gap-2 pr-8">
+              <Dialog.Title className="text-lg font-semibold">
+                {created.name}
+              </Dialog.Title>
+              <Dialog.Description className="text-kumo-subtle">
                 Copy it now. It won't be shown again.
-              </DialogDescription>
-            </DialogHeader>
+              </Dialog.Description>
+            </div>
             <div className="flex items-center gap-2 rounded-lg border bg-muted/40 py-1.5 pr-1.5 pl-4">
               <span className="min-w-0 flex-1 truncate font-mono text-sm">
                 {created.token}
@@ -107,26 +112,29 @@ export function NewTokenDialog({ onCreated }: NewTokenDialogProps) {
               the CLI runs, or sign in with{" "}
               <span className="font-mono">redoost login --token</span>.
             </p>
-            <DialogFooter>
+            <div className="flex justify-end gap-2">
               <Button type="button" onClick={() => changeOpen(false)}>
                 Done
               </Button>
-            </DialogFooter>
+            </div>
           </>
         ) : (
           <form onSubmit={create} className="space-y-6">
-            <DialogHeader>
-              <DialogTitle>New token</DialogTitle>
-              <DialogDescription>
+            <div className="flex flex-col gap-2 pr-8">
+              <Dialog.Title className="text-lg font-semibold">
+                New token
+              </Dialog.Title>
+              <Dialog.Description className="text-kumo-subtle">
                 For publishing from a pipeline or another machine, without
                 signing in.
-              </DialogDescription>
-            </DialogHeader>
+              </Dialog.Description>
+            </div>
             <div className="space-y-2">
               <label htmlFor="token-name" className="text-sm font-medium">
                 Name
               </label>
               <Input
+                className="w-full"
                 id="token-name"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
@@ -147,11 +155,10 @@ export function NewTokenDialog({ onCreated }: NewTokenDialogProps) {
                     key={scope}
                     className="flex cursor-pointer items-start gap-3 px-4 py-3 text-sm"
                   >
-                    <input
-                      type="checkbox"
-                      className="mt-1 accent-brand"
+                    <Checkbox
+                      className="mt-0.5"
                       checked={chosen.includes(scope)}
-                      onChange={() => toggle(scope)}
+                      onCheckedChange={() => toggle(scope)}
                     />
                     <span>
                       <span className="font-medium">
@@ -181,17 +188,17 @@ export function NewTokenDialog({ onCreated }: NewTokenDialogProps) {
                 {error}
               </p>
             )}
-            <DialogFooter>
+            <div className="flex justify-end gap-2">
               <Button
                 type="submit"
                 disabled={creating || !name.trim() || chosen.length === 0}
               >
                 {creating ? "Creating…" : "Create token"}
               </Button>
-            </DialogFooter>
+            </div>
           </form>
         )}
-      </DialogContent>
-    </Dialog>
+      </Dialog>
+    </Dialog.Root>
   );
 }

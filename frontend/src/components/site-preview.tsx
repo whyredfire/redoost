@@ -64,7 +64,6 @@ export function SitePreview({ url, fill = false }: SitePreviewProps) {
           fill ? "min-h-40 flex-1 sm:min-h-64" : "aspect-[16/9]",
         )}
       >
-        {/* A page outline until the site shows, then it fades as the site fades in */}
         <div
           className={`absolute inset-0 flex flex-col gap-[6%] overflow-hidden p-[5%] transition-opacity duration-500 ${shown ? "opacity-0" : ""}`}
         >

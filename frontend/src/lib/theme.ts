@@ -12,20 +12,19 @@ function loadTheme(): Theme {
   return saved === "light" || saved === "dark" ? saved : "system";
 }
 
-function isDark(theme: Theme) {
-  return theme === "dark" || (theme === "system" && systemDark.matches);
+function isDark(theme: Theme, system: boolean) {
+  return theme === "dark" || (theme === "system" && system);
 }
 
 function apply() {
-  const dark = isDark(loadTheme());
-  document.documentElement.classList.toggle("dark", dark);
+  const dark = isDark(loadTheme(), systemDark.matches);
+  document.documentElement.dataset.mode = dark ? "dark" : "light";
   document
     .querySelector('meta[name="theme-color"]')
     ?.setAttribute("content", dark ? "#0a0a0a" : "#ffffff");
   for (const listener of listeners) listener();
 }
 
-// Following the system means following it as it changes, too
 systemDark.addEventListener("change", apply);
 
 export function setTheme(theme: Theme) {
@@ -47,5 +46,5 @@ export function useTheme() {
   const theme = useSyncExternalStore(subscribe, loadTheme);
   // Its own snapshot, so the system switching re-renders while following it
   const system = useSyncExternalStore(subscribe, systemIsDark);
-  return { theme, dark: theme === "dark" || (theme === "system" && system) };
+  return { theme, dark: isDark(theme, system) };
 }

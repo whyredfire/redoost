@@ -2,6 +2,7 @@ import { RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Hint } from "@/components/hint";
 import { Button } from "@/components/ui/button";
+import { Radio } from "@cloudflare/kumo/components/radio";
 import { suggestSlugs } from "@/lib/deploy";
 import { loadToken } from "@/lib/session";
 
@@ -11,7 +12,6 @@ type AddressPickerProps = {
   disabled: boolean;
 };
 
-// A few free addresses for a new site, with others a click away
 export function AddressPicker({
   slug,
   onChange,
@@ -35,7 +35,6 @@ export function AddressPicker({
     }
   }
 
-  // Fetched when first shown, and again whenever the choice is dropped
   useEffect(() => {
     if (slug === null) void suggest();
   }, [slug]);
@@ -58,24 +57,22 @@ export function AddressPicker({
         </Hint>
       </div>
       {options.length > 0 ? (
-        <div className="divide-y rounded-lg border">
+        <Radio.Group
+          appearance="card"
+          controlPosition="start"
+          disabled={disabled}
+          value={slug}
+          onValueChange={(value) => onChange(value as string)}
+        >
           {options.map((option) => (
-            <label
+            <Radio.Item
               key={option}
-              className="flex cursor-pointer items-center gap-2.5 px-3 py-1.5 font-mono text-sm"
-            >
-              <input
-                type="radio"
-                name="site-address"
-                className="accent-brand"
-                value={option}
-                checked={option === slug}
-                onChange={() => onChange(option)}
-              />
-              {option}
-            </label>
+              value={option}
+              className="items-center gap-2.5 px-3 py-1.5"
+              label={<span className="font-mono font-normal">{option}</span>}
+            />
           ))}
-        </div>
+        </Radio.Group>
       ) : (
         <p className="text-sm text-muted-foreground">Picked for you</p>
       )}

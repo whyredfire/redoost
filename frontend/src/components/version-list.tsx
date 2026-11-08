@@ -1,6 +1,7 @@
 import { History, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { ConfirmButton } from "@/components/confirm-button";
+import { Badge } from "@cloudflare/kumo/components/badge";
 import { Button } from "@/components/ui/button";
 import { Hint } from "@/components/hint";
 import { SiteDescription } from "@/components/site-description";
@@ -14,7 +15,6 @@ import {
 
 type VersionListProps = {
   versions: Version[];
-  // While an upload is in progress, nothing can be restored
   busy: boolean;
   onRestore: (id: string) => Promise<void>;
   onDescribe: (id: string, description: string) => Promise<void>;
@@ -22,7 +22,6 @@ type VersionListProps = {
   onPrune: () => Promise<void>;
 };
 
-// What the site has published, newest first, to go back to or clear out
 export function VersionList({
   versions,
   busy,
@@ -62,9 +61,9 @@ export function VersionList({
                   {formatTime(version.created_at)}
                 </span>
                 {version.current && (
-                  <span className="shrink-0 rounded-md bg-brand/10 px-1.5 py-0.5 text-xs text-brand">
+                  <Badge variant="outline" className="shrink-0">
                     Current
-                  </span>
+                  </Badge>
                 )}
               </p>
               <SiteDescription

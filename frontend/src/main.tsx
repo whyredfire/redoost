@@ -1,12 +1,11 @@
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { TooltipProvider } from "@cloudflare/kumo/components/tooltip";
 import { UploadProvider } from "@/lib/upload";
 import { routeTree } from "./routeTree.gen";
 import "../styles/globals.css";
 
-// Links load their page on hover or touch
 const router = createRouter({ routeTree, defaultPreload: "intent" });
 
 declare module "@tanstack/react-router" {

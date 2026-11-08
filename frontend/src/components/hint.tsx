@@ -1,9 +1,5 @@
 import { type ReactNode, useState } from "react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip } from "@cloudflare/kumo/components/tooltip";
 
 // On a wrapper, so disabled buttons still show why
 export function Hint({
@@ -12,18 +8,20 @@ export function Hint({
   children,
 }: {
   label: string;
-  // Keeps the hint up, since clicking closes it, e.g. to say something was copied
+  // Keeps it up after a click, e.g. to say something was copied
   open?: boolean;
   children: ReactNode;
 }) {
   const [hovered, setHovered] = useState(false);
 
   return (
-    <Tooltip open={hovered || open} onOpenChange={setHovered}>
-      <TooltipTrigger asChild>
-        <span className="inline-flex">{children}</span>
-      </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
+    <Tooltip
+      content={label}
+      open={hovered || open}
+      onOpenChange={setHovered}
+      render={<span className="inline-flex" />}
+    >
+      {children}
     </Tooltip>
   );
 }
