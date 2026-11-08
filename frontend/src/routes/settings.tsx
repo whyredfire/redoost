@@ -35,7 +35,6 @@ function SettingsLayout() {
     <>
       <PageHeading title="Settings" />
       <div className="grid gap-8 md:grid-cols-[12rem_minmax(0,1fr)]">
-        {/* A row of tabs on phones, a column beside the section otherwise */}
         <nav className="-mx-1 flex gap-1 overflow-x-auto md:mx-0 md:flex-col">
           {sections.map(({ to, label, icon: Icon }) => (
             <Link

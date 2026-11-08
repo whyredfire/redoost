@@ -21,7 +21,6 @@ const swap = {
   exit: { opacity: 0, filter: "blur(4px)" },
 };
 
-// Shows "old → new" once compressed, and only the size otherwise
 export function Sizes({ original, compressed }: SizesProps) {
   const reduceMotion = useReducedMotion();
   const smaller =

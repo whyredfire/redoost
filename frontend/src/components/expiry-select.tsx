@@ -48,7 +48,6 @@ type ExpirySelectProps = {
   disabled?: boolean;
 };
 
-// Presets a few days to months out, or a date picked by hand
 export function ExpirySelect({
   id,
   value,

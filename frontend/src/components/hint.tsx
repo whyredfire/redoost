@@ -12,7 +12,7 @@ export function Hint({
   children,
 }: {
   label: string;
-  // Keeps the hint up, since clicking closes it, e.g. to say something was copied
+  // Keeps it up after a click, e.g. to say something was copied
   open?: boolean;
   children: ReactNode;
 }) {

@@ -151,7 +151,6 @@ function ProgressRow({
   );
 }
 
-// The selected files before publishing
 export function PublishCard() {
   const {
     files,

@@ -30,7 +30,6 @@ import {
   readVersions,
   restoreVersion,
   type Deployment,
-  type Version,
 } from "@/lib/deploy";
 import {
   errorMessage,
@@ -41,8 +40,8 @@ import {
 } from "@/lib/format";
 import {
   clearSession,
-  clearToken,
   loadSession,
+  loadSignedIn,
   loadToken,
 } from "@/lib/session";
 import type { SiteFile } from "@/lib/site-files";
@@ -111,28 +110,22 @@ function ExpirySection({ site, onSave }: ExpirySectionProps) {
   );
 }
 
-async function loadSite(
-  slug: string,
-): Promise<{ site: Deployment; versions: Version[] } | null> {
-  const token = loadToken();
-  if (!token) return null;
-  try {
-    const [site, versions] = await Promise.all([
-      readDeployment(slug, token),
-      readVersions(slug, token),
-    ]);
-    return { site, versions };
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 401) {
-      clearToken();
-      return null;
+function loadSite(slug: string) {
+  return loadSignedIn(async (token) => {
+    try {
+      const [site, versions] = await Promise.all([
+        readDeployment(slug, token),
+        readVersions(slug, token),
+      ]);
+      return { site, versions };
+    } catch (error) {
+      // Other people's sites look the same as missing ones
+      if (error instanceof ApiError && [403, 404].includes(error.status)) {
+        throw notFound();
+      }
+      throw error;
     }
-    // Other people's sites look the same as missing ones
-    if (error instanceof ApiError && [403, 404].includes(error.status)) {
-      throw notFound();
-    }
-    throw error;
-  }
+  });
 }
 
 function SitePage() {
@@ -162,13 +155,34 @@ function SitePage() {
     );
   }
 
+  const { slug } = site;
+
+  async function change(run: (token: string) => Promise<unknown>) {
+    const token = loadToken();
+    if (!token) return;
+    await run(token);
+    await router.invalidate();
+  }
+
+  const describe = (description: string) =>
+    change((token) => changeDeployment(slug, { description }, token));
+  const expire = (expires_at: string | null) =>
+    change((token) => changeDeployment(slug, { expires_at }, token));
+  const restore = (id: string) =>
+    change((token) => restoreVersion(slug, id, token));
+  const describeVersionOf = (id: string, description: string) =>
+    change((token) => describeVersion(slug, id, description, token));
+  const removeVersion = (id: string) =>
+    change((token) => deleteVersion(slug, id, token));
+  const prune = () => change((token) => pruneVersions(slug, token));
+
   async function toggle(enabled: boolean) {
     const token = loadToken();
-    if (!token || !site) return;
+    if (!token) return;
     setSwitching(true);
     setSwitchError("");
     try {
-      await changeDeployment(site.slug, { enabled }, token);
+      await changeDeployment(slug, { enabled }, token);
       await router.invalidate();
     } catch (cause) {
       setSwitchError(errorMessage(cause));
@@ -177,54 +191,12 @@ function SitePage() {
     }
   }
 
-  async function describe(description: string) {
-    const token = loadToken();
-    if (!token || !site) return;
-    await changeDeployment(site.slug, { description }, token);
-    await router.invalidate();
-  }
-
-  async function expire(expires_at: string | null) {
-    const token = loadToken();
-    if (!token || !site) return;
-    await changeDeployment(site.slug, { expires_at }, token);
-    await router.invalidate();
-  }
-
-  async function restore(id: string) {
-    const token = loadToken();
-    if (!token || !site) return;
-    await restoreVersion(site.slug, id, token);
-    await router.invalidate();
-  }
-
-  async function describeVersionOf(id: string, description: string) {
-    const token = loadToken();
-    if (!token || !site) return;
-    await describeVersion(site.slug, id, description, token);
-    await router.invalidate();
-  }
-
-  async function removeVersion(id: string) {
-    const token = loadToken();
-    if (!token || !site) return;
-    await deleteVersion(site.slug, id, token);
-    await router.invalidate();
-  }
-
-  async function prune() {
-    const token = loadToken();
-    if (!token || !site) return;
-    await pruneVersions(site.slug, token);
-    await router.invalidate();
-  }
-
   async function remove() {
     const token = loadToken();
-    if (!token || !site) return;
-    await deleteDeployment(site.slug, token);
+    if (!token) return;
+    await deleteDeployment(slug, token);
     // The publish page would otherwise still show the deleted site as live
-    if (loadSession()?.deployment.slug === site.slug) clearSession();
+    if (loadSession()?.deployment.slug === slug) clearSession();
     await navigate({ to: "/sites" });
   }
 
@@ -341,7 +313,7 @@ function SitePage() {
               </p>
             )}
           </section>
-          <ExpirySection key={site.slug} site={site} onSave={expire} />
+          <ExpirySection key={slug} site={site} onSave={expire} />
           <DangerAction
             title="Delete site"
             description="Deletes the site and its files."

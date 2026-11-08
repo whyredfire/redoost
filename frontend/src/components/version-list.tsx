@@ -14,7 +14,6 @@ import {
 
 type VersionListProps = {
   versions: Version[];
-  // While an upload is in progress, nothing can be restored
   busy: boolean;
   onRestore: (id: string) => Promise<void>;
   onDescribe: (id: string, description: string) => Promise<void>;
@@ -22,7 +21,6 @@ type VersionListProps = {
   onPrune: () => Promise<void>;
 };
 
-// What the site has published, newest first, to go back to or clear out
 export function VersionList({
   versions,
   busy,

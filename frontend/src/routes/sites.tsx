@@ -17,7 +17,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ApiError } from "@/lib/api";
 import {
   changeDeployments,
   deleteDeployments,
@@ -28,7 +27,7 @@ import {
   type Usage,
 } from "@/lib/deploy";
 import { installUrl } from "@/lib/config";
-import { clearToken, loadToken, useToken } from "@/lib/session";
+import { loadSignedIn, loadToken, useToken } from "@/lib/session";
 
 export const Route = createFileRoute("/sites")({
   head: () => ({ meta: [{ title: "Your sites · redoost" }] }),
@@ -42,22 +41,14 @@ export const Route = createFileRoute("/sites")({
 });
 
 async function loadSites() {
-  const token = loadToken();
-  if (!token) return { sites: [], usage: null };
-  try {
+  const loaded = await loadSignedIn(async (token) => {
     const [sites, usage] = await Promise.all([
       listDeployments(token),
       readUsage(token),
     ]);
     return { sites, usage };
-  } catch (error) {
-    // Expired or unknown, so the page asks to sign in again
-    if (error instanceof ApiError && error.status === 401) {
-      clearToken();
-      return { sites: [], usage: null };
-    }
-    throw error;
-  }
+  });
+  return loaded ?? { sites: [], usage: null };
 }
 
 type Status = "all" | "online" | "offline";

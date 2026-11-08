@@ -2,7 +2,7 @@ import { cn } from "cn";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
-export function EmptyStateIcon({ icon: Icon }: { icon: LucideIcon }) {
+function EmptyStateIcon({ icon: Icon }: { icon: LucideIcon }) {
   return (
     <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-muted">
       <Icon className="size-5 text-muted-foreground" />

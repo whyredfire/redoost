@@ -1,6 +1,5 @@
 import { useState } from "react";
 
-// Shows as copied for two seconds after copying
 export function useCopy() {
   const [copied, setCopied] = useState(false);
 

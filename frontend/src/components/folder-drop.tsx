@@ -2,7 +2,6 @@ import { cn } from "cn";
 import { Check, Upload } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useRef, type ChangeEvent, type ReactNode } from "react";
-import { EmptyStateIcon } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import type { Limits } from "@/lib/deploy";
 import { errorMessage } from "@/lib/format";
@@ -10,14 +9,10 @@ import { pickedFiles, type SiteCheck, type SiteFile } from "@/lib/site-files";
 
 type Props = {
   prompt?: ReactNode;
-  // Shows the prompt as the page's headline
   heading?: boolean;
   hint?: ReactNode;
-  // Replaces choosing files, like signing in first
   actions?: ReactNode;
   footer?: ReactNode;
-  // Along the zone's bottom edge, out of the way of dropping
-  bottom?: ReactNode;
   className?: string;
   dragging: boolean;
   limits: Limits | null;
@@ -28,7 +23,7 @@ type Props = {
   onDismiss: () => void;
 };
 
-// Shared with the publish card, so the box keeps its size when files are dropped
+// Shared with the publish card, so the box keeps its size
 export const stageSize =
   "min-h-[max(38rem,calc(100svh-8.5rem))] lg:min-h-[max(36rem,calc(100svh-14rem))]";
 
@@ -44,7 +39,6 @@ export function FolderDrop({
   hint = "A folder, a zip, or an HTML file",
   actions,
   footer,
-  bottom,
   className,
   dragging,
   limits,
@@ -67,8 +61,8 @@ export function FolderDrop({
     try {
       const selected = await pickedFiles(input.files, limits);
       onFiles(selected);
-    } catch (error) {
-      onError(errorMessage(error));
+    } catch (cause) {
+      onError(errorMessage(cause));
     } finally {
       // Clearing it empties input.files, so only once they've been read
       input.value = "";
@@ -87,7 +81,6 @@ export function FolderDrop({
     >
       <div aria-hidden className="dot-grid absolute inset-0 -z-10" />
       <div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
-        {/* The prompt, drop hint and error blur into each other in one spot */}
         <div className="grid w-full max-w-2xl grid-cols-[minmax(0,1fr)] place-items-center">
           <AnimatePresence initial={false}>
             <motion.div
@@ -101,7 +94,9 @@ export function FolderDrop({
             >
               {view === "prompt" && (
                 <>
-                  <EmptyStateIcon icon={Upload} />
+                  <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-muted">
+                    <Upload className="size-5 text-muted-foreground" />
+                  </div>
                   {heading ? (
                     <h1 className="text-4xl font-semibold tracking-tighter text-balance sm:text-6xl">
                       {prompt}
@@ -182,7 +177,6 @@ export function FolderDrop({
           </AnimatePresence>
         </div>
       </div>
-      {bottom && !dragging && <div className="px-6 pb-5">{bottom}</div>}
       <input
         ref={folderInput}
         type="file"

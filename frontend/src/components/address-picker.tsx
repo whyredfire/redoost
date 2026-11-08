@@ -11,7 +11,6 @@ type AddressPickerProps = {
   disabled: boolean;
 };
 
-// A few free addresses for a new site, with others a click away
 export function AddressPicker({
   slug,
   onChange,
@@ -35,7 +34,6 @@ export function AddressPicker({
     }
   }
 
-  // Fetched when first shown, and again whenever the choice is dropped
   useEffect(() => {
     if (slug === null) void suggest();
   }, [slug]);
@@ -58,11 +56,11 @@ export function AddressPicker({
         </Hint>
       </div>
       {options.length > 0 ? (
-        <div className="divide-y rounded-lg border">
+        <div className="divide-y overflow-hidden rounded-lg border">
           {options.map((option) => (
             <label
               key={option}
-              className="flex cursor-pointer items-center gap-2.5 px-3 py-1.5 font-mono text-sm"
+              className="flex cursor-pointer items-center gap-2.5 px-3 py-2 font-mono text-sm transition-colors hover:bg-muted/40 has-checked:bg-muted"
             >
               <input
                 type="radio"

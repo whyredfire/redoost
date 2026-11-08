@@ -44,6 +44,12 @@ export function signedInUser() {
   return user;
 }
 
+async function saveSignIn(response: Response) {
+  const signedIn = await readResponse<{ token: string; user: User }>(response);
+  user = signedIn.user;
+  saveToken(signedIn.token);
+}
+
 // Dropped up front, so the dashboard asks for a new token instead of failing later
 async function checkToken() {
   const token = loadToken();
@@ -52,10 +58,7 @@ async function checkToken() {
     headers: authorization(token),
   }).catch(() => null);
   if (response?.status === 401) clearToken();
-  if (response?.ok) {
-    const me: User = await response.json();
-    user = me;
-  }
+  if (response?.ok) user = await response.json();
 }
 
 export const [authConfig] = await Promise.all([loadAuthConfig(), checkToken()]);
@@ -125,18 +128,14 @@ export async function finishSignIn({ code, state, error }: Callback) {
       redirect_uri: redirectUri,
     }),
   });
-  const signedIn = await readResponse<{ token: string; user: User }>(response);
+  await saveSignIn(response);
   clearSession();
-  user = signedIn.user;
-  saveToken(signedIn.token);
   return started.returnTo;
 }
 
 export async function signInAsDev() {
   const response = await fetch("/api/auth/dev", { method: "POST" });
-  const signedIn = await readResponse<{ token: string; user: User }>(response);
-  user = signedIn.user;
-  saveToken(signedIn.token);
+  await saveSignIn(response);
 }
 
 export function signOut() {
@@ -145,7 +144,6 @@ export function signOut() {
   clearToken();
 }
 
-// Removes the account and all its sites, then signs out
 export async function deleteAccount() {
   const token = loadToken();
   if (!token) return;
@@ -157,7 +155,6 @@ export async function deleteAccount() {
   signOut();
 }
 
-// Lets the CLI that started this sign-in act as the signed-in user
 export async function approveCliLogin(id: string, token: string) {
   const response = await fetch(`/api/auth/cli/${id}`, {
     method: "POST",

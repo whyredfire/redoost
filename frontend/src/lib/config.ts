@@ -38,10 +38,7 @@ type Config = { sitesOrigin: string | null };
 async function loadConfig(): Promise<Config> {
   try {
     const response = await fetch("/config.json");
-    if (response.ok) {
-      const config: Config = await response.json();
-      return config;
-    }
+    if (response.ok) return await response.json();
   } catch {
     // Sites are shown by slug instead of as links
   }

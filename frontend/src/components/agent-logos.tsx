@@ -5,7 +5,6 @@ import cursor from "@/assets/agents/cursor.svg";
 import opencodeDark from "@/assets/agents/opencode-dark.svg";
 import opencodeLight from "@/assets/agents/opencode-light.svg";
 
-// Agents the redoost skill installs for, with each one's official logo
 const agents = [
   { name: "Claude", logo: claude },
   { name: "Codex", logo: codex },

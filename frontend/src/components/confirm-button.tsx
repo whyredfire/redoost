@@ -13,20 +13,22 @@ import {
 import { Hint } from "@/components/hint";
 import { errorMessage } from "@/lib/format";
 
-// Wraps a button, asking before its destructive action runs
 export function ConfirmButton({
   label,
   question,
   warning,
   action,
+  pending = "Working…",
+  details,
   onConfirm,
   children,
 }: {
-  // A tooltip, for buttons that are only an icon
   label?: string;
   question: string;
   warning: string;
   action: string;
+  pending?: string;
+  details?: ReactNode;
   onConfirm: () => Promise<void>;
   children: ReactNode;
 }) {
@@ -41,7 +43,7 @@ export function ConfirmButton({
   }
 
   async function confirm(event: MouseEvent) {
-    // Keep the dialog open until the request finishes
+    // Radix closes the dialog on click; it stays open until the request finishes
     event.preventDefault();
     setWorking(true);
     setError("");
@@ -55,20 +57,17 @@ export function ConfirmButton({
     }
   }
 
+  const trigger = <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>;
+
   return (
     <AlertDialog open={confirming} onOpenChange={changeOpen}>
-      {label ? (
-        <Hint label={label}>
-          <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>
-        </Hint>
-      ) : (
-        <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>
-      )}
+      {label ? <Hint label={label}>{trigger}</Hint> : trigger}
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{question}</AlertDialogTitle>
           <AlertDialogDescription>{warning}</AlertDialogDescription>
         </AlertDialogHeader>
+        {details}
         {error && (
           <p role="alert" className="text-sm text-destructive">
             {error}
@@ -81,7 +80,7 @@ export function ConfirmButton({
             disabled={working}
             onClick={confirm}
           >
-            {working ? "Working…" : action}
+            {working ? pending : action}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

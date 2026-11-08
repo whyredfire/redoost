@@ -25,7 +25,6 @@ import {
 
 type NewTokenDialogProps = { onCreated: () => Promise<void> };
 
-// Asks what the token is for, then shows it the one time it can be copied
 export function NewTokenDialog({ onCreated }: NewTokenDialogProps) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");

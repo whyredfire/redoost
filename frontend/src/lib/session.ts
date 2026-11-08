@@ -53,7 +53,6 @@ export function clearToken() {
 
 function subscribeToken(listener: () => void) {
   tokenListeners.add(listener);
-  // Fired for changes made in other tabs
   window.addEventListener("storage", listener);
   return () => {
     tokenListeners.delete(listener);

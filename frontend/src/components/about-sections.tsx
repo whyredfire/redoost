@@ -13,7 +13,7 @@ import {
 
 const link = "underline underline-offset-4 hover:text-foreground";
 
-// Loaded from GitHub on each visit; if that fails, the link below still leads there
+// If GitHub fails, the link below still leads there
 function ContributorList() {
   const [contributors, setContributors] = useState<Contributor[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -56,7 +56,6 @@ function ContributorList() {
   );
 }
 
-// What the app is, who made it, and its terms; on its own page and in settings
 export function AboutSections() {
   const versionLink = versionUrl(version);
 

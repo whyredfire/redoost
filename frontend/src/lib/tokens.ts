@@ -37,7 +37,7 @@ export type ApiToken = {
 // The token itself is only ever in this response
 export type CreatedToken = ApiToken & { token: string };
 
-export type TokenRequest = {
+type TokenRequest = {
   name: string;
   scopes: Scope[];
   expires_at: string | null;

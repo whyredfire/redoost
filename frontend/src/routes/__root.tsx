@@ -8,12 +8,14 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { Fragment } from "react";
+import { cn } from "cn";
 import { AccountMenu } from "@/components/account-menu";
 import { AgentPromptButton } from "@/components/agent-prompt-button";
 import { PageHeading } from "@/components/page-heading";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { signOut, signedInUser } from "@/lib/auth";
+import { frame, inset } from "@/lib/layout";
 import { useToken } from "@/lib/session";
 import { useUpload } from "@/lib/upload";
 
@@ -29,13 +31,17 @@ const navClass =
 const footerLink =
   "whitespace-nowrap underline-offset-4 hover:text-foreground hover:underline";
 
-// Pages meant for reading stay narrow; the rest use the width
+// Pages meant for reading stay narrow; the rest line up with the header
 function contentWidth(pathname: string) {
-  if (["/", "/publish"].includes(pathname) || pathname.startsWith("/sites")) {
-    return "max-w-6xl";
+  // The front page's sections run between the rules
+  if (pathname === "/") return "flex max-w-none flex-col p-0 sm:p-0 lg:p-0";
+  if (
+    pathname === "/publish" ||
+    pathname.startsWith("/sites") ||
+    pathname.startsWith("/settings")
+  ) {
+    return "max-w-none";
   }
-  // Room for the section list beside each section
-  if (pathname.startsWith("/settings")) return "max-w-5xl";
   return "max-w-3xl";
 }
 
@@ -64,6 +70,12 @@ function Layout() {
   const router = useRouter();
   const navigate = useNavigate();
   const token = useToken();
+  // Only the front page is ruled down both sides; elsewhere cards give the structure
+  const column = cn(
+    frame,
+    "sm:border-x",
+    pathname !== "/" && "sm:border-x-transparent",
+  );
 
   // The header's links to / start a fresh publish, unless an upload is running
   function startFresh() {
@@ -81,7 +93,9 @@ function Layout() {
     <div className="flex min-h-screen flex-col">
       <HeadContent />
       <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-5 sm:gap-6">
+        <div
+          className={cn(column, inset, "flex h-14 items-center gap-4 sm:gap-6")}
+        >
           <Link
             to="/"
             className="flex items-center gap-2 font-semibold"
@@ -114,14 +128,26 @@ function Layout() {
         </div>
       </header>
 
-      <main
-        className={`mx-auto w-full flex-1 px-5 py-10 sm:py-12 ${contentWidth(pathname)}`}
-      >
-        <Outlet />
-      </main>
+      <div className={cn(column, "flex flex-1 flex-col")}>
+        <main
+          className={cn(
+            inset,
+            "mx-auto w-full flex-1 py-10 sm:py-12",
+            contentWidth(pathname),
+          )}
+        >
+          <Outlet />
+        </main>
+      </div>
 
       <footer className="border-t">
-        <div className="mx-auto flex max-w-7xl flex-col items-center gap-3 px-5 py-6 text-sm text-muted-foreground sm:flex-row sm:justify-between">
+        <div
+          className={cn(
+            column,
+            inset,
+            "flex flex-col items-center gap-3 py-6 text-sm text-muted-foreground sm:flex-row sm:justify-between",
+          )}
+        >
           {/* Phones wrap between links rather than inside them, without the dots */}
           <nav className="flex flex-wrap justify-center gap-x-4 gap-y-1 sm:gap-x-0">
             {footerLinks(Boolean(token)).map((link, index) => (
