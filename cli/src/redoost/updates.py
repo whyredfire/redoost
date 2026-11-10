@@ -20,7 +20,7 @@ check_every = 24 * 60 * 60
 
 
 def release(text: str | None) -> tuple[int, ...] | None:
-    # Builds between releases look like 0.3.1-abc1234
+    # Builds between releases look like 0.6.1-3-g1a2b3c4
     match = re.match(r"(\d+)\.(\d+)\.(\d+)", text or "")
     return tuple(int(part) for part in match.groups()) if match else None
 

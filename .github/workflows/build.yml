@@ -1,22 +1,12 @@
 name: build
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - backend/**
-      - frontend/**
-      - .github/workflows/build.yml
-      - "!**/*.md"
-  # Images are only built by the release workflow
   pull_request:
     paths:
       - backend/**
       - frontend/**
       - .github/workflows/build.yml
       - "!**/*.md"
-  # Run by the release workflow before it builds images
   workflow_call:
 
 permissions:

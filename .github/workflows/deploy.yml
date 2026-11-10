@@ -1,0 +1,80 @@
+name: deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - backend/**
+      - frontend/**
+      - .github/workflows/build.yml
+      - .github/workflows/deploy.yml
+      - "!**/*.md"
+
+concurrency:
+  group: deploy
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    uses: ./.github/workflows/build.yml
+
+  version:
+    needs: test
+    runs-on: ubuntu-slim
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      cli-sha256: ${{ steps.version.outputs.cli-sha256 }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: version
+        run: |
+          version=$(git describe --tags --dirty)
+          version=${version#v}
+          release=${version%%-*}
+          wheel="https://github.com/${GITHUB_REPOSITORY}/releases/download/v${release}/redoost-${release}-py3-none-any.whl"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          curl -fsSL -o "$RUNNER_TEMP/cli.whl" "$wheel"
+          echo "cli-sha256=$(sha256sum "$RUNNER_TEMP/cli.whl" | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: version
+    strategy:
+      matrix:
+        include:
+          - image: redoost-api
+            context: backend
+          - image: redoost-frontend
+            context: frontend
+    uses: docker/github-builder/.github/workflows/build.yml@v1
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    with:
+      context: ${{ matrix.context }}
+      output: image
+      push: true
+      platforms: linux/amd64,linux/arm64
+      cache: true
+      cache-scope: ${{ matrix.image }}
+      build-args: |
+        VERSION=${{ needs.version.outputs.version }}
+        CLI_SHA256=${{ needs.version.outputs.cli-sha256 }}
+      sbom: true
+      set-meta-labels: true
+      set-meta-annotations: true
+      meta-images: ghcr.io/whyredfire/${{ matrix.image }}
+      meta-tags: |
+        type=raw,value=latest
+        type=raw,value=${{ needs.version.outputs.version }}
+    secrets:
+      registry-auths: |
+        - registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}

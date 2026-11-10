@@ -117,13 +117,15 @@ auth:
 helm install redoost ./chart -f values.yaml
 ```
 
-Pushes and pull requests that change the backend or frontend run the checks
-only. Running the `release` workflow builds both images for amd64 and arm64,
-publishes them to `ghcr.io/whyredfire/redoost-api` and `redoost-frontend` tagged
+Pull requests that change the backend or frontend run the checks only. Pushes
+to `main` that change them also build both images for amd64 and arm64 and
+publish them to `ghcr.io/whyredfire/redoost-api` and `redoost-frontend`, tagged
+`latest` and with `git describe`, like `0.6.1-3-g1a2b3c4`, for a deployment that
+follows `latest`, such as with Argo CD Image Updater. Running the `release` workflow publishes them tagged
 with the version and `latest`, then commits that tag to `chart/values.yaml`, so
-anything deploying the chart from `main` rolls out on releases only. Each image
-reports the version it was built with, in the dashboard footer and from
-`/health`.
+anything deploying the chart from `main` otherwise rolls out on releases only.
+Each image reports the version it was built with, like `0.6.1` for a release or
+`0.6.1-3-g1a2b3c4` for a build after it, in the dashboard and from `/health`.
 
 See [`chart/values.yaml`](chart/values.yaml) for all settings. The API keeps no
 state of its own, so it can run any number of replicas, and an hourly CronJob

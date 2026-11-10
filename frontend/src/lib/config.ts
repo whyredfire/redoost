@@ -7,7 +7,7 @@ export function versionUrl(version: string) {
   if (/^\d+\.\d+\.\d+$/.test(version)) {
     return `${repository}/releases/tag/v${version}`;
   }
-  const commit = /^\d+\.\d+\.\d+-([0-9a-f]{7,40})$/.exec(version)?.[1];
+  const commit = /^\d+\.\d+\.\d+-\d+-g([0-9a-f]{7,40})/.exec(version)?.[1];
   return commit ? `${repository}/commit/${commit}` : null;
 }
 

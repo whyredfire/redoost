@@ -59,7 +59,7 @@ class HealthResponse(BaseModel):
     status: Literal["ok", "unavailable"] = Field(
         description="Whether the database and S3 are reachable"
     )
-    version: str = Field(description="Deployed version, e.g. 0.1.6-abc1234")
+    version: str = Field(description="Deployed version, e.g. 0.6.1-3-g1a2b3c4")
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -77,7 +77,7 @@ async def health() -> HealthResponse | JSONResponse:
 
 
 class VersionResponse(BaseModel):
-    version: str = Field(description="Deployed version, e.g. 0.1.6-abc1234")
+    version: str = Field(description="Deployed version, e.g. 0.6.1-3-g1a2b3c4")
     cli_sha256: str | None = Field(
         description="SHA-256 of the CLI wheel released with it, which redoost update "
         "checks before installing; missing for development builds"
