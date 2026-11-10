@@ -1,5 +1,8 @@
 import json
+import os
+import queue
 import socket
+import sys
 from importlib.metadata import version
 from pathlib import Path
 from typing import Any
@@ -181,6 +184,37 @@ def test_login_waits_for_approval(
     claim = json.loads(server.requests[-1].content)
     assert claim["name"] == f"CLI on {socket.gethostname()}"
     assert config.load_tokens() == {SERVER: "token"}
+
+
+class Terminal:
+    """Typed input, as a terminal's stdin."""
+
+    def __init__(self, typed: bytes) -> None:
+        self.read, write = os.pipe()
+        os.write(write, typed)
+        os.close(write)
+
+    def isatty(self) -> bool:
+        return True
+
+    def fileno(self) -> int:
+        return self.read
+
+
+def test_login_opens_the_link_on_enter(
+    server: FakeServer,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(sys, "stdin", Terminal(b"\n"))
+    opened = queue.Queue[str]()
+    monkeypatch.setattr(main.webbrowser, "open", lambda url: opened.put(url) or True)
+
+    _, err = run(capsys, "login")
+
+    assert "Press Enter to open it in your browser." in err
+    # The link opens alongside the sign-in, which can finish first
+    assert opened.get(timeout=2) == f"{SERVER}/cli/link"
 
 
 def test_login_with_a_token(

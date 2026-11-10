@@ -5,7 +5,9 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
+import webbrowser
 from collections.abc import Callable
 from datetime import date, datetime, timedelta, timezone
 from importlib.metadata import version
@@ -54,6 +56,22 @@ def save_token(server: str, token: str) -> None:
     config.save_tokens(tokens)
 
 
+def open_on_enter(url: str) -> None:
+    """Opens url in a browser once Enter is pressed, without waiting for it."""
+
+    def wait() -> None:
+        # Unbuffered, so the read holds no lock on stdin when Python exits
+        if not os.read(sys.stdin.fileno(), 1024):
+            return
+        if sys.stderr.isatty():
+            # Back over the line Enter added, so the spinner stays on one line
+            sys.stderr.write("\r\033[K\033[1A")
+        if not webbrowser.open(url):
+            print(f"\rCouldn't open a browser. Open {url} yourself.", file=sys.stderr)
+
+    threading.Thread(target=wait, daemon=True).start()
+
+
 def login(args: argparse.Namespace) -> None:
     # Pipelines sign in with a token made in the dashboard's settings
     if args.token:
@@ -67,11 +85,12 @@ def login(args: argparse.Namespace) -> None:
     api = Api(args.server)
     response = api.request("POST", "/api/auth/cli")
     started = response.json()
+    link = f"{args.server}/cli/{started['id']}"
     # Printed even with --json, since someone has to open it
-    print(
-        f"Open this link on any device to sign in:\n{args.server}/cli/{started['id']}",
-        file=sys.stderr,
-    )
+    print(f"Open this link on any device to sign in:\n{link}", file=sys.stderr)
+    if not args.json and sys.stdin.isatty():
+        print("Press Enter to open it in your browser.", file=sys.stderr)
+        open_on_enter(link)
     # Named after this machine, so the dashboard tells its sign-ins apart
     name = f"CLI on {socket.gethostname()}"[:100]
     claim = {"secret": started["secret"], "name": name}
