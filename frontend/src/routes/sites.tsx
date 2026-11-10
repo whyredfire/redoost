@@ -129,7 +129,22 @@ function SitesPage() {
 
   return (
     <>
-      <PageHeading title="Your sites">
+      <PageHeading
+        title="Your sites"
+        action={
+          token &&
+          sites.length > 0 &&
+          !selecting && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSelecting(new Set())}
+            >
+              Select
+            </Button>
+          )
+        }
+      >
         Everything you've published, live until you delete it.
       </PageHeading>
       {!token ? (
@@ -141,47 +156,35 @@ function SitesPage() {
         <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
           {sites.length > 0 ? (
             <div className="space-y-4">
-              <div className="flex flex-col gap-2 sm:flex-row">
-                {sites.length > 5 && (
-                  <>
-                    <div className="relative flex-1">
-                      <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        type="search"
-                        value={query}
-                        onChange={(event) => setQuery(event.target.value)}
-                        placeholder="Search sites"
-                        aria-label="Search sites"
-                        className="pl-10 font-mono [&::-webkit-search-cancel-button]:hidden"
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <Choice
-                        label="Show"
-                        options={statuses}
-                        value={status}
-                        onChange={setStatus}
-                      />
-                      <Choice
-                        label="Sort by"
-                        options={orderNames}
-                        value={order}
-                        onChange={setOrder}
-                      />
-                    </div>
-                  </>
-                )}
-                {!selecting && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="sm:ml-auto"
-                    onClick={() => setSelecting(new Set())}
-                  >
-                    Select
-                  </Button>
-                )}
-              </div>
+              {sites.length > 5 && (
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <div className="relative flex-1">
+                    <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      type="search"
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                      placeholder="Search sites"
+                      aria-label="Search sites"
+                      className="pl-10 font-mono [&::-webkit-search-cancel-button]:hidden"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Choice
+                      label="Show"
+                      options={statuses}
+                      value={status}
+                      onChange={setStatus}
+                    />
+                    <Choice
+                      label="Sort by"
+                      options={orderNames}
+                      value={order}
+                      onChange={setOrder}
+                    />
+                  </div>
+                </div>
+              )}
               {selecting && (
                 <SiteSelection
                   shownCount={shown.length}
