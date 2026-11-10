@@ -140,7 +140,7 @@ export function NewTokenDialog({ onCreated }: NewTokenDialogProps) {
               <legend className="mb-2 text-sm font-medium">
                 What it can do
               </legend>
-              <div className="divide-y rounded-lg border">
+              <div className="divide-y rounded-xl bg-card shadow-raised">
                 {scopes.map((scope) => (
                   <label
                     key={scope}
@@ -165,11 +165,9 @@ export function NewTokenDialog({ onCreated }: NewTokenDialogProps) {
               </div>
             </fieldset>
             <div className="space-y-2">
-              <label htmlFor="token-expiry" className="text-sm font-medium">
-                Expiry
-              </label>
+              <p className="text-sm font-medium">Expiry</p>
               <ExpirySelect
-                id="token-expiry"
+                label="Expiry"
                 value={expiresAt}
                 onChange={setExpiresAt}
                 disabled={creating}

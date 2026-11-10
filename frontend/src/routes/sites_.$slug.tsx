@@ -82,7 +82,7 @@ function ExpirySection({ site, onSave }: ExpirySectionProps) {
   }
 
   return (
-    <section className="space-y-3 rounded-xl border px-4 py-3">
+    <section className="space-y-3 rounded-xl bg-card shadow-raised px-4 py-3">
       <h2 className="font-medium">Expires</h2>
       <ExpirySelect
         value={expiresAt}
@@ -278,7 +278,7 @@ function SitePage() {
         </div>
 
         <aside className="space-y-4 text-sm">
-          <section className="rounded-xl border">
+          <section className="rounded-xl bg-card shadow-raised">
             <h2 className="border-b px-4 py-3 font-medium">Details</h2>
             <dl className="divide-y">
               {details.map(({ label, value }) => (
@@ -292,7 +292,7 @@ function SitePage() {
               ))}
             </dl>
           </section>
-          <section className="space-y-2 rounded-xl border px-4 py-3">
+          <section className="space-y-2 rounded-xl bg-card shadow-raised px-4 py-3">
             <div className="flex items-center justify-between gap-4">
               <h2 className="font-medium">Online</h2>
               <Switch

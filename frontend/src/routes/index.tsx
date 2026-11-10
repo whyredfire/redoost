@@ -65,7 +65,7 @@ function LandingPage() {
       )}
       <FolderDrop
         // The space between the rules is the drop zone, filling what the footer leaves
-        className="flex-1 rounded-none border-0"
+        className="flex-1 rounded-none bg-transparent shadow-none"
         heading
         prompt={
           <>

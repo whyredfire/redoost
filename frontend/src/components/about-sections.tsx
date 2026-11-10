@@ -27,7 +27,7 @@ function ContributorList() {
     return <p className="text-muted-foreground">Loading contributors…</p>;
   }
   return (
-    <ul className="divide-y rounded-xl border">
+    <ul className="divide-y rounded-xl bg-card shadow-raised">
       {contributors.map(({ login, avatar_url, html_url, contributions }) => (
         <li
           key={login}
@@ -70,7 +70,7 @@ export function AboutSections() {
           site, a zip, or an HTML file and get a shareable address, then update
           it, roll it back, or let it expire, from here or the CLI.
         </p>
-        <dl className="divide-y rounded-xl border">
+        <dl className="divide-y rounded-xl bg-card shadow-raised">
           <div className="flex justify-between gap-4 px-4 py-3">
             <dt className="text-muted-foreground">Version</dt>
             <dd className="font-mono">

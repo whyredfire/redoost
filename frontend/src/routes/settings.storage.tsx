@@ -122,7 +122,7 @@ function StorageSettings() {
         title="Storage"
         description="Every kept version of every site counts in full."
       >
-        <div className="space-y-3 rounded-xl border px-4 py-3 text-sm">
+        <div className="space-y-3 rounded-xl bg-card shadow-raised px-4 py-3 text-sm">
           <StorageUsage usage={usage} />
         </div>
       </SettingsSection>
@@ -132,7 +132,7 @@ function StorageSettings() {
         description="Largest first. Deleting a site's older versions frees what they take up."
       >
         {largest.length > 0 ? (
-          <ul className="divide-y rounded-xl border text-sm">
+          <ul className="divide-y rounded-xl bg-card shadow-raised text-sm">
             {largest.map((site) => (
               <SiteUsage
                 key={site.slug}
@@ -161,7 +161,7 @@ function StorageSettings() {
         title="Limits"
         description="What this server allows. Larger sites and files are turned away before uploading."
       >
-        <dl className="divide-y rounded-xl border text-sm">
+        <dl className="divide-y rounded-xl bg-card shadow-raised text-sm">
           {limitRows.map(({ label, value }) => (
             <div key={label} className="flex justify-between gap-4 px-4 py-3">
               <dt className="text-muted-foreground">{label}</dt>

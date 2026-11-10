@@ -47,7 +47,7 @@ export function VersionList({
 
   return (
     <div className="space-y-3">
-      <ul className="divide-y rounded-xl border text-sm">
+      <ul className="divide-y rounded-xl bg-card shadow-raised text-sm">
         {versions.map((version) => (
           <li
             key={version.id}

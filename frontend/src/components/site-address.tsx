@@ -11,7 +11,7 @@ export function SiteAddress({ slug, live = true }: SiteAddressProps) {
   const url = siteUrl(slug);
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border bg-card py-1 pr-1 pl-4 text-left shadow-xs">
+    <div className="flex items-center gap-3 rounded-xl bg-card shadow-raised py-1 pr-1 pl-4 text-left">
       <LiveDot pulse={live} off={!live} />
       <span className="min-w-0 flex-1 truncate py-1.5 font-mono text-sm">
         {url ?? slug}

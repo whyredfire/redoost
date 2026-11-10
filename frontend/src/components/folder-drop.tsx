@@ -1,7 +1,8 @@
 import { cn } from "cn";
-import { Check, Upload } from "lucide-react";
+import { Check } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useRef, type ChangeEvent, type ReactNode } from "react";
+import { Folder } from "@/components/detent/ui/Folder";
 import { Button } from "@/components/ui/button";
 import type { Limits } from "@/lib/deploy";
 import { errorMessage } from "@/lib/format";
@@ -49,7 +50,8 @@ export function FolderDrop({
   onDismiss,
 }: Props) {
   const failed = error !== "" || checks.length > 0;
-  const view = dragging ? "drop" : failed ? "error" : "prompt";
+  // Dragging over an error goes back to the folder, which opens for the drop
+  const view = failed && !dragging ? "error" : "prompt";
   const reduceMotion = useReducedMotion();
   const transition = { duration: reduceMotion ? 0 : 0.3 };
   const folderInput = useRef<HTMLInputElement>(null);
@@ -72,10 +74,10 @@ export function FolderDrop({
   return (
     <div
       className={cn(
-        "relative isolate flex flex-col rounded-xl border-2 text-center transition-colors duration-300 motion-safe:animate-in motion-safe:fade-in",
+        "relative isolate flex flex-col rounded-card bg-card text-center transition-shadow duration-300 ease-detent motion-safe:animate-in motion-safe:fade-in",
         dragging
-          ? "border-solid border-foreground/20 bg-muted"
-          : "border-dashed border-border",
+          ? "shadow-[0_0_0_2px_color-mix(in_oklch,var(--ink)_14%,transparent),var(--elev-float)]"
+          : "shadow-raised",
         className,
       )}
     >
@@ -94,8 +96,9 @@ export function FolderDrop({
             >
               {view === "prompt" && (
                 <>
-                  <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-muted">
-                    <Upload className="size-5 text-muted-foreground" />
+                  {/* Smaller under a heading, so the heading leads */}
+                  <div className={cn("mb-6", heading && "[zoom:0.75]")}>
+                    <Folder open={dragging} />
                   </div>
                   {heading ? (
                     <h1 className="text-4xl font-semibold tracking-tighter text-balance sm:text-6xl">
@@ -135,9 +138,6 @@ export function FolderDrop({
                   {footer}
                 </>
               )}
-              {view === "drop" && (
-                <p className="text-lg font-medium">Drop to upload</p>
-              )}
               {view === "error" && (
                 <>
                   <p className="text-lg font-medium">
@@ -156,7 +156,7 @@ export function FolderDrop({
                       {checks.map(({ label, passed }) => (
                         <li
                           key={label}
-                          className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${passed ? "border-transparent bg-muted/60 text-muted-foreground line-through" : "bg-background font-medium"}`}
+                          className={`flex items-center gap-3 rounded-xl px-4 py-3 ${passed ? "bg-muted/60 text-muted-foreground line-through" : "bg-card font-medium shadow-raised"}`}
                         >
                           <span
                             className={`flex size-4 shrink-0 items-center justify-center rounded border ${passed ? "border-transparent bg-muted-foreground text-background" : "border-foreground"}`}

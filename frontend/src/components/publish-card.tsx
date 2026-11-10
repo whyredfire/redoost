@@ -1,12 +1,13 @@
 import { useNavigate } from "@tanstack/react-router";
 import { cn } from "cn";
-import { ChevronRight, FolderOpen } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { ThinkingOrb } from "thinking-orbs";
-import { AddressPicker } from "@/components/address-picker";
 import { SizeInfo, Sizes } from "@/components/compression-saving";
-import { ExpirySelect } from "@/components/expiry-select";
+import { Folder } from "@/components/detent/ui/Folder";
+import { RollingText } from "@/components/detent/ui/RollingText";
 import { stageSize } from "@/components/folder-drop";
+import { NewSiteSettings } from "@/components/new-site-settings";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -145,7 +146,7 @@ function ProgressRow({
     <div className="space-y-2 text-sm" aria-live="polite">
       <div className="flex justify-between gap-2">
         <Working>{children}</Working>
-        <span className="text-muted-foreground">{value}%</span>
+        <RollingText text={`${value}%`} className="text-muted-foreground" />
       </div>
       <Progress value={value} aria-label={label} />
     </div>
@@ -251,16 +252,25 @@ export function PublishCard() {
     <Card
       className={cn(
         stageSize,
-        "transition-colors duration-300",
-        dragging && "border-foreground/20",
+        "transition-shadow duration-300 ease-detent",
+        dragging &&
+          "shadow-[0_0_0_2px_color-mix(in_oklch,var(--ink)_14%,transparent),var(--elev-float)]",
       )}
     >
       <CardContent className="flex flex-1 flex-col">
-        <div className="grid flex-1 gap-6 duration-300 motion-safe:animate-in motion-safe:fade-in md:grid-cols-[16rem_1fr]">
+        <div className="grid flex-1 gap-6 duration-300 motion-safe:animate-in motion-safe:fade-in md:grid-cols-[20rem_1fr]">
           <div className="flex flex-col gap-5">
             <div>
-              <FolderOpen className="size-6 text-muted-foreground" />
-              <p className="mt-3 text-2xl font-semibold tracking-tighter">
+              <Folder
+                open={dragging}
+                sheets={files.slice(0, 4).map(({ path }) => ({
+                  id: path,
+                  name: path.slice(path.lastIndexOf("/") + 1),
+                }))}
+                pct={percentage}
+                busy={stage === "uploading"}
+              />
+              <p className="mt-4 text-2xl font-semibold tracking-tighter">
                 {files.length} {files.length === 1 ? "file" : "files"}
               </p>
               <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -316,27 +326,13 @@ export function PublishCard() {
                 )
               )}
               {!target && !session && (
-                <>
-                  <AddressPicker
-                    slug={slug}
-                    onChange={setSlug}
-                    disabled={busy}
-                  />
-                  <div className="mt-4 space-y-1.5">
-                    <label
-                      htmlFor="site-expiry"
-                      className="text-sm text-muted-foreground"
-                    >
-                      Expires
-                    </label>
-                    <ExpirySelect
-                      id="site-expiry"
-                      value={expiresAt}
-                      onChange={setExpiresAt}
-                      disabled={busy}
-                    />
-                  </div>
-                </>
+                <NewSiteSettings
+                  slug={slug}
+                  onSlug={setSlug}
+                  expiresAt={expiresAt}
+                  onExpiry={setExpiresAt}
+                  disabled={busy}
+                />
               )}
               {diff && (
                 <p className="mt-2 text-sm text-muted-foreground">

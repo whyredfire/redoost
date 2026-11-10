@@ -10,7 +10,7 @@ type TokenListProps = {
 
 export function TokenList({ tokens, onRevoke }: TokenListProps) {
   return (
-    <ul className="divide-y rounded-xl border">
+    <ul className="divide-y rounded-xl bg-card shadow-raised">
       {tokens.map((token) => {
         const cli = token.source === "cli";
         const expired =

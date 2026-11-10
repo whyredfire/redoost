@@ -46,7 +46,7 @@ export function SiteSelection({
   return (
     // Stays under the header, so Delete is in reach however far the list scrolls
     <div className="sticky top-[calc(3.5rem+1px)] z-5 -mt-2 mb-2 bg-background py-2">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border px-4 py-2 text-sm">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-card shadow-raised px-4 py-2 text-sm">
         <input
           type="checkbox"
           checked={all}

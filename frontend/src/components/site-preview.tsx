@@ -42,7 +42,7 @@ export function SitePreview({ url, fill = false }: SitePreviewProps) {
       tabIndex={-1}
       aria-hidden
       className={cn(
-        "block overflow-hidden rounded-xl border bg-background text-left",
+        "block overflow-hidden rounded-xl bg-card shadow-raised text-left",
         fill && "flex flex-1 flex-col",
       )}
     >

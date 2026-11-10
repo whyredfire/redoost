@@ -1,6 +1,7 @@
 import { Link, createFileRoute, useRouter } from "@tanstack/react-router";
 import { Globe, Search } from "lucide-react";
 import { useState } from "react";
+import { Choice } from "@/components/choice";
 import { CliCommand } from "@/components/cli-command";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeading } from "@/components/page-heading";
@@ -10,13 +11,6 @@ import { SiteSelection } from "@/components/site-selection";
 import { StorageUsage } from "@/components/storage-usage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   changeDeployments,
   deleteDeployments,
@@ -51,8 +45,19 @@ async function loadSites() {
   return loaded ?? { sites: [], usage: null };
 }
 
-type Status = "all" | "online" | "offline";
-type Order = "newest" | "largest" | "name";
+const statuses = [
+  ["all", "All sites"],
+  ["online", "Online"],
+  ["offline", "Offline"],
+] as const;
+const orderNames = [
+  ["newest", "Newest"],
+  ["largest", "Largest"],
+  ["name", "Name"],
+] as const;
+
+type Status = (typeof statuses)[number][0];
+type Order = (typeof orderNames)[number][0];
 
 const orders: Record<Order, (a: Deployment, b: Deployment) => number> = {
   newest: (a, b) => b.created_at.localeCompare(a.created_at),
@@ -147,42 +152,22 @@ function SitesPage() {
                         onChange={(event) => setQuery(event.target.value)}
                         placeholder="Search sites"
                         aria-label="Search sites"
-                        className="h-10 rounded-xl pl-10 font-mono [&::-webkit-search-cancel-button]:hidden"
+                        className="pl-10 font-mono [&::-webkit-search-cancel-button]:hidden"
                       />
                     </div>
                     <div className="flex gap-2">
-                      <Select
+                      <Choice
+                        label="Show"
+                        options={statuses}
                         value={status}
-                        onValueChange={(value) => setStatus(value as Status)}
-                      >
-                        <SelectTrigger
-                          className="h-10! flex-1 rounded-xl sm:w-32"
-                          aria-label="Show"
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All sites</SelectItem>
-                          <SelectItem value="online">Online</SelectItem>
-                          <SelectItem value="offline">Offline</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Select
+                        onChange={setStatus}
+                      />
+                      <Choice
+                        label="Sort by"
+                        options={orderNames}
                         value={order}
-                        onValueChange={(value) => setOrder(value as Order)}
-                      >
-                        <SelectTrigger
-                          className="h-10! flex-1 rounded-xl sm:w-32"
-                          aria-label="Sort by"
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="newest">Newest</SelectItem>
-                          <SelectItem value="largest">Largest</SelectItem>
-                          <SelectItem value="name">Name</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        onChange={setOrder}
+                      />
                     </div>
                   </>
                 )}
@@ -190,7 +175,7 @@ function SitesPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-10 rounded-xl sm:ml-auto"
+                    className="sm:ml-auto"
                     onClick={() => setSelecting(new Set())}
                   >
                     Select
@@ -249,18 +234,18 @@ function Sidebar({ sites, usage }: SidebarProps) {
   return (
     <aside className="space-y-4 text-sm">
       {usage && (
-        <section className="space-y-3 rounded-xl border px-4 py-3">
+        <section className="space-y-3 rounded-xl bg-card shadow-raised px-4 py-3">
           <h2 className="font-medium">Storage</h2>
           <StorageUsage usage={usage} />
         </section>
       )}
-      <section className="space-y-1 rounded-xl border px-4 py-3">
+      <section className="space-y-1 rounded-xl bg-card shadow-raised px-4 py-3">
         <h2 className="font-medium">Sites</h2>
         <p className="font-mono text-muted-foreground">
           {sites.length - offline} online · {offline} offline
         </p>
       </section>
-      <section className="space-y-3 rounded-xl border px-4 py-3">
+      <section className="space-y-3 rounded-xl bg-card shadow-raised px-4 py-3">
         <h2 className="font-medium">From the terminal</h2>
         <CliCommand command="redoost list" variant="compact" />
         <a

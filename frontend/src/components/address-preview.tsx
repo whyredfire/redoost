@@ -18,7 +18,7 @@ export function AddressPreview({ className }: { className?: string }) {
     <div
       aria-hidden
       className={cn(
-        "flex items-center gap-3 overflow-hidden rounded-xl border bg-card px-4 py-3.5 font-mono text-sm whitespace-nowrap shadow-xs sm:text-base",
+        "flex items-center gap-3 overflow-hidden rounded-xl bg-card shadow-raised px-4 py-3.5 font-mono text-sm whitespace-nowrap shadow-xs sm:text-base",
         className,
       )}
     >

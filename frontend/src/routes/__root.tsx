@@ -7,6 +7,7 @@ import {
   useNavigate,
   useRouter,
 } from "@tanstack/react-router";
+import { MotionConfig } from "motion/react";
 import { Fragment } from "react";
 import { cn } from "cn";
 import { AccountMenu } from "@/components/account-menu";
@@ -90,91 +91,97 @@ function Layout() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <HeadContent />
-      <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur">
-        <div
-          className={cn(column, inset, "flex h-14 items-center gap-4 sm:gap-6")}
-        >
-          <Link
-            to="/"
-            className="flex items-center gap-2 font-semibold"
-            onClick={startFresh}
+    <MotionConfig reducedMotion="user">
+      <div className="flex min-h-screen flex-col">
+        <HeadContent />
+        <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur">
+          <div
+            className={cn(
+              column,
+              inset,
+              "flex h-14 items-center gap-4 sm:gap-6",
+            )}
           >
-            <span className="flex size-7 items-center justify-center rounded-lg bg-primary text-xs text-primary-foreground">
-              r<span className="text-brand">.</span>
-            </span>
-            {/* Phones show only the mark, so the header fits */}
-            <span className="sr-only sm:not-sr-only">redoost</span>
-          </Link>
-          <nav className="flex gap-5">
             <Link
               to="/"
-              className={`${navClass} ${pathname === "/publish" ? "text-foreground" : "text-muted-foreground"}`}
-              activeOptions={{ exact: true }}
+              className="flex items-center gap-2 font-semibold"
               onClick={startFresh}
             >
-              Publish
+              <span className="flex size-7 items-center justify-center rounded-lg bg-primary text-xs text-primary-foreground">
+                r<span className="text-brand">.</span>
+              </span>
+              {/* Phones show only the mark, so the header fits */}
+              <span className="sr-only sm:not-sr-only">redoost</span>
             </Link>
-            <Link to="/sites" className={`${navClass} text-muted-foreground`}>
-              Sites
-            </Link>
-          </nav>
-          <div className="ml-auto flex items-center gap-1">
-            <AgentPromptButton />
-            <ThemeToggle />
-            {token && <AccountMenu user={signedInUser()} onSignOut={leave} />}
+            <nav className="flex gap-5">
+              <Link
+                to="/"
+                className={`${navClass} ${pathname === "/publish" ? "text-foreground" : "text-muted-foreground"}`}
+                activeOptions={{ exact: true }}
+                onClick={startFresh}
+              >
+                Publish
+              </Link>
+              <Link to="/sites" className={`${navClass} text-muted-foreground`}>
+                Sites
+              </Link>
+            </nav>
+            <div className="ml-auto flex items-center gap-1">
+              <AgentPromptButton />
+              <ThemeToggle />
+              {token && <AccountMenu user={signedInUser()} onSignOut={leave} />}
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <div className={cn(column, "flex flex-1 flex-col")}>
-        <main
-          className={cn(
-            inset,
-            "mx-auto w-full flex-1 py-10 sm:py-12",
-            contentWidth(pathname),
-          )}
-        >
-          <Outlet />
-        </main>
+        <div className={cn(column, "flex flex-1 flex-col")}>
+          <main
+            className={cn(
+              inset,
+              "mx-auto w-full flex-1 py-10 sm:py-12",
+              contentWidth(pathname),
+            )}
+          >
+            <Outlet />
+          </main>
+        </div>
+
+        <footer className="border-t">
+          <div
+            className={cn(
+              column,
+              inset,
+              "flex flex-col items-center gap-3 py-6 text-sm text-muted-foreground sm:flex-row sm:justify-between",
+            )}
+          >
+            {/* Phones wrap between links rather than inside them, without the dots */}
+            <nav className="flex flex-wrap justify-center gap-x-4 gap-y-1 sm:gap-x-0">
+              {footerLinks(Boolean(token)).map((link, index) => (
+                <Fragment key={index}>
+                  {index > 0 && (
+                    <span aria-hidden className="hidden px-1.5 sm:inline">
+                      ·
+                    </span>
+                  )}
+                  {link}
+                </Fragment>
+              ))}
+            </nav>
+            <p className="whitespace-nowrap">
+              Made by{" "}
+              <a
+                className={footerLink}
+                href="https://github.com/whyredfire"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Karan Parashar
+              </a>
+            </p>
+          </div>
+        </footer>
       </div>
-
-      <footer className="border-t">
-        <div
-          className={cn(
-            column,
-            inset,
-            "flex flex-col items-center gap-3 py-6 text-sm text-muted-foreground sm:flex-row sm:justify-between",
-          )}
-        >
-          {/* Phones wrap between links rather than inside them, without the dots */}
-          <nav className="flex flex-wrap justify-center gap-x-4 gap-y-1 sm:gap-x-0">
-            {footerLinks(Boolean(token)).map((link, index) => (
-              <Fragment key={index}>
-                {index > 0 && (
-                  <span aria-hidden className="hidden px-1.5 sm:inline">
-                    ·
-                  </span>
-                )}
-                {link}
-              </Fragment>
-            ))}
-          </nav>
-          <p className="whitespace-nowrap">
-            Made by{" "}
-            <a
-              className={footerLink}
-              href="https://github.com/whyredfire"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Karan Parashar
-            </a>
-          </p>
-        </div>
-      </footer>
-    </div>
+    </MotionConfig>
   );
 }
 

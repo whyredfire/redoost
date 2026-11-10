@@ -30,7 +30,7 @@ function AccountSettings() {
   return (
     <div className="space-y-10">
       <SettingsSection title="Account" description="Who you're signed in as.">
-        <div className="divide-y rounded-xl border text-sm">
+        <div className="divide-y rounded-xl bg-card shadow-raised text-sm">
           <div className="flex items-center gap-3 px-4 py-3">
             <UserAvatar user={user} className="size-10" />
             <div className="min-w-0">
