@@ -243,8 +243,11 @@ function SitePage() {
         <div className="space-y-4">
           <SiteAddress slug={site.slug} live={live} />
           {url && live && <SitePreview url={url} />}
-          <section id="update" className="scroll-mt-20 space-y-3 pt-6">
-            <h2 className="text-sm font-medium">Update</h2>
+          <section
+            id="update"
+            aria-label="Update"
+            className="scroll-mt-20 pt-6"
+          >
             {busy ? (
               <p className="rounded-xl border px-4 py-6 text-center text-sm text-muted-foreground">
                 Wait for the current upload to finish.
@@ -263,8 +266,7 @@ function SitePage() {
             )}
           </section>
           {loaded && loaded.versions.length > 0 && (
-            <section className="space-y-3 pt-6">
-              <h2 className="text-sm font-medium">Versions</h2>
+            <section aria-label="Versions" className="pt-6">
               <VersionList
                 versions={loaded.versions}
                 busy={busy}

@@ -96,8 +96,7 @@ export function FolderDrop({
             >
               {view === "prompt" && (
                 <>
-                  {/* Smaller under a heading, so the heading leads */}
-                  <div className={cn("mb-6", heading && "[zoom:0.75]")}>
+                  <div className="mb-6 [zoom:0.75]">
                     <Folder open={dragging} />
                   </div>
                   {heading ? (
