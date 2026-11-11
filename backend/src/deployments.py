@@ -256,9 +256,12 @@ async def change_deployment(
 
 
 def matches(stored: StoredObject | None, file: ManifestFile) -> bool:
-    return (
-        stored is not None and stored.sha256 == file.sha256 and stored.size == file.size
-    )
+    if stored is None:
+        return False
+    # Clients compress the same file to different bytes
+    if stored.original_sha256 and file.original_sha256:
+        return stored.original_sha256 == file.original_sha256
+    return stored.sha256 == file.sha256 and stored.size == file.size
 
 
 async def served_files(session: Session, folder: str) -> dict[str, StoredObject]:
@@ -269,7 +272,11 @@ async def served_files(session: Session, folder: str) -> dict[str, StoredObject]
     if version is None:
         return {}
     return {
-        path: StoredObject(sha256=file["sha256"], size=file["size"])
+        path: StoredObject(
+            sha256=file["sha256"],
+            size=file["size"],
+            original_sha256=file.get("original_sha256"),
+        )
         for path, file in version.files.items()
     }
 
@@ -320,7 +327,9 @@ async def read_files(deployment: OwnedDeployment, session: Session) -> list[Stor
         return []
     objects = await served_files(session, deployment.folder)
     return [
-        StoredFile(path=path, sha256=stored.sha256)
+        StoredFile(
+            path=path, sha256=stored.sha256, original_sha256=stored.original_sha256
+        )
         for path, stored in sorted(objects.items())
     ]
 
@@ -447,6 +456,8 @@ async def complete_deployment(
                 file.path: {
                     "sha256": stored[file.path].sha256,
                     "size": stored[file.path].size,
+                    "original_sha256": file.original_sha256
+                    or stored[file.path].original_sha256,
                 }
                 for file in manifest.files
             },

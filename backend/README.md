@@ -57,6 +57,8 @@ account: those take the dashboard's JWT.
   `{"path", "size", "sha256", "gzip"}` files, where `sha256` is the
   base64-encoded digest. Size and digest are of the bytes as uploaded; files
   sent gzip-compressed set `gzip` and are served with `Content-Encoding: gzip`.
+  They can add `original_sha256`, their digest before compression, which
+  updates compare instead, as clients compress the same file to different bytes.
   An optional `slug` picks one of the addresses offered to the user, and gets
   409 once the offer lapsed or was used; without one, the server picks. An
   optional `expires_at` is when the site goes offline, a future time; without
@@ -85,9 +87,9 @@ account: those take the dashboard's JWT.
 - `DELETE /api/deployments/{slug}/versions`: deletes every version but the one
   served, returning the deployment.
 - `GET /api/deployments/{slug}/files`: the site's stored files as
-  `{"path", "sha256"}`, sorted by path, so an update can be previewed. Each
-  version's files are recorded when it's published, so this and updates never
-  read them back from storage.
+  `{"path", "sha256", "original_sha256"}`, sorted by path, so an update can
+  be previewed. Each version's files are recorded when it's published, so this
+  and updates never read them back from storage.
 - `PUT /api/deployments/{slug}`: updates a ready site in place from a full
   manifest, counted on top of its kept versions against
   `REDOOST_MAX_ACCOUNT_SIZE`. Returns upload policies only for new and changed

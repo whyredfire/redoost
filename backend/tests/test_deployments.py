@@ -25,6 +25,7 @@ from src.storage import StoredObject, content_type
 URL = "/api/deployments"
 SHA256 = base64.b64encode(hashlib.sha256(b"").digest()).decode()
 OTHER_SHA256 = base64.b64encode(hashlib.sha256(b"other").digest()).decode()
+ORIGINAL_SHA256 = base64.b64encode(hashlib.sha256(b"original").digest()).decode()
 
 
 def manifest(*paths: str, size: int = 1) -> dict[str, list[dict[str, str | int]]]:
@@ -549,9 +550,10 @@ def test_read_files(
     # Recorded when it was published, so storage isn't read again
     monkeypatch.setattr(deployments, "read_objects", stored())
     response = client.get(url, headers=bearer(token))
+    # Files sent as they are hash the same before compression
     assert response.json() == [
-        {"path": "app.js", "sha256": SHA256},
-        {"path": "index.html", "sha256": SHA256},
+        {"path": "app.js", "sha256": SHA256, "original_sha256": SHA256},
+        {"path": "index.html", "sha256": SHA256, "original_sha256": SHA256},
     ]
 
 
@@ -602,6 +604,44 @@ def test_update_signs_only_new_and_changed_files(
     assert key == f"{folder_of(body)}app.js" and folder_of(body) != folder_of(created)
     assert datetime.fromisoformat(body["locked_until"]) > datetime.now(UTC)
     assert "token" not in body
+
+
+def test_updates_compare_files_as_they_were_before_compression(
+    client: TestClient,
+    token: str,
+    monkeypatch: pytest.MonkeyPatch,
+    storage: list[tuple[str, ...]],
+) -> None:
+    def gzipped(sha256: str, size: int, original: str) -> dict[str, Any]:
+        file = {"path": "index.html", "size": size, "sha256": sha256, "gzip": True}
+        return {"files": [{**file, "original_sha256": original}]}
+
+    first = gzipped(SHA256, 1, ORIGINAL_SHA256)
+    response = client.post(URL, json=first, headers=bearer(token))
+    created = {**response.json(), "token": token}
+    url = f"{URL}/{created['slug']}"
+    monkeypatch.setattr(deployments, "read_objects", stored("index.html"))
+    client.post(f"{url}/complete", json=first, headers=bearer(token))
+
+    # Another client compressed the same file to other bytes
+    other = gzipped(OTHER_SHA256, 2, ORIGINAL_SHA256)
+    assert client.put(url, json=other, headers=bearer(token)).json()["uploads"] == []
+    monkeypatch.setattr(deployments, "read_objects", stored())
+    response = client.post(f"{url}/complete", json=other, headers=bearer(token))
+
+    assert response.status_code == 200
+    copies = [call for call in storage if call[0] == "copy"]
+    assert [(call[1], call[3]) for call in copies] == [
+        (folder_of(created), "index.html")
+    ]
+    # The bytes stored are still the first client's
+    assert client.get(f"{url}/files", headers=bearer(token)).json() == [
+        {"path": "index.html", "sha256": SHA256, "original_sha256": ORIGINAL_SHA256}
+    ]
+
+    changed = gzipped(SHA256, 1, OTHER_SHA256)
+    updated = client.put(url, json=changed, headers=bearer(token)).json()
+    assert [upload["path"] for upload in updated["uploads"]] == ["index.html"]
 
 
 def test_one_upload_at_a_time(

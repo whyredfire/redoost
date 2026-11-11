@@ -579,6 +579,30 @@ def test_unchanged_updates_publish_nothing(
     assert "PUT /api/deployments/brave-otter-1a2b" not in server.routes()
 
 
+def test_files_another_client_compressed_are_unchanged(
+    server: FakeServer, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    signed_in()
+    (tmp_path / "index.html").write_text("<h1>same</h1>" * 20)
+    files = [compress(file).manifest() for file in read_site(tmp_path)]
+    assert any(file["gzip"] for file in files)
+    server.stored = [
+        {
+            "path": str(file["path"]),
+            "sha256": "x",
+            "original_sha256": str(file["original_sha256"]),
+        }
+        for file in files
+    ]
+
+    out, _ = run(capsys, "publish", str(tmp_path), "--update", "brave-otter-1a2b")
+    assert out == "No changes to publish\n"
+
+    (tmp_path / "index.html").write_text("<h1>changed</h1>" * 20)
+    out, _ = run(capsys, "publish", str(tmp_path), "--update", "brave-otter-1a2b")
+    assert out == "Published https://brave-otter-1a2b.sites.test\n"
+
+
 def test_removed_files_are_a_change(
     server: FakeServer, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

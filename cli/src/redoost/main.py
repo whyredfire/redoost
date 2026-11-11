@@ -141,11 +141,20 @@ def plural(count: int, noun: str) -> str:
     return f"{count} {noun}" if count == 1 else f"{count} {noun}s"
 
 
+def same_file(stored: dict[str, Any], file: dict[str, Any]) -> bool:
+    # Clients compress the same file to different bytes
+    if stored.get("original_sha256"):
+        return stored["original_sha256"] == file["original_sha256"]
+    return stored["sha256"] == file["sha256"]
+
+
 def unchanged(api: Api, slug: str, manifest: dict[str, Any]) -> bool:
     response = api.request("GET", f"/api/deployments/{slug}/files")
-    stored = {file["path"]: file["sha256"] for file in response.json()}
-    wanted = {file["path"]: file["sha256"] for file in manifest["files"]}
-    return stored == wanted
+    stored = {file["path"]: file for file in response.json()}
+    wanted = {file["path"]: file for file in manifest["files"]}
+    return stored.keys() == wanted.keys() and all(
+        same_file(stored[path], file) for path, file in wanted.items()
+    )
 
 
 def publish(args: argparse.Namespace) -> None:

@@ -154,15 +154,21 @@ def test_compresses_text_files_when_smaller() -> None:
 
 
 def test_manifest_describes_the_uploaded_bytes() -> None:
-    file = compress(SiteFile("app.js", b"console.log(1);" * 50))
+    content = b"console.log(1);" * 50
+    file = compress(SiteFile("app.js", content))
     digest = base64.b64encode(hashlib.sha256(file.content).digest()).decode()
+    original = base64.b64encode(hashlib.sha256(content).digest()).decode()
 
     assert file.manifest() == {
         "path": "app.js",
         "size": len(file.content),
         "sha256": digest,
         "gzip": True,
+        "original_sha256": original,
     }
+    # Files sent as they are hash the same either way
+    image = SiteFile("logo.png", b"png").manifest()
+    assert image["original_sha256"] == image["sha256"]
 
 
 @pytest.mark.parametrize(

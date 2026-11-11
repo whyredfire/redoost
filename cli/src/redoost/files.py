@@ -24,19 +24,26 @@ class SiteError(Exception):
     pass
 
 
+def sha256(content: bytes) -> str:
+    return base64.b64encode(hashlib.sha256(content).digest()).decode()
+
+
 @dataclass
 class SiteFile:
     path: str
     content: bytes
     gzip: bool = False
+    # Of the content before it was compressed, if it was
+    original_sha256: str | None = None
 
     def manifest(self) -> dict[str, str | int | bool]:
-        digest = hashlib.sha256(self.content).digest()
+        digest = sha256(self.content)
         return {
             "path": self.path,
             "size": len(self.content),
-            "sha256": base64.b64encode(digest).decode(),
+            "sha256": digest,
             "gzip": self.gzip,
+            "original_sha256": self.original_sha256 or digest,
         }
 
 
@@ -158,7 +165,7 @@ def compress(file: SiteFile) -> SiteFile:
     # Tiny files can grow when compressed
     if len(packed) >= len(file.content):
         return file
-    return SiteFile(file.path, packed, gzip=True)
+    return SiteFile(file.path, packed, gzip=True, original_sha256=sha256(file.content))
 
 
 def format_bytes(size: int) -> str:

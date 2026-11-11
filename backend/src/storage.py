@@ -104,6 +104,8 @@ class StoredObject:
     sha256: str | None
     # The bytes actually stored, which a manifest can't vouch for
     size: int
+    # Of the file before compression, on its client's word
+    original_sha256: str | None = None
 
 
 async def read_head(s3: Any, key: str) -> dict[str, Any] | None:

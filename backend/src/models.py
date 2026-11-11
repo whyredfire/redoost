@@ -44,6 +44,18 @@ class ManifestFile(SQLModel):
         default=False,
         description="Uploaded gzip-compressed, so it's served with Content-Encoding: gzip",
     )
+    original_sha256: str | None = Field(
+        default=None,
+        schema_extra={"pattern": r"^[A-Za-z0-9+/]{43}=$"},
+        description="Base64-encoded SHA-256 digest before compression, which tells "
+        "whether a file changed however its client compressed it",
+    )
+
+    @model_validator(mode="after")
+    def hash_uncompressed(self) -> Self:
+        if not self.gzip:
+            self.original_sha256 = self.sha256
+        return self
 
     @field_validator("path")
     @classmethod
@@ -267,7 +279,9 @@ class Version(SQLModel, table=True):
         default="", max_length=200, description="What this version changes"
     )
     files: dict[str, dict[str, Any]] = Field(
-        sa_type=JSONB, description="Each file's SHA-256 and stored size, by path"
+        sa_type=JSONB,
+        description="Each file's SHA-256, stored size, and SHA-256 before compression, "
+        "by path",
     )
 
     @property
@@ -333,6 +347,9 @@ class DeletedSites(SQLModel):
 class StoredFile(SQLModel):
     path: str = Field(description="Path relative to the site root")
     sha256: str | None = Field(description="Base64-encoded SHA-256 of the stored bytes")
+    original_sha256: str | None = Field(
+        description="Base64-encoded SHA-256 before compression, if its client sent one"
+    )
 
 
 class UploadPolicy(SQLModel):

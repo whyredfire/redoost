@@ -5,6 +5,8 @@ export type ManifestFile = {
   size: number;
   sha256: string;
   gzip: boolean;
+  // Of the file before compression
+  original_sha256: string;
 };
 
 export type Deployment = {
@@ -30,7 +32,12 @@ export function online(site: Deployment) {
   return site.enabled && !expired(site);
 }
 
-export type StoredFile = { path: string; sha256: string | null };
+export type StoredFile = {
+  path: string;
+  sha256: string | null;
+  // Missing for versions published before clients sent it
+  original_sha256: string | null;
+};
 
 export type Version = {
   id: string;

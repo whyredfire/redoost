@@ -3,7 +3,11 @@ import type { Limits, ManifestFile, StoredFile } from "./deploy";
 import { formatBytes } from "./format";
 
 export type SiteFile = { path: string; file: File };
-export type UploadFile = SiteFile & { gzip: boolean; sha256: string };
+export type UploadFile = SiteFile & {
+  gzip: boolean;
+  sha256: string;
+  originalSha256: string;
+};
 export type FileChange = "new" | "changed";
 export type SiteCheck = { label: string; passed: boolean };
 
@@ -224,8 +228,9 @@ export async function prepareFiles(
     while (next < files.length) {
       const index = next++;
       const packed = await compress(files[index]!);
-      const sha256 = await digest(packed.file);
-      prepared[index] = { ...packed, sha256 };
+      const originalSha256 = await digest(files[index]!.file);
+      const sha256 = packed.gzip ? await digest(packed.file) : originalSha256;
+      prepared[index] = { ...packed, sha256, originalSha256 };
       onFile(prepared[index]);
     }
   }
@@ -234,12 +239,20 @@ export async function prepareFiles(
 }
 
 export function fileManifest(files: UploadFile[]): ManifestFile[] {
-  return files.map(({ path, file, sha256, gzip }) => ({
+  return files.map(({ path, file, sha256, gzip, originalSha256 }) => ({
     path,
     size: file.size,
     sha256,
     gzip,
+    original_sha256: originalSha256,
   }));
+}
+
+// Clients compress the same file to different bytes
+function unchanged(stored: StoredFile, file: UploadFile) {
+  return stored.original_sha256
+    ? stored.original_sha256 === file.originalSha256
+    : stored.sha256 === file.sha256;
 }
 
 export function siteChanges(
@@ -247,11 +260,12 @@ export function siteChanges(
   prepared: UploadFile[],
   stored: StoredFile[],
 ) {
-  const checksums = new Map(stored.map(({ path, sha256 }) => [path, sha256]));
+  const published = new Map(stored.map((file) => [file.path, file]));
   const changes = new Map<string, FileChange>();
-  for (const { path, sha256 } of prepared) {
-    if (!checksums.has(path)) changes.set(path, "new");
-    else if (checksums.get(path) !== sha256) changes.set(path, "changed");
+  for (const file of prepared) {
+    const before = published.get(file.path);
+    if (!before) changes.set(file.path, "new");
+    else if (!unchanged(before, file)) changes.set(file.path, "changed");
   }
   const selected = new Set(files.map(({ path }) => path));
   const removed = stored

@@ -306,6 +306,39 @@ def test_updates_switch_folders_once_complete(
     assert keys(s3, f"{slug}/") == keys(s3, folder)
 
 
+def test_updates_skip_files_another_client_compressed(
+    client: TestClient, token: str, s3: Any
+) -> None:
+    def gzipped(level: int) -> tuple[bytes, dict[str, Any]]:
+        content = gzip.compress(FILES["index.html"], compresslevel=level, mtime=0)
+        file = {"path": "index.html", "size": len(content), "sha256": digest(content)}
+        original = digest(FILES["index.html"])
+        return content, {"files": [{**file, "gzip": True, "original_sha256": original}]}
+
+    headers = bearer(token)
+    content, first = gzipped(9)
+    created = client.post("/api/deployments", json=first, headers=headers).json()
+    url = f"/api/deployments/{created['slug']}"
+    try:
+        assert upload(created, "index.html", content).status_code == 204
+        assert client.post(f"{url}/complete", json=first, headers=headers).is_success
+
+        other, second = gzipped(1)
+        assert other != content
+        assert client.put(url, json=second, headers=headers).json()["uploads"] == []
+        assert client.post(f"{url}/complete", json=second, headers=headers).is_success
+
+        # The new version holds the bytes the first client uploaded
+        root = client.get(f"/internal/sites/{created['slug']}").headers["X-Site-Root"]
+        assert root != "/" + key(created, "").removesuffix("/")
+        head = stored(s3, f"{root.removeprefix('/')}/index.html")
+        assert head is not None and head["ChecksumSHA256"] == digest(content)
+        assert head["ContentEncoding"] == "gzip"
+    finally:
+        for item in keys(s3, f"{created['slug']}/"):
+            s3.delete_object(Bucket=settings.s3_bucket, Key=item)
+
+
 def test_cancelled_updates_leave_nothing_behind(
     client: TestClient, deployment: dict[str, Any], s3: Any
 ) -> None:
