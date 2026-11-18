@@ -35,7 +35,7 @@ services:
       - "8080:8080"
 
   postgres:
-    image: postgres:18-alpine@sha256:123b17998ccaf47e53b502e8c6a1e79afd8f579c6f3eec83c563da026f957395
+    image: postgres:18-alpine@sha256:b6972e1115a4ff8eba5d7f7d19184926d1e16d7d1136ae1e1a7ebf286da0f015
     environment:
       POSTGRES_USER: redoost
       POSTGRES_PASSWORD: redoost
@@ -136,7 +136,7 @@ services:
           path: ./frontend/bun.lock
 
   sites:
-    image: nginx:1.31.8-alpine-slim@sha256:f45171d36c76a8b2f5ef97108a3a8a2294248a6578a0a180edc2d78f7d2edc26
+    image: nginx:1.31.8-alpine-slim@sha256:4c734d33ee731135dc9f2349914a34551c920f4451fca8bb05bf5880eb9079e8
     depends_on:
       garage:
         condition: service_healthy
@@ -151,7 +151,7 @@ services:
       - ./sites.conf:/etc/nginx/templates/default.conf.template:ro
 
   gateway:
-    image: nginx:1.31.8-alpine-slim@sha256:f45171d36c76a8b2f5ef97108a3a8a2294248a6578a0a180edc2d78f7d2edc26
+    image: nginx:1.31.8-alpine-slim@sha256:4c734d33ee731135dc9f2349914a34551c920f4451fca8bb05bf5880eb9079e8
     depends_on:
       - api
       - frontend
