@@ -9,7 +9,7 @@ import threading
 import time
 import webbrowser
 from collections.abc import Callable
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from importlib.metadata import version
 from pathlib import Path
 from typing import Any
@@ -290,9 +290,8 @@ def site_line(site: dict[str, Any]) -> str:
     if not site.get("enabled", True):
         parts.append("offline")
     if site.get("expires_at"):
-        # Python 3.10 doesn't read a Z suffix
-        expires_at = datetime.fromisoformat(site["expires_at"].replace("Z", "+00:00"))
-        expired = expires_at <= datetime.now(timezone.utc)
+        expires_at = datetime.fromisoformat(site["expires_at"])
+        expired = expires_at <= datetime.now(UTC)
         parts.append("expired" if expired else f"expires {site['expires_at'][:10]}")
     if site.get("description"):
         parts.append(site["description"])

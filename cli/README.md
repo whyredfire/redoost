@@ -1,6 +1,6 @@
 # redoost CLI
 
-Publish static sites to redoost from the command line. Needs Python 3.10 or
+Publish static sites to redoost from the command line. Needs Python 3.11 or
 newer.
 
 Install it from `main`, so `redoost` works from anywhere:
@@ -95,5 +95,5 @@ uv run basedpyright src tests
 uv run pytest
 ```
 
-`.python-version` pins Python 3.10, so code that needs a newer Python fails
+`.python-version` pins Python 3.11, so code that needs a newer Python fails
 here first.

@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [
     { name = "Karan Parashar", email = "whyredfire@gmail.com" }
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "httpx2>=2.14.0",
 ]
