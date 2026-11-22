@@ -443,6 +443,10 @@ async def complete_deployment(
         if deployment.folder == folder:
             return deployment
         raise HTTPException(status.HTTP_410_GONE, "Upload window has closed")
+    # Counted again from the locked row, as versions deleted meanwhile changed it;
+    # that only makes it smaller than what the quota was checked against
+    replaced = deployment.folder if deployment.folder != folder else None
+    storage_size = deployment.storage_size + total_size if replaced else total_size
     session.add(
         Version(
             folder=folder,
@@ -540,10 +544,11 @@ async def change_version(
 async def restore_version(
     version_id: str, deployment: OwnedDeployment, session: Session
 ) -> DeploymentBase:
-    version = await get_version(session, deployment, version_id)
     now = datetime.now(UTC)
-    # Locked, as an update completing meanwhile would switch folders too
+    # Locked, as an update completing meanwhile would switch folders too, and the
+    # version is read after, so one deleted meanwhile isn't served
     await session.refresh(deployment, with_for_update=True)
+    version = await get_version(session, deployment, version_id)
     if deployment.locked_until > now:
         raise HTTPException(
             status.HTTP_409_CONFLICT, "Another upload to this site is in progress"
@@ -575,6 +580,9 @@ async def restore_version(
 async def delete_version(
     version_id: str, deployment: OwnedDeployment, session: Session
 ) -> None:
+    # Locked, as a restore or an update completing meanwhile changes what's served,
+    # and both write the storage size this changes
+    await session.refresh(deployment, with_for_update=True)
     version = await get_version(session, deployment, version_id)
     if version.folder == deployment.folder:
         raise HTTPException(
@@ -591,6 +599,8 @@ async def prune_versions(
     deployment: OwnedDeployment, session: Session
 ) -> DeploymentBase:
     now = datetime.now(UTC)
+    # Locked, like deleting one version
+    await session.refresh(deployment, with_for_update=True)
     for version in await site_versions(session, deployment):
         if version.folder != deployment.folder:
             await discard_version(session, deployment, version, now)

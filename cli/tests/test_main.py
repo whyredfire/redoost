@@ -26,6 +26,7 @@ class FakeServer:
         self.requests: list[httpx2.Request] = []
         self.pending_polls = 1
         self.upload_status = 204
+        self.cancel_status = 204
         self.stored: list[dict[str, str]] = []
         self.limits = dict(default_limits)
         # None for servers from before usage was reported
@@ -137,6 +138,8 @@ class FakeServer:
             found = sorted(slug for slug in slugs if not slug.startswith("missing"))
             field = "deleted" if request.method == "DELETE" else "changed"
             return httpx2.Response(200, json={field: found})
+        if route.endswith("/cancel"):
+            return httpx2.Response(self.cancel_status)
         if route.endswith("/complete"):
             return httpx2.Response(
                 200, json={"slug": "brave-otter-1a2b", "state": "ready"}
@@ -318,11 +321,9 @@ def test_publish(
     out, _ = run(capsys, "publish", str(site), "--json")
 
     uploads = [request for request in server.requests if str(request.url) == UPLOAD_URL]
-    # The token never goes to S3, and pages go last
+    # The token never goes to S3
+    assert len(uploads) == 2
     assert all("Authorization" not in request.headers for request in uploads)
-    assert [
-        b'name="key"\r\n\r\nindex.html' in request.content for request in uploads
-    ] == [False, True]
     assert json.loads(out)["url"] == "https://brave-otter-1a2b.sites.test"
 
 
@@ -505,9 +506,14 @@ def test_describe(server: FakeServer, capsys: pytest.CaptureFixture[str]) -> Non
     ]
 
 
-def test_failed_updates_free_the_site(server: FakeServer, tmp_path: Path) -> None:
+# Freeing it can fail too, but the error shown is still why the upload stopped
+@pytest.mark.parametrize("cancel_status", [204, 503])
+def test_failed_updates_free_the_site(
+    server: FakeServer, tmp_path: Path, cancel_status: int
+) -> None:
     signed_in()
     server.upload_status = 403
+    server.cancel_status = cancel_status
     (tmp_path / "index.html").write_text("<h1>new</h1>")
 
     with pytest.raises(SystemExit, match="Upload failed \\(403\\)"):

@@ -213,9 +213,13 @@ def publish(args: argparse.Namespace) -> None:
                 "POST", f"/api/deployments/{slug}/complete", json=manifest
             )
         except BaseException:
-            # An unfinished update keeps the site locked until it's cancelled
+            # An unfinished update keeps the site locked until it's cancelled; if that
+            # fails too, the error that stopped the upload is still the one shown
             if args.update:
-                api.request("POST", f"/api/deployments/{slug}/cancel")
+                try:
+                    api.request("POST", f"/api/deployments/{slug}/cancel")
+                except ApiError:
+                    pass
             raise
     published = response.json()
     url = site_url(api, slug)

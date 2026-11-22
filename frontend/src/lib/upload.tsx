@@ -347,9 +347,6 @@ function useUploadState() {
       // Updates only sign new and changed files
       const signed = new Set(active.deployment.uploads.map(({ path }) => path));
       const pending = uploads.filter(({ path }) => signed.has(path));
-      // Pages go last, so a live site never links to assets still uploading
-      const pages = pending.filter(({ path }) => /\.html?$/i.test(path));
-      const assets = pending.filter((file) => !pages.includes(file));
       const progress = new Map<string, number>();
       let done = 0;
       const { schedule, flush } = batched(() => {
@@ -369,8 +366,8 @@ function useUploadState() {
       setUploadSize(pending.reduce((sum, { file }) => sum + file.size, 0));
       setStage("uploading");
       try {
-        await uploadFiles(active.deployment, assets, abort.signal, onProgress);
-        await uploadFiles(active.deployment, pages, abort.signal, onProgress);
+        // Only served once the upload completes, so any order works
+        await uploadFiles(active.deployment, pending, abort.signal, onProgress);
       } finally {
         flush();
       }

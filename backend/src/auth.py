@@ -9,7 +9,7 @@ import jwt
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.dialects.postgresql import insert
-from sqlmodel import col, delete, select, update
+from sqlmodel import col, select, update
 
 from . import oidc
 from .config import Provider, settings
@@ -43,6 +43,8 @@ dev_router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 token_lifetime = timedelta(days=30)
 cli_login_lifetime = timedelta(minutes=10)
+# Keeps a sign-in link's ID from ever passing for a session token, or the reverse
+cli_login_audience = "redoost:cli-login"
 # Busy pipelines would otherwise write on every request
 record_use_every = timedelta(minutes=1)
 
@@ -247,30 +249,55 @@ def expired_link() -> HTTPException:
     )
 
 
-# The CLI prints a link to approve anywhere, then polls until it's approved
+# The CLI prints a link to approve anywhere, then polls until it's approved. The
+# link's ID is signed rather than stored, so starting sign-ins, which anyone can,
+# writes nothing until a signed-in user approves one.
 @router.post("/cli", status_code=status.HTTP_201_CREATED)
-async def start_cli_login(session: Session) -> CliLoginStarted:
+async def start_cli_login() -> CliLoginStarted:
     secret = secrets.token_urlsafe(32)
-    login = CliLogin(
-        secret_hash=hash_secret(secret),
-        expires_at=datetime.now(UTC) + cli_login_lifetime,
+    # Whole seconds, as the ID carries it
+    expires_at = (datetime.now(UTC) + cli_login_lifetime).replace(microsecond=0)
+    claims = {
+        "aud": cli_login_audience,
+        "secret_hash": hash_secret(secret),
+        "exp": expires_at,
+    }
+    login_id = jwt.encode(
+        claims, settings.jwt_secret.get_secret_value(), algorithm="HS256"
     )
-    session.add(login)
-    await session.commit()
-    return CliLoginStarted(id=login.id, secret=secret, expires_at=login.expires_at)
+    return CliLoginStarted(id=login_id, secret=secret, expires_at=expires_at)
 
 
-# One statement, so a link can only ever be approved once, by one user
+def read_cli_login(login_id: str) -> tuple[str, datetime]:
+    """The hash of the secret a sign-in link was started with, and its expiry."""
+    try:
+        claims = jwt.decode(
+            login_id,
+            settings.jwt_secret.get_secret_value(),
+            algorithms=["HS256"],
+            audience=cli_login_audience,
+            options={"require": ["aud", "exp", "secret_hash"]},
+        )
+    except jwt.InvalidTokenError:
+        raise expired_link() from None
+    return claims["secret_hash"], datetime.fromtimestamp(claims["exp"], UTC)
+
+
+# One row per link, so a link can only ever be approved once, by one user
 @router.post("/cli/{login_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def approve_cli_login(
     login_id: str, user: SignedInUser, session: Session
 ) -> None:
+    secret_hash, expires_at = read_cli_login(login_id)
     result = await session.exec(
-        update(CliLogin)
-        .where(col(CliLogin.id) == login_id)
-        .where(col(CliLogin.user_id).is_(None))
-        .where(col(CliLogin.expires_at) > datetime.now(UTC))
-        .values(user_id=user.id)
+        insert(CliLogin)
+        .values(
+            id=login_id,
+            secret_hash=secret_hash,
+            user_id=user.id,
+            expires_at=expires_at,
+        )
+        .on_conflict_do_nothing()
     )
     if result.rowcount == 0:
         raise expired_link()
@@ -281,25 +308,24 @@ async def approve_cli_login(
 async def claim_cli_login(
     login_id: str, body: CliLoginClaim, session: Session
 ) -> Token | Response:
-    # Deleted as it's claimed, so it gives out one token at most
+    # Its secret is cleared as it's claimed, so it gives out one token at most; the
+    # row stays until it expires, so the link can't be approved again
     claimed = await session.exec(
-        delete(CliLogin)
+        update(CliLogin)
         .where(col(CliLogin.id) == login_id)
         .where(col(CliLogin.secret_hash) == hash_secret(body.secret))
         .where(col(CliLogin.expires_at) > datetime.now(UTC))
-        .where(col(CliLogin.user_id).is_not(None))
+        .values(secret_hash="")
         .returning(col(CliLogin.user_id))
     )
     user_id = claimed.scalar_one_or_none()
     user = await session.get(User, user_id) if user_id else None
     if user is None:
-        login = await session.get(CliLogin, login_id)
+        secret_hash, _ = read_cli_login(login_id)
         # Not approved in the browser yet
-        if (
-            login
-            and login.expires_at > datetime.now(UTC)
-            and hmac.compare_digest(login.secret_hash, hash_secret(body.secret))
-        ):
+        if hmac.compare_digest(
+            secret_hash, hash_secret(body.secret)
+        ) and not await session.get(CliLogin, login_id):
             return Response(status_code=status.HTTP_202_ACCEPTED)
         raise expired_link()
     # Revocable from the dashboard, unlike the session tokens the browser gets

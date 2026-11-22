@@ -40,14 +40,24 @@ def queue(cleared: CTE, folder: str, now: datetime, *where: Any) -> Insert:
 
 
 async def cleanup(session: AsyncSession) -> tuple[int, int, int]:
-    # Unfinished uploads past their window, whose policies can no longer be used
-    expired_query = (
-        select(Deployment)
+    now = datetime.now(UTC)
+    # Unfinished uploads past their window, whose policies can no longer be used.
+    # Rows go first, skipping any a late completion has locked to publish it, and
+    # their files after; files a failed delete leaves are orphans for a later run.
+    stale = (
+        select(Deployment.slug)
         .where(col(Deployment.state) == DeploymentState.uploading)
-        .where(col(Deployment.locked_until) < datetime.now(UTC))
+        .where(col(Deployment.locked_until) < now)
         .limit(batch_size)
+        .with_for_update(skip_locked=True)
     )
-    expired = (await session.exec(expired_query)).all()
+    removed = await session.exec(
+        delete(Deployment)
+        .where(col(Deployment.slug).in_(stale))
+        .returning(col(Deployment.slug))
+    )
+    expired = set(removed.scalars().all())
+    await session.commit()
 
     # Rows are committed before any upload, so a folder without one is leftover.
     # Listing each page before querying for its slugs keeps that true here, and
@@ -58,18 +68,15 @@ async def cleanup(session: AsyncSession) -> tuple[int, int, int]:
             col(Deployment.slug) == any_(literal(slugs, ARRAY(String)))
         )
         known = set((await session.exec(query)).all())
-        orphaned.extend(slug for slug in slugs if slug not in known)
+        orphaned.extend(slug for slug in slugs if slug not in known | expired)
         if len(orphaned) >= batch_size:
             break
     orphaned = orphaned[:batch_size]
 
-    await delete_sites([*orphaned, *(deployment.slug for deployment in expired)])
-    for deployment in expired:
-        await session.delete(deployment)
+    await delete_sites([*orphaned, *expired])
 
     # Updates nobody finished or cancelled. The statement takes the folders off their
     # rows and queues them in one go, skipping rows the API has locked to change them.
-    now = datetime.now(UTC)
     abandoned = (
         select(Deployment.slug, Deployment.owner_id, Deployment.pending_folder)
         .add_columns(col(Deployment.folder).label("served"))

@@ -24,10 +24,6 @@ def error_message(response: httpx2.Response) -> str:
     return f"Request failed ({response.status_code})."
 
 
-def is_page(file: SiteFile) -> bool:
-    return file.path.lower().endswith((".html", ".htm"))
-
-
 class Api:
     def __init__(
         self,
@@ -96,23 +92,20 @@ class Api:
         policies = {
             upload["path"]: upload["fields"] for upload in deployment["uploads"]
         }
-        pending = [file for file in files if file.path in policies]
-        # Pages go last, so a live site never links to assets still uploading
-        pages = [file for file in pending if is_page(file)]
-        assets = [file for file in pending if not is_page(file)]
         url = deployment["upload_url"]
         done = 0
         with ThreadPoolExecutor(max_workers=16) as pool:
             try:
-                for batch in (assets, pages):
-                    uploads = [
-                        pool.submit(self.upload, url, policies[file.path], file)
-                        for file in batch
-                    ]
-                    for upload in as_completed(uploads):
-                        upload.result()
-                        done += 1
-                        on_upload(done)
+                # Only served once the upload completes, so any order works
+                uploads = [
+                    pool.submit(self.upload, url, policies[file.path], file)
+                    for file in files
+                    if file.path in policies
+                ]
+                for upload in as_completed(uploads):
+                    upload.result()
+                    done += 1
+                    on_upload(done)
             except BaseException:
                 # Otherwise a failure or Ctrl+C waits for every queued upload
                 pool.shutdown(wait=False, cancel_futures=True)

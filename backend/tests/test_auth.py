@@ -347,6 +347,21 @@ def test_cli_sign_in(client: TestClient, token: str) -> None:
     )
     # Each link signs in once
     assert claim(client, login).status_code == 404
+    # A link's ID is signed like a session token, but never works as one
+    assert client.get("/api/auth/me", headers=bearer(login["id"])).status_code == 401
+    assert approve(client, {"id": token}, token).status_code == 404
+
+
+def test_starting_cli_sign_ins_stores_nothing(client: TestClient, token: str) -> None:
+    async def stored(login_id: str) -> bool:
+        async with AsyncSession(database.engine) as session:
+            return await session.get(CliLogin, login_id) is not None
+
+    # Anyone can start one, so only approving one writes a row
+    login = start_cli_login(client)
+    assert not asyncio.run(stored(login["id"]))
+    approve(client, login, token)
+    assert asyncio.run(stored(login["id"]))
 
 
 def test_cli_sign_ins_are_tokens_the_dashboard_can_revoke(
@@ -412,6 +427,7 @@ def test_cli_sign_in_links_expire(
 
 def test_cleanup_removes_expired_cli_sign_ins(
     client: TestClient,
+    token: str,
     monkeypatch: pytest.MonkeyPatch,
     run_cleanup: Callable[[], tuple[int, int, int]],
 ) -> None:
@@ -422,10 +438,20 @@ def test_cleanup_removes_expired_cli_sign_ins(
         async with AsyncSession(database.engine) as session:
             return await session.get(CliLogin, login_id)
 
+    async def expire(login_id: str) -> None:
+        async with AsyncSession(database.engine) as session:
+            login = await session.get(CliLogin, login_id)
+            assert login is not None
+            login.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+            session.add(login)
+            await session.commit()
+
     monkeypatch.setattr(cleanup, "slug_pages", slug_pages)
     kept = start_cli_login(client)
-    monkeypatch.setattr(auth, "cli_login_lifetime", timedelta(seconds=-1))
     expired = start_cli_login(client)
+    approve(client, kept, token)
+    approve(client, expired, token)
+    asyncio.run(expire(expired["id"]))
 
     run_cleanup()
     assert asyncio.run(read_login(expired["id"])) is None
@@ -439,7 +465,8 @@ def test_deleting_an_account_removes_its_cli_sign_ins(
     approve(client, login, token)
 
     assert client.delete("/api/auth/me", headers=bearer(token)).status_code == 204
-    assert claim(client, login).status_code == 404
+    # Back to waiting for approval, so it never gives out a token
+    assert claim(client, login).status_code == 202
 
 
 METADATA = OidcMetadata(

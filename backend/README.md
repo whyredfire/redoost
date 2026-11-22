@@ -28,7 +28,8 @@ The CLI signs in through the browser: `POST /api/auth/cli` returns an `id` and
 approve with `POST /api/auth/cli/{id}`. Meanwhile it polls
 `POST /api/auth/cli/{id}/token` with `{"secret", "name"}`, which returns 202
 until the link is approved, then an API token once. Links expire after 10
-minutes.
+minutes. The `id` is signed with the secret's hash and the expiry, so starting a
+sign-in, which needs no token, stores nothing until a user approves it.
 
 API tokens act as their user. They're prefixed `rdo_`, stored only as a hash,
 and have a name, a `source` of `cli` for sign-ins or `manual` for ones made in

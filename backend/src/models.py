@@ -435,14 +435,14 @@ class Token(SQLModel):
 
 
 class CliLogin(SQLModel, table=True):
+    """A sign-in link someone approved; links nobody approved aren't stored."""
+
     __tablename__ = "cli_login"  # pyright: ignore[reportAssignmentType]
 
-    id: str = Field(
-        default_factory=lambda: secrets.token_urlsafe(24),
-        primary_key=True,
-        description="ID in the sign-in link",
+    id: str = Field(primary_key=True, description="ID in the sign-in link")
+    secret_hash: str = Field(
+        description="SHA-256 hash of the CLI's secret; empty once claimed"
     )
-    secret_hash: str = Field(description="SHA-256 hash of the CLI's secret")
     user_id: str | None = Field(
         default=None,
         foreign_key="users.id",

@@ -17,7 +17,7 @@ from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from scripts import cleanup
-from src import database, deployments
+from src import database, deployments, main
 from src.config import settings
 from src.models import Deployment, SlugOffer, Version
 from src.storage import StoredObject, content_type
@@ -301,6 +301,16 @@ def test_rejects_invalid_manifests(
     client: TestClient, token: str, body: dict[str, list[dict[str, str | int]]]
 ) -> None:
     assert client.post(URL, json=body, headers=bearer(token)).status_code == 422
+
+
+def test_rejects_huge_bodies(client: TestClient, token: str) -> None:
+    # Bodies are read before requests are authenticated, so anyone could send one
+    response = client.post(
+        URL,
+        content=b"x" * (main.max_body_size + 1),
+        headers={**bearer(token), "Content-Type": "application/json"},
+    )
+    assert response.status_code == 413
 
 
 @pytest.mark.parametrize(
@@ -875,6 +885,33 @@ def test_deleting_a_version(
     assert response.status_code == 404
 
 
+def test_deleting_a_version_while_an_update_completes(
+    client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(deployments, "retire_after", timedelta(0))
+    created = published(client, token, monkeypatch, "index.html")
+    url = f"{URL}/{created['slug']}"
+    update_site(client, created, monkeypatch, "index.html", "a.html")
+    [_, oldest] = client.get(f"{url}/versions", headers=bearer(token)).json()
+    assert update(client, created, "index.html", "b.html").status_code == 200
+
+    # The dashboard deletes the oldest version while the CLI's completion checks files
+    async def read_objects(folder: str) -> dict[str, StoredObject]:
+        async with AsyncSession(database.engine, expire_on_commit=False) as session:
+            deployment = await session.get(Deployment, created["slug"])
+            assert deployment is not None
+            await deployments.delete_version(oldest["id"], deployment, session)
+        return await stored("b.html")(folder)
+
+    monkeypatch.setattr(deployments, "read_objects", read_objects)
+    response = complete(client, created, "index.html", "b.html")
+
+    assert response.status_code == 200
+    # The two versions left, of two files each
+    assert response.json()["storage_size"] == 4
+    assert usage(client, token) == 4
+
+
 def test_cancelling_an_update_deletes_its_files(
     client: TestClient,
     token: str,
@@ -1328,6 +1365,36 @@ def test_cleanup_removes_expired_uploads_and_orphans(
     for created, code in ((expired, 404), (ready, 200), (pending, 200)):
         url = f"{URL}/{created['slug']}"
         assert client.get(url, headers=bearer(token)).status_code == code
+
+
+def test_cleanup_skips_uploads_still_completing(
+    client: TestClient,
+    token: str,
+    monkeypatch: pytest.MonkeyPatch,
+    run_cleanup: Callable[[], tuple[int, int, int]],
+    storage: list[tuple[str, ...]],
+) -> None:
+    monkeypatch.setattr(settings, "upload_window", timedelta(seconds=-1))
+    late = create(client, token, "index.html")
+
+    # A completion that started in time holds the row while it publishes the site
+    async def clean_while_locked() -> tuple[int, int, int]:
+        async with AsyncSession(database.engine) as completing:
+            query = select(Deployment).where(col(Deployment.slug) == late["slug"])
+            await completing.exec(query.with_for_update())
+            async with AsyncSession(database.engine) as session:
+                # Waiting on the lock, rather than skipping the row, fails here
+                return await asyncio.wait_for(cleanup.cleanup(session), timeout=10)
+
+    expired, _, _ = asyncio.run(clean_while_locked())
+
+    assert expired == 0
+    assert all(call[0] != "delete site" for call in storage)
+    url = f"{URL}/{late['slug']}"
+    assert client.get(url, headers=bearer(token)).status_code == 200
+    # Once it's let go, the next run removes it
+    assert run_cleanup()[0] == 1
+    assert client.get(url, headers=bearer(token)).status_code == 404
 
 
 def test_users_have_a_storage_limit(
