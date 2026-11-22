@@ -12,12 +12,12 @@ dependencies = [
     "alembic>=1.20.1",
     "asyncpg>=0.32.0",
     "coolname>=5.0.0",
-    "fastapi>=0.162.0",
-    "httpx2>=2.16.0",
-    "pydantic-settings>=2.16.2",
+    "fastapi>=0.165.0",
+    "httpx2>=2.16.2",
+    "pydantic-settings>=2.16.3",
     "pyjwt>=2.15.1",
-    "sqlalchemy[asyncio]>=2.1.6",
-    "sqlmodel>=0.0.48",
+    "sqlalchemy[asyncio]>=2.1.9",
+    "sqlmodel>=0.0.50",
     "uvicorn>=0.54.0",
 ]
 
@@ -25,7 +25,7 @@ dependencies = [
 dev = [
     "basedpyright>=1.40.2",
     "pytest>=9.2.0",
-    "ruff>=0.17.3",
+    "ruff>=0.17.6",
 ]
 
 [tool.uv]
