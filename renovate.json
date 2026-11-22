@@ -64,6 +64,12 @@
         "lockFileMaintenance"
       ],
       "automerge": true
+    },
+    {
+      "description": "Last, so it overrides the groups above: one PR for all non-major updates; majors stay separate",
+      "matchUpdateTypes": ["minor", "patch", "digest", "lockFileMaintenance"],
+      "groupName": "all non-major dependencies",
+      "groupSlug": "all-minor-patch"
     }
   ]
 }
