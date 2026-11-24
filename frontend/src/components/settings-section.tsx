@@ -1,28 +1,23 @@
-import type { ReactNode } from "react";
+import type { JSX } from "@solidjs/web";
 
 type SettingsSectionProps = {
   title: string;
   description: string;
-  action?: ReactNode;
-  children: ReactNode;
+  action?: JSX.Element;
+  children: JSX.Element;
 };
 
-export function SettingsSection({
-  title,
-  description,
-  action,
-  children,
-}: SettingsSectionProps) {
+export function SettingsSection(props: SettingsSectionProps) {
   return (
-    <section className="space-y-4">
-      <div className="flex items-end justify-between gap-4">
+    <section class="space-y-4">
+      <div class="flex items-end justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
-          <p className="text-sm text-muted-foreground">{description}</p>
+          <h2 class="text-lg font-semibold tracking-tight">{props.title}</h2>
+          <p class="text-sm text-muted-foreground">{props.description}</p>
         </div>
-        {action}
+        {props.action}
       </div>
-      {children}
+      {props.children}
     </section>
   );
 }

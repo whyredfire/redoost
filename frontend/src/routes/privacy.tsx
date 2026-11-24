@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/solid-router";
 import { ContactLink, LegalPage, Section } from "@/components/legal-page";
 
 export const Route = createFileRoute("/privacy")({

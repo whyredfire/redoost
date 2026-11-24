@@ -1,5 +1,5 @@
 import { cn } from "cn";
-import { useEffect, useRef, useState } from "react";
+import { createMemo, createSignal, onSettled } from "solid-js";
 
 // The site renders at a desktop size, then scales down to fit the frame
 const width = 1280;
@@ -8,103 +8,95 @@ const height = 800;
 // With fill, it takes all the height it's given, showing more of the page
 type SitePreviewProps = { url: string; fill?: boolean };
 
-export function SitePreview({ url, fill = false }: SitePreviewProps) {
-  const frame = useRef<HTMLDivElement>(null);
-  const [box, setBox] = useState({ width: 0, height: 0 });
-  const [shown, setShown] = useState(false);
+export function SitePreview(props: SitePreviewProps) {
+  let frame!: HTMLDivElement;
+  const [box, setBox] = createSignal({ width: 0, height: 0 });
+  const [shown, setShown] = createSignal(false);
 
-  useEffect(() => {
-    const element = frame.current;
-    if (!element) return;
+  onSettled(() => {
     const observer = new ResizeObserver(([entry]) =>
       setBox({
         width: entry!.contentRect.width,
         height: entry!.contentRect.height,
       }),
     );
-    observer.observe(element);
+    observer.observe(frame);
     return () => observer.disconnect();
-  }, []);
+  });
 
   // Slow sites show while they draw in, not after every asset has loaded
-  useEffect(() => {
+  onSettled(() => {
     const timer = setTimeout(() => setShown(true), 1000);
     return () => clearTimeout(timer);
-  }, []);
+  });
 
-  const scale = box.width / width;
+  const scale = createMemo(() => box().width / width);
 
   return (
     <a
-      href={url}
+      href={props.url}
       target="_blank"
       rel="noreferrer"
-      tabIndex={-1}
-      aria-hidden
-      className={cn(
+      tabindex={-1}
+      aria-hidden="true"
+      class={cn(
         "block overflow-hidden rounded-xl bg-card shadow-raised text-left",
-        fill && "flex flex-1 flex-col",
+        props.fill && "flex flex-1 flex-col",
       )}
     >
-      <div className="flex items-center gap-1.5 border-b px-3 py-2">
-        {[0, 1, 2].map((dot) => (
-          <span
-            key={dot}
-            className="size-2 rounded-full bg-muted-foreground/25"
-          />
+      <div class="flex items-center gap-1.5 border-b px-3 py-2">
+        {[0, 1, 2].map(() => (
+          <span class="size-2 rounded-full bg-muted-foreground/25" />
         ))}
-        <span className="ml-2 truncate font-mono text-xs text-muted-foreground">
-          {new URL(url).host}
+        <span class="ml-2 truncate font-mono text-xs text-muted-foreground">
+          {new URL(props.url).host}
         </span>
       </div>
       <div
         ref={frame}
-        className={cn(
+        class={cn(
           "relative bg-muted/40",
-          fill ? "min-h-40 flex-1 sm:min-h-64" : "aspect-[16/9]",
+          props.fill ? "min-h-40 flex-1 sm:min-h-64" : "aspect-[16/9]",
         )}
       >
         <div
-          className={`absolute inset-0 flex flex-col gap-[6%] overflow-hidden p-[5%] transition-opacity duration-500 ${shown ? "opacity-0" : ""}`}
+          class={`absolute inset-0 flex flex-col gap-[6%] overflow-hidden p-[5%] transition-opacity duration-500 ${shown() ? "opacity-0" : ""}`}
         >
-          <div className="flex items-center justify-between">
-            <span className="h-2 w-12 rounded-full bg-muted-foreground/15" />
-            <span className="flex gap-2">
-              {[0, 1, 2].map((link) => (
-                <span
-                  key={link}
-                  className="h-2 w-8 rounded-full bg-muted-foreground/15"
-                />
+          <div class="flex items-center justify-between">
+            <span class="h-2 w-12 rounded-full bg-muted-foreground/15" />
+            <span class="flex gap-2">
+              {[0, 1, 2].map(() => (
+                <span class="h-2 w-8 rounded-full bg-muted-foreground/15" />
               ))}
             </span>
           </div>
-          <div className="space-y-2">
-            <span className="block h-4 w-1/2 rounded-md bg-muted-foreground/15" />
-            <span className="block h-2 w-2/3 rounded-full bg-muted-foreground/10" />
-            <span className="block h-2 w-2/5 rounded-full bg-muted-foreground/10" />
+          <div class="space-y-2">
+            <span class="block h-4 w-1/2 rounded-md bg-muted-foreground/15" />
+            <span class="block h-2 w-2/3 rounded-full bg-muted-foreground/10" />
+            <span class="block h-2 w-2/5 rounded-full bg-muted-foreground/10" />
           </div>
-          <div className="grid flex-1 grid-cols-3 gap-3">
-            {[0, 1, 2].map((card) => (
-              <span key={card} className="rounded-lg bg-muted-foreground/10" />
+          <div class="grid flex-1 grid-cols-3 gap-3">
+            {[0, 1, 2].map(() => (
+              <span class="rounded-lg bg-muted-foreground/10" />
             ))}
           </div>
-          <span className="absolute inset-0 bg-linear-to-r from-transparent via-background/60 to-transparent motion-safe:animate-shimmer" />
+          <span class="absolute inset-0 bg-linear-to-r from-transparent via-background/60 to-transparent motion-safe:animate-shimmer" />
         </div>
         {/* Sites keep their own origin, which differs from the dashboard's, so
             module scripts load; popups, forms and navigation stay blocked */}
         <iframe
-          src={url}
+          src={props.url}
           title="Site preview"
           sandbox="allow-scripts allow-same-origin"
           loading="lazy"
-          referrerPolicy="no-referrer"
-          tabIndex={-1}
+          referrerpolicy="no-referrer"
+          tabindex={-1}
           onLoad={() => setShown(true)}
-          className={`pointer-events-none absolute top-0 left-0 origin-top-left border-0 transition-opacity duration-500 ${shown ? "opacity-100" : "opacity-0"}`}
+          class={`pointer-events-none absolute top-0 left-0 origin-top-left border-0 transition-opacity duration-500 ${shown() ? "opacity-100" : "opacity-0"}`}
           style={{
-            width,
-            height: fill && scale ? box.height / scale : height,
-            transform: `scale(${scale})`,
+            width: `${width}px`,
+            height: `${props.fill && scale() ? box().height / scale() : height}px`,
+            transform: `scale(${scale()})`,
           }}
         />
       </div>

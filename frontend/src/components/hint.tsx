@@ -1,4 +1,5 @@
-import { type ReactNode, useState } from "react";
+import type { JSX } from "@solidjs/web";
+import { createSignal } from "solid-js";
 import {
   Tooltip,
   TooltipContent,
@@ -6,24 +7,23 @@ import {
 } from "@/components/ui/tooltip";
 
 // On a wrapper, so disabled buttons still show why
-export function Hint({
-  label,
-  open = false,
-  children,
-}: {
+export function Hint(props: {
   label: string;
   // Keeps it up after a click, e.g. to say something was copied
   open?: boolean;
-  children: ReactNode;
+  children: JSX.Element;
 }) {
-  const [hovered, setHovered] = useState(false);
+  const [hovered, setHovered] = createSignal(false);
 
   return (
-    <Tooltip open={hovered || open} onOpenChange={setHovered}>
-      <TooltipTrigger asChild>
-        <span className="inline-flex">{children}</span>
+    <Tooltip
+      open={hovered() || (props.open ?? false)}
+      onOpenChange={(open: boolean) => setHovered(open)}
+    >
+      <TooltipTrigger as="span" class="inline-flex">
+        {props.children}
       </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
+      <TooltipContent>{props.label}</TooltipContent>
     </Tooltip>
   );
 }

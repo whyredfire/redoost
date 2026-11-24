@@ -5,9 +5,10 @@
     "target": "ESNext",
     "module": "Preserve",
     "moduleDetection": "force",
-    "jsx": "react-jsx",
+    "jsx": "preserve",
+    "jsxImportSource": "@solidjs/web",
     "allowJs": true,
-    "types": ["vite/client", "node", "react"],
+    "types": ["vite/client", "node"],
 
     // Bundler mode
     "moduleResolution": "bundler",

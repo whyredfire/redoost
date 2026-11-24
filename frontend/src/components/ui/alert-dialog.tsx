@@ -1,182 +1,172 @@
-import * as React from "react"
 import { cn } from "cn"
-import { AlertDialog as AlertDialogPrimitive } from "radix-ui"
+import * as AlertDialogPrimitive from "@kobalte/core/alert-dialog"
+import { useDialogContext } from "@kobalte/core/dialog"
+import type { PolymorphicProps } from "@kobalte/core/polymorphic"
+import { omit } from "solid-js"
+import type { ComponentProps, ValidComponent } from "@solidjs/web"
 
 import { Button } from "@/components/ui/button"
 
-function AlertDialog({
-  ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {
-  return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />
-}
+const AlertDialog = AlertDialogPrimitive.Root
 
-function AlertDialogTrigger({
-  ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Trigger>) {
+function AlertDialogTrigger<T extends ValidComponent = "button">(
+  props: PolymorphicProps<T, AlertDialogPrimitive.AlertDialogTriggerProps<T>>
+) {
   return (
     <AlertDialogPrimitive.Trigger data-slot="alert-dialog-trigger" {...props} />
   )
 }
 
-function AlertDialogPortal({
-  ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Portal>) {
-  return (
-    <AlertDialogPrimitive.Portal data-slot="alert-dialog-portal" {...props} />
-  )
+function AlertDialogPortal(props: AlertDialogPrimitive.AlertDialogPortalProps) {
+  return <AlertDialogPrimitive.Portal {...props} />
 }
 
-function AlertDialogOverlay({
-  className,
-  ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Overlay>) {
+function AlertDialogOverlay(
+  props: PolymorphicProps<
+    "div",
+    AlertDialogPrimitive.AlertDialogOverlayProps<"div">
+  >
+) {
+  const others = omit(props, "class")
   return (
     <AlertDialogPrimitive.Overlay
       data-slot="alert-dialog-overlay"
-      className={cn(
-        "fixed inset-0 z-50 bg-black/50 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0",
-        className
+      class={cn(
+        "fixed inset-0 z-50 bg-black/50 data-[closed]:animate-out data-[closed]:fade-out-0 data-[expanded]:animate-in data-[expanded]:fade-in-0",
+        props.class
       )}
-      {...props}
+      {...others}
     />
   )
 }
 
-function AlertDialogContent({
-  className,
-  size = "default",
-  ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Content> & {
-  size?: "default" | "sm"
-}) {
+function AlertDialogContent(
+  props: PolymorphicProps<
+    "div",
+    AlertDialogPrimitive.AlertDialogContentProps<"div">
+  > & {
+    size?: "default" | "sm"
+  }
+) {
+  const others = omit(props, "class", "size")
   return (
     <AlertDialogPortal>
       <AlertDialogOverlay />
       <AlertDialogPrimitive.Content
         data-slot="alert-dialog-content"
-        data-size={size}
-        className={cn(
-          "group/alert-dialog-content fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-card bg-card p-6 shadow-modal duration-200 data-[size=sm]:max-w-xs data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[size=default]:sm:max-w-lg",
-          className
+        data-size={props.size ?? "default"}
+        class={cn(
+          "group/alert-dialog-content fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-card bg-card p-6 shadow-modal duration-200 data-[size=sm]:max-w-xs data-[closed]:animate-out data-[closed]:fade-out-0 data-[closed]:zoom-out-95 data-[expanded]:animate-in data-[expanded]:fade-in-0 data-[expanded]:zoom-in-95 data-[size=default]:sm:max-w-lg",
+          props.class
         )}
-        {...props}
+        // An alert dialog isn't dismissed by clicking outside it, as with Radix
+        onPointerDownOutside={(event) => event.preventDefault()}
+        {...others}
       />
     </AlertDialogPortal>
   )
 }
 
-function AlertDialogHeader({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
+function AlertDialogHeader(props: ComponentProps<"div">) {
+  const others = omit(props, "class")
   return (
     <div
       data-slot="alert-dialog-header"
-      className={cn(
+      class={cn(
         "grid grid-rows-[auto_1fr] place-items-center gap-1.5 text-center has-data-[slot=alert-dialog-media]:grid-rows-[auto_auto_1fr] has-data-[slot=alert-dialog-media]:gap-x-6 sm:group-data-[size=default]/alert-dialog-content:place-items-start sm:group-data-[size=default]/alert-dialog-content:text-left sm:group-data-[size=default]/alert-dialog-content:has-data-[slot=alert-dialog-media]:grid-rows-[auto_1fr]",
-        className
+        props.class
       )}
-      {...props}
+      {...others}
     />
   )
 }
 
-function AlertDialogFooter({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
+function AlertDialogFooter(props: ComponentProps<"div">) {
+  const others = omit(props, "class")
   return (
     <div
       data-slot="alert-dialog-footer"
-      className={cn(
+      class={cn(
         "flex flex-col-reverse gap-2 group-data-[size=sm]/alert-dialog-content:grid group-data-[size=sm]/alert-dialog-content:grid-cols-2 sm:flex-row sm:justify-end",
-        className
+        props.class
       )}
-      {...props}
+      {...others}
     />
   )
 }
 
-function AlertDialogTitle({
-  className,
-  ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Title>) {
+function AlertDialogTitle(
+  props: PolymorphicProps<"h2", AlertDialogPrimitive.AlertDialogTitleProps<"h2">>
+) {
+  const others = omit(props, "class")
   return (
     <AlertDialogPrimitive.Title
       data-slot="alert-dialog-title"
-      className={cn(
+      class={cn(
         "text-lg font-semibold sm:group-data-[size=default]/alert-dialog-content:group-has-data-[slot=alert-dialog-media]/alert-dialog-content:col-start-2",
-        className
+        props.class
       )}
-      {...props}
+      {...others}
     />
   )
 }
 
-function AlertDialogDescription({
-  className,
-  ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Description>) {
+function AlertDialogDescription(
+  props: PolymorphicProps<
+    "p",
+    AlertDialogPrimitive.AlertDialogDescriptionProps<"p">
+  >
+) {
+  const others = omit(props, "class")
   return (
     <AlertDialogPrimitive.Description
       data-slot="alert-dialog-description"
-      className={cn("text-sm text-muted-foreground", className)}
-      {...props}
+      class={cn("text-sm text-muted-foreground", props.class)}
+      {...others}
     />
   )
 }
 
-function AlertDialogMedia({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
+function AlertDialogMedia(props: ComponentProps<"div">) {
+  const others = omit(props, "class")
   return (
     <div
       data-slot="alert-dialog-media"
-      className={cn(
+      class={cn(
         "mb-2 inline-flex size-16 items-center justify-center rounded-md bg-muted sm:group-data-[size=default]/alert-dialog-content:row-span-2 *:[svg:not([class*='size-'])]:size-8",
-        className
+        props.class
       )}
-      {...props}
+      {...others}
     />
   )
 }
 
-function AlertDialogAction({
-  className,
-  variant = "default",
-  size = "default",
-  ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Action> &
-  Pick<React.ComponentProps<typeof Button>, "variant" | "size">) {
-  return (
-    <Button variant={variant} size={size} asChild>
-      <AlertDialogPrimitive.Action
-        data-slot="alert-dialog-action"
-        className={cn(className)}
-        {...props}
-      />
-    </Button>
-  )
+type AlertDialogButtonProps = Omit<ComponentProps<typeof Button>, "onClick"> & {
+  onClick?: (event: MouseEvent) => void
 }
 
-function AlertDialogCancel({
-  className,
-  variant = "outline",
-  size = "default",
-  ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Cancel> &
-  Pick<React.ComponentProps<typeof Button>, "variant" | "size">) {
-  return (
-    <Button variant={variant} size={size} asChild>
-      <AlertDialogPrimitive.Cancel
-        data-slot="alert-dialog-cancel"
-        className={cn(className)}
-        {...props}
+// Kobalte has no Action/Cancel parts: like Radix's, they close the dialog unless the click is default-prevented
+function closingButton(slot: string, variant: AlertDialogButtonProps["variant"]) {
+  return (props: AlertDialogButtonProps) => {
+    const dialog = useDialogContext()
+    const others = omit(props, "variant", "size", "onClick")
+    return (
+      <Button
+        data-slot={slot}
+        variant={props.variant ?? variant}
+        size={props.size ?? "default"}
+        onClick={(event) => {
+          props.onClick?.(event)
+          if (!event.defaultPrevented) dialog.close()
+        }}
+        {...others}
       />
-    </Button>
-  )
+    )
+  }
 }
+
+const AlertDialogAction = closingButton("alert-dialog-action", "default")
+const AlertDialogCancel = closingButton("alert-dialog-cancel", "outline")
 
 export {
   AlertDialog,

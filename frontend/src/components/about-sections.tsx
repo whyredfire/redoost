@@ -1,6 +1,6 @@
-import { Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { ExternalLink } from "lucide-react";
+import { Link } from "@tanstack/solid-router";
+import { For, Match, Switch, createSignal, onSettled } from "solid-js";
+import { ExternalLink } from "@/components/icons";
 import { SettingsSection } from "@/components/settings-section";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -15,44 +15,55 @@ const link = "underline underline-offset-4 hover:text-foreground";
 
 // If GitHub fails, the link below still leads there
 function ContributorList() {
-  const [contributors, setContributors] = useState<Contributor[] | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [contributors, setContributors] = createSignal<Contributor[] | null>(
+    null,
+  );
+  const [failed, setFailed] = createSignal(false);
 
-  useEffect(() => {
+  onSettled(() => {
     readContributors().then(setContributors, () => setFailed(true));
-  }, []);
+  });
 
-  if (failed) return null;
-  if (!contributors) {
-    return <p className="text-muted-foreground">Loading contributors…</p>;
-  }
   return (
-    <ul className="divide-y rounded-xl bg-card shadow-raised">
-      {contributors.map(({ login, avatar_url, html_url, contributions }) => (
-        <li
-          key={login}
-          className="flex items-center justify-between gap-4 px-4 py-3"
-        >
-          <a
-            className="flex min-w-0 items-center gap-3 hover:underline"
-            href={html_url}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <Avatar className="size-8">
-              <AvatarImage src={`${avatar_url}&s=64`} alt="" />
-              <AvatarFallback className="text-xs">
-                {login[0]!.toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <span className="truncate font-mono">{login}</span>
-          </a>
-          <span className="shrink-0 text-muted-foreground">
-            {contributions} {contributions === 1 ? "commit" : "commits"}
-          </span>
-        </li>
-      ))}
-    </ul>
+    <Switch>
+      <Match when={failed()}>{null}</Match>
+      <Match when={!contributors()}>
+        <p class="text-muted-foreground">Loading contributors…</p>
+      </Match>
+      <Match when={contributors()}>
+        {(list) => (
+          <ul class="divide-y rounded-xl bg-card shadow-raised">
+            <For each={list()}>
+              {(contributor) => (
+                <li class="flex items-center justify-between gap-4 px-4 py-3">
+                  <a
+                    class="flex min-w-0 items-center gap-3 hover:underline"
+                    href={contributor.html_url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <Avatar class="size-8">
+                      <AvatarImage
+                        src={`${contributor.avatar_url}&s=64`}
+                        alt=""
+                      />
+                      <AvatarFallback class="text-xs">
+                        {contributor.login[0]!.toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span class="truncate font-mono">{contributor.login}</span>
+                  </a>
+                  <span class="shrink-0 text-muted-foreground">
+                    {contributor.contributions}{" "}
+                    {contributor.contributions === 1 ? "commit" : "commits"}
+                  </span>
+                </li>
+              )}
+            </For>
+          </ul>
+        )}
+      </Match>
+    </Switch>
   );
 }
 
@@ -60,23 +71,23 @@ export function AboutSections() {
   const versionLink = versionUrl(version);
 
   return (
-    <div className="space-y-10 text-sm">
+    <div class="space-y-10 text-sm">
       <SettingsSection
         title="redoost"
         description="Publishes static sites: drop a folder, get an address."
       >
-        <p className="text-muted-foreground">
+        <p class="text-muted-foreground">
           A self-hosted, open source alternative to Vercel Drop. Drop a built
           site, a zip, or an HTML file and get a shareable address, then update
           it, roll it back, or let it expire, from here or the CLI.
         </p>
-        <dl className="divide-y rounded-xl bg-card shadow-raised">
-          <div className="flex justify-between gap-4 px-4 py-3">
-            <dt className="text-muted-foreground">Version</dt>
-            <dd className="font-mono">
+        <dl class="divide-y rounded-xl bg-card shadow-raised">
+          <div class="flex justify-between gap-4 px-4 py-3">
+            <dt class="text-muted-foreground">Version</dt>
+            <dd class="font-mono">
               {versionLink ? (
                 <a
-                  className={link}
+                  class={link}
                   href={versionLink}
                   target="_blank"
                   rel="noreferrer"
@@ -88,17 +99,17 @@ export function AboutSections() {
               )}
             </dd>
           </div>
-          <div className="flex justify-between gap-4 px-4 py-3">
-            <dt className="text-muted-foreground">Source</dt>
+          <div class="flex justify-between gap-4 px-4 py-3">
+            <dt class="text-muted-foreground">Source</dt>
             <dd>
               <a
-                className={`${link} inline-flex items-center gap-1.5`}
+                class={`${link} inline-flex items-center gap-1.5`}
                 href={repository}
                 target="_blank"
                 rel="noreferrer"
               >
                 Open source on GitHub
-                <ExternalLink className="size-3.5" />
+                <ExternalLink class="size-3.5" />
               </a>
             </dd>
           </div>
@@ -110,10 +121,10 @@ export function AboutSections() {
         description="The people who built it."
       >
         <ContributorList />
-        <p className="text-muted-foreground">
+        <p class="text-muted-foreground">
           Everyone who has contributed is on{" "}
           <a
-            className={link}
+            class={link}
             href={`${repository}/graphs/contributors`}
             target="_blank"
             rel="noreferrer"
@@ -128,13 +139,13 @@ export function AboutSections() {
         title="Legal"
         description="How your data and sites are handled."
       >
-        <p className="text-muted-foreground">
+        <p class="text-muted-foreground">
           Read the{" "}
-          <Link to="/privacy" className={link}>
+          <Link to="/privacy" class={link}>
             Privacy Policy
           </Link>{" "}
           and the{" "}
-          <Link to="/terms" className={link}>
+          <Link to="/terms" class={link}>
             Terms of Service
           </Link>
           .

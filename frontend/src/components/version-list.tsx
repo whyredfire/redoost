@@ -1,5 +1,5 @@
-import { History, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { For, Show, createMemo, createSignal } from "solid-js";
+import { History, Trash2 } from "@/components/icons";
 import { ConfirmButton } from "@/components/confirm-button";
 import { Button } from "@/components/ui/button";
 import { Hint } from "@/components/hint";
@@ -21,23 +21,18 @@ type VersionListProps = {
   onPrune: () => Promise<void>;
 };
 
-export function VersionList({
-  versions,
-  busy,
-  onRestore,
-  onDescribe,
-  onDelete,
-  onPrune,
-}: VersionListProps) {
-  const [restoring, setRestoring] = useState<string | null>(null);
-  const [error, setError] = useState("");
-  const others = versions.filter((version) => !version.current).length;
+export function VersionList(props: VersionListProps) {
+  const [restoring, setRestoring] = createSignal<string | null>(null);
+  const [error, setError] = createSignal("");
+  const others = createMemo(
+    () => props.versions.filter((version) => !version.current).length,
+  );
 
   async function restore(id: string) {
     setRestoring(id);
     setError("");
     try {
-      await onRestore(id);
+      await props.onRestore(id);
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -46,93 +41,92 @@ export function VersionList({
   }
 
   return (
-    <div className="space-y-3">
-      <ul className="divide-y rounded-xl bg-card shadow-raised text-sm">
-        {versions.map((version) => (
-          <li
-            key={version.id}
-            className="flex items-center justify-between gap-4 px-4 py-2.5"
-          >
-            <div className="min-w-0 space-y-1">
-              <p className="flex items-center gap-2">
-                <span className="truncate">
-                  {formatDate(version.created_at)} at{" "}
-                  {formatTime(version.created_at)}
-                </span>
-                {version.current && (
-                  <span className="shrink-0 rounded-md bg-brand/10 px-1.5 py-0.5 text-xs text-brand">
-                    Current
+    <div class="space-y-3">
+      <ul class="divide-y rounded-xl bg-card shadow-raised text-sm">
+        <For each={props.versions} keyed={(version) => version.id}>
+          {(version) => (
+            <li class="flex items-center justify-between gap-4 px-4 py-2.5">
+              <div class="min-w-0 space-y-1">
+                <p class="flex items-center gap-2">
+                  <span class="truncate">
+                    {formatDate(version().created_at)} at{" "}
+                    {formatTime(version().created_at)}
                   </span>
-                )}
-              </p>
-              <SiteDescription
-                description={version.description}
-                onSave={(description) => onDescribe(version.id, description)}
-                placeholder="What changed?"
-                compact
-              />
-              <p className="font-mono text-xs text-muted-foreground">
-                {version.id} · {version.file_count}{" "}
-                {version.file_count === 1 ? "file" : "files"} ·{" "}
-                {formatBytes(version.size)}
-              </p>
-            </div>
-            {!version.current && (
-              <div className="flex shrink-0 items-center gap-1">
-                <Hint label="Restore this version">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Restore this version"
-                    disabled={busy || restoring !== null}
-                    onClick={() => restore(version.id)}
-                  >
-                    <History />
-                  </Button>
-                </Hint>
-                <ConfirmButton
-                  label="Delete this version"
-                  question="Delete this version?"
-                  warning="Its files are removed, and it can't be restored afterwards."
-                  action="Delete version"
-                  onConfirm={() => onDelete(version.id)}
-                >
-                  <Button
+                  <Show when={version().current}>
+                    <span class="shrink-0 rounded-md bg-brand/10 px-1.5 py-0.5 text-xs text-brand">
+                      Current
+                    </span>
+                  </Show>
+                </p>
+                <SiteDescription
+                  description={version().description}
+                  onSave={(description: string) =>
+                    props.onDescribe(version().id, description)
+                  }
+                  placeholder="What changed?"
+                  compact
+                />
+                <p class="font-mono text-xs text-muted-foreground">
+                  {version().id} · {version().file_count}{" "}
+                  {version().file_count === 1 ? "file" : "files"} ·{" "}
+                  {formatBytes(version().size)}
+                </p>
+              </div>
+              <Show when={!version().current}>
+                <div class="flex shrink-0 items-center gap-1">
+                  <Hint label="Restore this version">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Restore this version"
+                      disabled={props.busy || restoring() !== null}
+                      onClick={() => restore(version().id)}
+                    >
+                      <History />
+                    </Button>
+                  </Hint>
+                  <ConfirmButton
+                    label="Delete this version"
+                    question="Delete this version?"
+                    warning="Its files are removed, and it can't be restored afterwards."
+                    action="Delete version"
+                    onConfirm={() => props.onDelete(version().id)}
                     variant="ghost"
                     size="icon"
                     aria-label="Delete this version"
                   >
                     <Trash2 />
-                  </Button>
-                </ConfirmButton>
-              </div>
-            )}
-          </li>
-        ))}
+                  </ConfirmButton>
+                </div>
+              </Show>
+            </li>
+          )}
+        </For>
       </ul>
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
+      <Show when={error()}>
+        <p role="alert" class="text-sm text-destructive">
+          {error()}
         </p>
-      )}
-      {others > 0 && (
-        <div className="flex items-center justify-between gap-4 text-sm">
-          <p className="text-muted-foreground">
+      </Show>
+      <Show when={others() > 0}>
+        <div class="flex items-center justify-between gap-4 text-sm">
+          <p class="text-muted-foreground">
             Restoring is instant, and keeps the version it replaces.
           </p>
           <ConfirmButton
             label="Delete every version but the current one"
             question="Delete the other versions?"
-            warning={`The ${others === 1 ? "other version is" : `${others} other versions are`} removed, keeping only the one visitors see. This can't be undone.`}
+            warning={`The ${others() === 1 ? "other version is" : `${others()} other versions are`} removed, keeping only the one visitors see. This can't be undone.`}
             action="Delete other versions"
-            onConfirm={onPrune}
+            onConfirm={() => props.onPrune()}
+            variant="outline"
+            size="sm"
+            class="shrink-0"
           >
-            <Button variant="outline" size="sm" className="shrink-0">
-              Delete other versions
-            </Button>
+            Delete other versions
           </ConfirmButton>
         </div>
-      )}
+      </Show>
     </div>
   );
 }

@@ -1,10 +1,10 @@
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
-import react from "@vitejs/plugin-react";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
 import { defineConfig, type Plugin } from "vite";
-import { renderOgImage } from "./og.tsx";
+import solid from "@solidjs/vite-plugin";
+import { renderOgImage } from "./og.ts";
 
 // Served by the frontend's Nginx in production
 function configJson(): Plugin {
@@ -62,9 +62,9 @@ function gzipAssets(): Plugin {
 
 export default defineConfig({
   plugins: [
-    // Must come before the React plugin
-    tanstackRouter({ target: "react", autoCodeSplitting: true }),
-    react(),
+    // Must come before the Solid plugin
+    tanstackRouter({ target: "solid", autoCodeSplitting: true }),
+    solid(),
     tailwindcss(),
     configJson(),
     ogImage(),

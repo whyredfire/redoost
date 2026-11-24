@@ -1,6 +1,6 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
-import type { KeyboardEvent, PointerEvent } from 'react'
-import { animate, motion, useMotionValue, useReducedMotion, useTransform } from 'motion/react'
+import { createEffect, createMemo, createSignal, createUniqueId, For, onSettled, Show, untrack } from 'solid-js'
+import { animate, motionValue, styleEffect, transformValue, type MotionValue } from 'motion'
+import { useReducedMotion } from '@/lib/motion'
 import { clamp, feedback, lerp, notched } from '@/components/detent/lib/detent'
 import { Layer, fill, frameOf, inFrame, useDismiss, useHost, useReposition } from '@/components/detent/lib/layer'
 
@@ -20,7 +20,7 @@ const rubber = (d: number) => 18 * (1 - 1 / (1 + d / 60))
 
 function Check() {
   return (
-    <svg viewBox="0 0 14 14" aria-hidden className="absolute right-3.5 size-3.5 self-center" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <svg viewBox="0 0 14 14" aria-hidden="true" class="absolute right-3.5 size-3.5 self-center" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
       <path d="M2.5 7.5 5.6 10.5 11.5 3.5" />
     </svg>
   )
@@ -28,7 +28,7 @@ function Check() {
 
 function Updown() {
   return (
-    <svg viewBox="0 0 10 14" aria-hidden className="h-3.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg viewBox="0 0 10 14" aria-hidden="true" class="h-3.5 w-2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
       <path d="M2 5 5 2l3 3M2 9l3 3 3-3" />
     </svg>
   )
@@ -43,132 +43,151 @@ export type PopupProps = {
   name?: string
   radius?: number
   textClass?: string
-  className?: string
+  class?: string
   disabled?: boolean
 }
 
-export function Popup({ options, value: controlled, defaultValue, onChange, label, name, radius = 10, textClass = 'text-[14px] font-medium', className = '', disabled = false }: PopupProps) {
-  const reduce = !!useReducedMotion()
-  const id = useId()
+export function Popup(props: PopupProps) {
+  const reduce = useReducedMotion()
+  const id = createUniqueId()
   const { contained, frame } = useHost()
-  const [inner, setInner] = useState(() => Math.max(0, options.indexOf(defaultValue ?? '')))
-  const value = controlled === undefined ? inner : Math.max(0, options.indexOf(controlled))
-  const start = value
-  const [shown, setShown] = useState(false)
-  const [active, setActive] = useState(start)
-  const [from, setFrom] = useState(start)
-  const [spot, setSpot] = useState({ x: 0, y: 0 })
-  const [width, setWidth] = useState(0)
+  const textClass = () => props.textClass ?? 'text-[14px] font-medium'
+  const [inner, setInner] = createSignal(untrack(() => Math.max(0, props.options.indexOf(props.defaultValue ?? ''))))
+  const value = createMemo(() => (props.value === undefined ? inner() : Math.max(0, props.options.indexOf(props.value))))
+  const start = untrack(value)
+  const [shown, setShown] = createSignal(false)
+  const [active, setActive] = createSignal(start)
+  const [from, setFrom] = createSignal(start)
+  const [spot, setSpot] = createSignal({ x: 0, y: 0 })
+  const [width, setWidth] = createSignal(0)
 
-  const pill = useRef<HTMLButtonElement>(null)
-  const sheet = useRef<HTMLDivElement>(null)
-  const probes = useRef<(HTMLSpanElement | null)[]>([])
-  const nudge = useRef({ x: 0, y: 0 })
-  const live = useRef({ mode: 'shut' as 'shut' | 'press' | 'tap', y0: 0, u0: 0, left: false, lost: false, active: start, value: start, l: 0, r: 0 })
+  let pill!: HTMLButtonElement
+  let sheet: HTMLDivElement | undefined
+  const probes: (HTMLSpanElement | undefined)[] = []
+  let nudge = { x: 0, y: 0 }
+  const live = { mode: 'shut' as 'shut' | 'press' | 'tap', y0: 0, u0: 0, left: false, lost: false, active: start, value: start, l: 0, r: 0 }
 
-  const open = useMotionValue(0)
-  const anchor = useMotionValue(start)
-  const plate = useMotionValue(start * ROW)
-  const pull = useMotionValue(0)
-  const pillW = useMotionValue(0)
-  const on = useMotionValue(1)
-  const fade = useMotionValue(0)
-  const pillO = useTransform(fade, (f) => 1 - f)
-  const height = PAD * 2 + ROW * options.length
-  const widthRef = useRef(0)
+  const open = motionValue(0)
+  const anchor = motionValue(start)
+  const plate = motionValue(start * ROW)
+  const pull = motionValue(0)
+  const pillW = motionValue(0)
+  const on = motionValue(1)
+  const fade = motionValue(0)
+  const pillO = transformValue(() => 1 - fade.get())
+  const height = () => PAD * 2 + ROW * props.options.length
+  let widthRef = 0
+  // Plain copies, since the motion transforms below run outside Solid's tracking
+  let tall = 0
+  let radius = 10
+  createEffect(
+    () => [height(), props.radius ?? 10] as const,
+    ([h, r]) => {
+      tall = h
+      radius = r
+    },
+  )
 
-  const y = useTransform([open, anchor, pull], ([o = 0, a = 0, p = 0]: number[]) => -(PAD + ROW * a) + nudge.current.y * o + p)
-  const x = useTransform(open, (o) => nudge.current.x * o)
-  const clip = useTransform([open, anchor, pillW], ([o = 0, a = 0, w = 0]: number[]) => {
+  const y = transformValue(() => -(PAD + ROW * anchor.get()) + nudge.y * open.get() + pull.get())
+  const x = transformValue(() => nudge.x * open.get())
+  const clip = transformValue(() => {
+    const o = open.get()
+    const a = anchor.get()
+    const w = pillW.get()
     const top = (PAD + ROW * a) * (1 - o)
-    const bottom = (height - PAD - ROW * (a + 1)) * (1 - o)
-    return `inset(${top}px ${(widthRef.current - w) * (1 - o)}px ${bottom}px 0 round ${lerp(radius, 16, o)}px)`
+    const bottom = (tall - PAD - ROW * (a + 1)) * (1 - o)
+    return `inset(${top}px ${(widthRef - w) * (1 - o)}px ${bottom}px 0 round ${lerp(radius, 16, o)}px)`
   })
-  const window_ = useTransform(plate, (p) => `inset(${PAD + p}px ${PAD}px ${height - PAD - ROW - p}px ${PAD}px round 10px)`)
-  const inverted = useTransform([open, on], ([o = 0, v = 0]: number[]) => clamp((o - 0.3) / 0.5, 0, 1) * v)
+  const window_ = transformValue(() => {
+    const p = plate.get()
+    return `inset(${PAD + p}px ${PAD}px ${tall - PAD - ROW - p}px ${PAD}px round 10px)`
+  })
+  const inverted = transformValue(() => clamp((open.get() - 0.3) / 0.5, 0, 1) * on.get())
 
-  const widths = () => probes.current.map((p) => (p?.offsetWidth ?? 0) + LEFT + RIGHT)
+  const widths = () => probes.map((p) => (p?.offsetWidth ?? 0) + LEFT + RIGHT)
 
-  useLayoutEffect(() => {
-    const read = () => {
-      const all = widths()
-      pillW.set(all[live.current.value] ?? 0)
-      widthRef.current = Math.max(...all)
-      setWidth(widthRef.current)
-    }
-    read()
-    void document.fonts?.ready.then(read)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [options.join('\n')])
+  createEffect(
+    () => props.options.join('\n'),
+    () => {
+      const read = () => {
+        probes.length = props.options.length
+        const all = widths()
+        pillW.set(all[live.value] ?? 0)
+        widthRef = Math.max(...all)
+        setWidth(widthRef)
+      }
+      read()
+      void document.fonts?.ready.then(read)
+    },
+  )
 
-  useEffect(() => {
-    if (live.current.mode !== 'shut' || live.current.value === value) return
-    live.current.value = value
-    anchor.set(value)
-    pillW.set(widths()[value] ?? 0)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value])
+  createEffect(value, (v) => {
+    if (live.mode !== 'shut' || live.value === v) return
+    live.value = v
+    anchor.set(v)
+    pillW.set(widths()[v] ?? 0)
+  })
 
   const measure = () => {
-    const f = frameOf(frame)
-    const box = inFrame(pill.current!.getBoundingClientRect(), f)
+    const f = frameOf(frame())
+    const box = inFrame(pill.getBoundingClientRect(), f)
     return { f, box }
   }
 
   const mark = (i: number) => {
-    if (live.current.active === i) return
-    live.current.active = i
+    if (live.active === i) return
+    live.active = i
     setActive(i)
   }
 
   const show = (instant: boolean) => {
-    const s = live.current
+    const s = live
     const { f, box } = measure()
     const top = box.y - PAD - ROW * s.value
-    nudge.current = {
-      x: Math.min(0, f.width - 8 - (box.x + widthRef.current)),
-      y: top < 12 ? 12 - top : Math.min(0, f.height - 12 - (top + height)),
+    nudge = {
+      x: Math.min(0, f.width - 8 - (box.x + widthRef)),
+      y: top < 12 ? 12 - top : Math.min(0, f.height - 12 - (top + height())),
     }
     setSpot({ x: box.x, y: box.y })
-    const at = pill.current!.getBoundingClientRect()
-    s.l = at.left + nudge.current.x
-    s.r = s.l + widthRef.current
+    const at = pill.getBoundingClientRect()
+    s.l = at.left + nudge.x
+    s.r = s.l + widthRef
     s.active = s.value
     setActive(s.value)
     setFrom(s.value)
     plate.set(s.value * ROW)
     fade.set(1)
     on.set(1)
-    if (sheet.current) sheet.current.style.pointerEvents = ''
+    if (sheet) sheet.style.pointerEvents = ''
     setShown(true)
     anchor.set(s.value)
     animate(pull, 0, NOW)
-    animate(open, 1, instant || reduce ? NOW : OPEN)
+    animate(open, 1, instant || reduce() ? NOW : OPEN)
   }
 
   const hide = (instant = false) => {
-    const s = live.current
+    const s = live
     s.mode = 'shut'
-    if (sheet.current) sheet.current.style.pointerEvents = 'none'
+    if (sheet) sheet.style.pointerEvents = 'none'
     animate(pull, 0, SHUT)
-    animate(pillW, widths()[s.value] ?? 0, instant || reduce ? NOW : SHUT)
-    animate(fade, 0, instant || reduce ? NOW : { duration: 0.18, ease: [0.2, 0.9, 0.25, 1] })
-    animate(open, 0, instant || reduce ? NOW : SHUT).then(() => {
-      if (live.current.mode === 'shut') setShown(false)
+    animate(pillW, widths()[s.value] ?? 0, instant || reduce() ? NOW : SHUT)
+    animate(fade, 0, instant || reduce() ? NOW : { duration: 0.18, ease: [0.2, 0.9, 0.25, 1] })
+    animate(open, 0, instant || reduce() ? NOW : SHUT).then(() => {
+      if (live.mode === 'shut') setShown(false)
     })
   }
 
   const commit = (i: number) => {
-    const changed = live.current.value !== i
-    live.current.value = i
+    const changed = live.value !== i
+    live.value = i
     setInner(i)
     hide()
-    if (changed) onChange?.(options[i]!)
+    if (changed) props.onChange?.(props.options[i]!)
   }
 
-  const down = (e: PointerEvent<HTMLButtonElement>) => {
-    if (e.button !== 0 || disabled) return
-    const s = live.current
+  const down = (e: PointerEvent & { currentTarget: HTMLButtonElement }) => {
+    if (e.button !== 0 || props.disabled) return
+    const s = live
     feedback.wake(true)
     if (s.mode !== 'shut') return hide()
     e.currentTarget.setPointerCapture(e.pointerId)
@@ -180,17 +199,17 @@ export function Popup({ options, value: controlled, defaultValue, onChange, labe
     show(false)
   }
 
-  const move = (e: PointerEvent<HTMLButtonElement>) => {
-    const s = live.current
+  const move = (e: PointerEvent) => {
+    const s = live
     if (s.mode !== 'press') return
     const d = e.clientY - s.y0
     s.lost = e.clientX < s.l - LOST || e.clientX > s.r + LOST
     on.set(s.lost ? 0 : 1)
-    const hi = ROW * (options.length - 1)
+    const hi = ROW * (props.options.length - 1)
     const u = s.u0 + d
     pull.set(u < 0 ? -rubber(-u) : u > hi ? rubber(u - hi) : 0)
     const near = clamp(u, 0, hi)
-    plate.set(notched(near, options.map((_, i) => i * ROW), ROW / 2, 0.9))
+    plate.set(notched(near, props.options.map((_, i) => i * ROW), ROW / 2, 0.9))
     const i = Math.round(near / ROW)
     if (i !== s.active) {
       s.left = true
@@ -200,7 +219,7 @@ export function Popup({ options, value: controlled, defaultValue, onChange, labe
   }
 
   const up = () => {
-    const s = live.current
+    const s = live
     if (s.mode !== 'press') return
     if (s.lost) return hide()
     if (!s.left) {
@@ -213,22 +232,22 @@ export function Popup({ options, value: controlled, defaultValue, onChange, labe
   }
 
   const hover = (i: number) => {
-    if (live.current.mode !== 'tap') return
+    if (live.mode !== 'tap') return
     mark(i)
-    animate(plate, i * ROW, reduce ? NOW : FOLLOW)
+    animate(plate, i * ROW, reduce() ? NOW : FOLLOW)
   }
 
   const keys = (e: KeyboardEvent) => {
-    const s = live.current
+    const s = live
     if (s.mode === 'shut') {
-      if (disabled) return
+      if (props.disabled) return
       if (!['ArrowUp', 'ArrowDown', 'Enter', ' '].includes(e.key)) return
       e.preventDefault()
       s.mode = 'tap'
       return show(true)
     }
-    const last = options.length - 1
-    const go = { ArrowUp: s.active - 1, ArrowDown: s.active + 1, Home: 0, End: last }[e.key]
+    const last = props.options.length - 1
+    const go = ({ ArrowUp: s.active - 1, ArrowDown: s.active + 1, Home: 0, End: last } as Record<string, number>)[e.key]
     if (go !== undefined) {
       e.preventDefault()
       const i = clamp(go, 0, last)
@@ -240,93 +259,112 @@ export function Popup({ options, value: controlled, defaultValue, onChange, labe
     }
   }
 
-  useDismiss(shown, [pill, sheet], (why) => hide(why === 'escape'))
+  useDismiss(shown, [() => pill, () => sheet], (why) => hide(why === 'escape'))
   useReposition(shown, () => {
     const { box } = measure()
     setSpot({ x: box.x, y: box.y })
   })
 
-  const rows = (ghost: boolean) =>
-    options.map((o, i) => (
-      <div
-        key={o}
-        id={ghost ? undefined : `${id}-${i}`}
-        role={ghost ? undefined : 'option'}
-        aria-selected={ghost ? undefined : i === value}
-        onPointerMove={ghost ? undefined : () => hover(i)}
-        onClick={ghost ? undefined : () => live.current.mode === 'tap' && commit(i)}
-        className="relative flex items-center whitespace-nowrap"
-        style={{ height: ROW, paddingLeft: LEFT }}
-      >
-        {o}
-        {i === from && <Check />}
-      </div>
-    ))
+  // motion.div's style={{ x: motionValue }}: binds motion values to an element until it unmounts
+  const stops: VoidFunction[] = []
+  const layerStops: VoidFunction[] = []
+  const bind =
+    (values: Record<string, MotionValue>, into = layerStops) =>
+    (el: HTMLElement) => {
+      into.push(styleEffect(el, values))
+    }
+  createEffect(shown, (s) => {
+    if (s) return () => layerStops.splice(0).forEach((stop) => stop())
+  })
+  onSettled(() => () => stops.splice(0).forEach((stop) => stop()))
+
+  const rows = (ghost: boolean) => (
+    <For each={props.options}>
+      {(o, i) => (
+        <div
+          id={ghost ? undefined : `${id}-${i()}`}
+          role={ghost ? undefined : 'option'}
+          aria-selected={ghost ? undefined : i() === value() ? 'true' : 'false'}
+          onPointerMove={ghost ? undefined : () => hover(i())}
+          onClick={ghost ? undefined : () => live.mode === 'tap' && commit(i())}
+          class="relative flex items-center whitespace-nowrap"
+          style={{ height: `${ROW}px`, 'padding-left': `${LEFT}px` }}
+        >
+          {o}
+          <Show when={i() === from()}>
+            <Check />
+          </Show>
+        </div>
+      )}
+    </For>
+  )
 
   return (
-    <div className={`relative inline-block max-w-full align-middle ${INK} ${className}`} style={{ height: ROW }}>
-      {name && <input type="hidden" name={name} value={options[value]} />}
-      <motion.button
-        ref={pill}
+    <div class={`relative inline-block max-w-full align-middle ${INK} ${props.class ?? ''}`} style={{ height: `${ROW}px` }}>
+      <Show when={props.name}>
+        <input type="hidden" name={props.name} value={props.options[value()]} />
+      </Show>
+      <button
+        ref={[(el: HTMLButtonElement) => (pill = el), bind({ opacity: pillO }, stops)]}
         type="button"
         aria-haspopup="listbox"
-        disabled={disabled}
-        aria-expanded={shown}
-        aria-label={label}
-        aria-activedescendant={shown ? `${id}-${active}` : undefined}
+        disabled={props.disabled ?? false}
+        aria-expanded={shown() ? 'true' : 'false'}
+        aria-label={props.label}
+        aria-activedescendant={shown() ? `${id}-${active()}` : undefined}
         onPointerDown={down}
         onPointerMove={move}
         onPointerUp={up}
         onPointerCancel={() => hide()}
         onTouchEnd={(e) => e.preventDefault()}
         onKeyDown={keys}
-        onBlur={() => live.current.mode === 'tap' && hide(true)}
-        className={`ring-focus relative flex touch-none select-none items-center whitespace-nowrap bg-surface text-ink before:absolute before:-inset-y-1 before:inset-x-0 disabled:opacity-50 ${textClass}`}
-        style={{ height: ROW, paddingLeft: LEFT, paddingRight: 10, filter: EDGE, borderRadius: radius, touchAction: 'none', opacity: pillO }}
+        onBlur={() => live.mode === 'tap' && hide(true)}
+        class={`ring-focus relative flex touch-none select-none items-center whitespace-nowrap bg-surface text-ink before:absolute before:-inset-y-1 before:inset-x-0 disabled:opacity-50 ${textClass()}`}
+        style={{ height: `${ROW}px`, 'padding-left': `${LEFT}px`, 'padding-right': '10px', filter: EDGE, 'border-radius': `${props.radius ?? 10}px`, 'touch-action': 'none' }}
       >
-        <span style={{ paddingRight: RIGHT - 10 }}>{options[value]}</span>
-        <span className="absolute right-[9px] text-ink-3">
+        <span style={{ 'padding-right': `${RIGHT - 10}px` }}>{props.options[value()]}</span>
+        <span class="absolute right-[9px] text-ink-3">
           <Updown />
         </span>
-      </motion.button>
+      </button>
 
-      <div aria-hidden className={`pointer-events-none invisible absolute left-0 top-0 ${textClass}`}>
-        {options.map((o, i) => (
-          <span
-            key={o}
-            ref={(el) => {
-              probes.current[i] = el
-            }}
-            className="absolute whitespace-nowrap"
-          >
-            {o}
-          </span>
-        ))}
+      <div aria-hidden="true" class={`pointer-events-none invisible absolute left-0 top-0 ${textClass()}`}>
+        <For each={props.options} keyed={false}>
+          {(o, i) => (
+            <span ref={(el) => (probes[i] = el)} class="absolute whitespace-nowrap">
+              {o()}
+            </span>
+          )}
+        </For>
       </div>
 
-      {shown && (
+      <Show when={shown()}>
         <Layer>
-          <motion.div className={`pointer-events-none ${fill(contained).split(' ')[0]} z-50 ${INK}`} style={{ left: spot.x, top: spot.y, x, y, width, height, opacity: fade }}>
-            <motion.div aria-hidden className="pointer-events-none absolute inset-0 rounded-[16px] shadow-[0_18px_36px_-6px_rgb(0_0_0/0.22)]" style={{ opacity: open }} />
-            <div className="absolute inset-0" style={{ filter: EDGE }}>
-              <motion.div
-                ref={sheet}
+          <div
+            ref={bind({ x, y, opacity: fade })}
+            class={`pointer-events-none ${fill(contained).split(' ')[0]} z-50 ${INK}`}
+            style={{ left: `${spot().x}px`, top: `${spot().y}px`, width: `${width()}px`, height: `${height()}px` }}
+          >
+            <div ref={bind({ opacity: open })} aria-hidden="true" class="pointer-events-none absolute inset-0 rounded-[16px] shadow-[0_18px_36px_-6px_rgb(0_0_0/0.22)]" />
+            <div class="absolute inset-0" style={{ filter: EDGE }}>
+              <div
+                ref={[(el: HTMLDivElement) => (sheet = el), bind({ clipPath: clip })]}
                 role="listbox"
-                aria-label={label}
+                aria-label={props.label}
                 onPointerDown={(e) => e.preventDefault()}
                 onMouseDown={(e) => e.preventDefault()}
-                className={`pointer-events-auto relative select-none bg-surface text-ink ${textClass}`}
-                style={{ clipPath: clip, width, height, paddingTop: PAD, paddingBottom: PAD }}
+                class={`pointer-events-auto relative select-none bg-surface text-ink ${textClass()}`}
+                style={{ width: `${width()}px`, height: `${height()}px`, 'padding-top': `${PAD}px`, 'padding-bottom': `${PAD}px` }}
               >
                 {rows(false)}
-                <motion.div aria-hidden className="pointer-events-none absolute inset-0 bg-ink text-surface" style={{ clipPath: window_, opacity: inverted, paddingTop: PAD }}>
+                <div ref={bind({ clipPath: window_, opacity: inverted })} aria-hidden="true" class="pointer-events-none absolute inset-0 bg-ink text-surface" style={{ 'padding-top': `${PAD}px` }}>
                   {rows(true)}
-                </motion.div>
-              </motion.div>
+                </div>
+              </div>
             </div>
-          </motion.div>
+          </div>
         </Layer>
-      )}
+      </Show>
     </div>
   )
 }

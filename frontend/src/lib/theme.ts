@@ -1,11 +1,10 @@
-import { useSyncExternalStore } from "react";
+import { createSignal } from "solid-js";
 
 export type Theme = "system" | "light" | "dark";
 
 // Same key and values as the script in index.html that applies it before first paint
 const themeKey = "theme";
 const systemDark = matchMedia("(prefers-color-scheme: dark)");
-const listeners = new Set<() => void>();
 
 function loadTheme(): Theme {
   const saved = localStorage.getItem(themeKey);
@@ -22,8 +21,12 @@ function apply() {
   document
     .querySelector('meta[name="theme-color"]')
     ?.setAttribute("content", dark ? "#0a0a0a" : "#fafafa");
-  for (const listener of listeners) listener();
+  setStoredTheme(loadTheme());
+  setSystem(systemDark.matches);
 }
+
+const [theme, setStoredTheme] = createSignal(loadTheme());
+const [system, setSystem] = createSignal(systemDark.matches);
 
 systemDark.addEventListener("change", apply);
 
@@ -33,18 +36,6 @@ export function setTheme(theme: Theme) {
   apply();
 }
 
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
-
-function systemIsDark() {
-  return systemDark.matches;
-}
-
 export function useTheme() {
-  const theme = useSyncExternalStore(subscribe, loadTheme);
-  // Its own snapshot, so the system switching re-renders while following it
-  const system = useSyncExternalStore(subscribe, systemIsDark);
-  return { theme, dark: isDark(theme, system) };
+  return { theme, dark: () => isDark(theme(), system()) };
 }

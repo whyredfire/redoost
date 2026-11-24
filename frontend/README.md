@@ -1,7 +1,7 @@
 # Redoost frontend
 
-React, TanStack Router, Tailwind CSS, and shadcn/ui, built with Vite and managed
-with Bun. It runs as the `frontend` service in Compose (see the root README)
+SolidJS 2, TanStack Router, Tailwind CSS, and Kobalte (styled after shadcn/ui),
+built with Vite and managed with Bun. It runs as the `frontend` service in Compose (see the root README)
 behind the gateway at <http://localhost:8081>, with hot reload. The gateway
 sends `/api/` to the API, so the frontend calls it on the same origin.
 

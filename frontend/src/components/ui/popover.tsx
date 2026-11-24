@@ -1,76 +1,74 @@
-import * as React from "react"
 import { cn } from "cn"
-import { Popover as PopoverPrimitive } from "radix-ui"
+import * as PopoverPrimitive from "@kobalte/core/popover"
+import type { PolymorphicProps } from "@kobalte/core/polymorphic"
+import { omit } from "solid-js"
+import type { ComponentProps, ValidComponent } from "@solidjs/web"
 
-function Popover({
-  ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Root>) {
-  return <PopoverPrimitive.Root data-slot="popover" {...props} />
+// Radix's sideOffset is Kobalte's gutter, set on the root
+function Popover(props: PopoverPrimitive.PopoverRootProps) {
+  return <PopoverPrimitive.Root gutter={4} {...props} />
 }
 
-function PopoverTrigger({
-  ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Trigger>) {
+function PopoverTrigger<T extends ValidComponent = "button">(
+  props: PolymorphicProps<T, PopoverPrimitive.PopoverTriggerProps<T>>
+) {
   return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />
 }
 
-function PopoverContent({
-  className,
-  align = "center",
-  sideOffset = 4,
-  ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Content>) {
+function PopoverContent(
+  props: PolymorphicProps<"div", PopoverPrimitive.PopoverContentProps<"div">>
+) {
+  const others = omit(props, "class")
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Content
         data-slot="popover-content"
-        align={align}
-        sideOffset={sideOffset}
-        className={cn(
-          "z-50 w-72 origin-(--radix-popover-content-transform-origin) rounded-menu bg-popover p-4 text-popover-foreground shadow-float outline-hidden data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
-          className
+        class={cn(
+          // Kobalte doesn't expose the side, so this slides in as from below the trigger
+          "z-50 w-72 origin-(--kb-popover-content-transform-origin) rounded-menu bg-popover p-4 text-popover-foreground shadow-float outline-hidden slide-in-from-top-2 data-[closed]:animate-out data-[closed]:fade-out-0 data-[closed]:zoom-out-95 data-[expanded]:animate-in data-[expanded]:fade-in-0 data-[expanded]:zoom-in-95",
+          props.class
         )}
-        {...props}
+        {...others}
       />
     </PopoverPrimitive.Portal>
   )
 }
 
-function PopoverAnchor({
-  ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Anchor>) {
+function PopoverAnchor(
+  props: PolymorphicProps<"div", PopoverPrimitive.PopoverAnchorProps<"div">>
+) {
   return <PopoverPrimitive.Anchor data-slot="popover-anchor" {...props} />
 }
 
-function PopoverHeader({ className, ...props }: React.ComponentProps<"div">) {
+function PopoverHeader(props: ComponentProps<"div">) {
+  const others = omit(props, "class")
   return (
     <div
       data-slot="popover-header"
-      className={cn("flex flex-col gap-1 text-sm", className)}
-      {...props}
+      class={cn("flex flex-col gap-1 text-sm", props.class)}
+      {...others}
     />
   )
 }
 
-function PopoverTitle({ className, ...props }: React.ComponentProps<"h2">) {
+function PopoverTitle(props: ComponentProps<"div">) {
+  const others = omit(props, "class")
   return (
     <div
       data-slot="popover-title"
-      className={cn("font-medium", className)}
-      {...props}
+      class={cn("font-medium", props.class)}
+      {...others}
     />
   )
 }
 
-function PopoverDescription({
-  className,
-  ...props
-}: React.ComponentProps<"p">) {
+function PopoverDescription(props: ComponentProps<"p">) {
+  const others = omit(props, "class")
   return (
     <p
       data-slot="popover-description"
-      className={cn("text-muted-foreground", className)}
-      {...props}
+      class={cn("text-muted-foreground", props.class)}
+      {...others}
     />
   )
 }

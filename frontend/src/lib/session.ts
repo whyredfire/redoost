@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { createSignal } from "solid-js";
 import { ApiError } from "./api";
 import type { UploadSession } from "./deploy";
 
@@ -30,38 +30,26 @@ export function clearSession() {
   sessionStorage.removeItem(storageKey);
 }
 
-const tokenListeners = new Set<() => void>();
-
-function tokenChanged() {
-  for (const listener of tokenListeners) listener();
-}
-
 // Kept across tabs, so every tab acts as the same user
 export function loadToken() {
   return localStorage.getItem(tokenKey);
 }
 
-export function saveToken(token: string) {
-  localStorage.setItem(tokenKey, token);
-  tokenChanged();
+const [token, setToken] = createSignal(loadToken());
+addEventListener("storage", () => setToken(loadToken()));
+
+export function saveToken(value: string) {
+  localStorage.setItem(tokenKey, value);
+  setToken(value);
 }
 
 export function clearToken() {
   localStorage.removeItem(tokenKey);
-  tokenChanged();
-}
-
-function subscribeToken(listener: () => void) {
-  tokenListeners.add(listener);
-  window.addEventListener("storage", listener);
-  return () => {
-    tokenListeners.delete(listener);
-    window.removeEventListener("storage", listener);
-  };
+  setToken(null);
 }
 
 export function useToken() {
-  return useSyncExternalStore(subscribeToken, loadToken);
+  return token;
 }
 
 // Null when signed out, or when the token turns out expired, so pages ask to sign in

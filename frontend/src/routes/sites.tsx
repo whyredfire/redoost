@@ -1,15 +1,15 @@
-import { Link, createFileRoute, useRouter } from "@tanstack/react-router";
-import { Globe, Search } from "lucide-react";
-import { useState } from "react";
+import { Link, createFileRoute, useRouter } from "@tanstack/solid-router";
+import { Show, createMemo, createSignal } from "solid-js";
 import { Choice } from "@/components/choice";
 import { CliCommand } from "@/components/cli-command";
 import { EmptyState } from "@/components/empty-state";
+import { Globe, Search } from "@/components/icons";
 import { PageHeading } from "@/components/page-heading";
 import { SignInPrompt } from "@/components/sign-in-prompt";
 import { SiteList } from "@/components/site-list";
 import { SiteSelection } from "@/components/site-selection";
 import { StorageUsage } from "@/components/storage-usage";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   changeDeployments,
@@ -28,7 +28,7 @@ export const Route = createFileRoute("/sites")({
   loader: loadSites,
   component: SitesPage,
   errorComponent: () => (
-    <p role="alert" className="text-sm text-destructive">
+    <p role="alert" class="text-sm text-destructive">
       Your sites couldn't be loaded. Try again in a moment.
     </p>
   ),
@@ -66,27 +66,33 @@ const orders: Record<Order, (a: Deployment, b: Deployment) => number> = {
 };
 
 function SitesPage() {
-  const { sites, usage } = Route.useLoaderData();
+  const loaded = Route.useLoaderData();
+  const sites = () => loaded().sites;
   const token = useToken();
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState<Status>("all");
-  const [order, setOrder] = useState<Order>("newest");
+  const [query, setQuery] = createSignal("");
+  const [status, setStatus] = createSignal<Status>("all");
+  const [order, setOrder] = createSignal<Order>("newest");
   // Sites picked to delete together, or null when not picking
-  const [selecting, setSelecting] = useState<Set<string> | null>(null);
+  const [selecting, setSelecting] = createSignal<Set<string> | null>(null);
   const router = useRouter();
-  const search = query.trim().toLowerCase();
-  const shown = sites
-    .filter(
-      (site) =>
-        site.slug.includes(search) ||
-        site.description.toLowerCase().includes(search),
-    )
-    .filter(
-      (site) => status === "all" || online(site) === (status === "online"),
-    )
-    .toSorted(orders[order]);
+  const shown = createMemo(() => {
+    const search = query().trim().toLowerCase();
+    return sites()
+      .filter(
+        (site) =>
+          site.slug.includes(search) ||
+          site.description.toLowerCase().includes(search),
+      )
+      .filter(
+        (site) =>
+          status() === "all" || online(site) === (status() === "online"),
+      )
+      .toSorted(orders[order()]);
+  });
   // Only what's listed, so a filter can't hide a site that would be deleted
-  const selected = shown.filter((site) => selecting?.has(site.slug));
+  const selected = createMemo(() =>
+    shown().filter((site) => selecting()?.has(site.slug)),
+  );
 
   function toggle(slug: string) {
     setSelecting((current) => {
@@ -99,7 +105,7 @@ function SitesPage() {
   async function deleteSelected() {
     const token = loadToken();
     if (!token) throw new Error("Sign in again to delete these sites.");
-    const slugs = selected.map((site) => site.slug);
+    const slugs = selected().map((site) => site.slug);
     const failed = await deleteDeployments(slugs, token);
     await router.invalidate();
     if (failed.length > 0) {
@@ -115,7 +121,7 @@ function SitesPage() {
   async function switchSelected(enabled: boolean) {
     const token = loadToken();
     if (!token) throw new Error("Sign in again to change these sites.");
-    const slugs = selected
+    const slugs = selected()
       .filter((site) => site.enabled !== enabled)
       .map((site) => site.slug);
     const failed = await changeDeployments(slugs, enabled, token);
@@ -132,13 +138,13 @@ function SitesPage() {
       <PageHeading
         title="Your sites"
         action={
-          token &&
-          sites.length > 0 &&
-          !selecting && (
+          token() &&
+          sites().length > 0 &&
+          !selecting() && (
             <Button
               type="button"
               variant="outline"
-              onClick={() => setSelecting(new Set())}
+              onClick={() => setSelecting(new Set<string>())}
             >
               Select
             </Button>
@@ -147,115 +153,126 @@ function SitesPage() {
       >
         Everything you've published, live until you delete it.
       </PageHeading>
-      {!token ? (
-        <SignInPrompt
-          title="Sign in to see your sites"
-          description="Sites you publish while signed in are listed here."
-        />
-      ) : (
-        <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
-          {sites.length > 0 ? (
-            <div className="space-y-4">
-              {sites.length > 5 && (
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <div className="relative flex-1">
-                    <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
+      <Show
+        when={token()}
+        fallback={
+          <SignInPrompt
+            title="Sign in to see your sites"
+            description="Sites you publish while signed in are listed here."
+          />
+        }
+      >
+        <div class="grid grid-cols-[minmax(0,1fr)] items-start gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
+          <Show
+            when={sites().length > 0}
+            fallback={
+              <EmptyState
+                icon={Globe}
+                title="No sites yet"
+                description="Publish your first site here, or from the command line."
+              >
+                <Link to="/" class={buttonVariants()}>
+                  Publish a site
+                </Link>
+              </EmptyState>
+            }
+          >
+            <div class="space-y-4">
+              <Show when={sites().length > 5}>
+                <div class="flex flex-col gap-2 sm:flex-row">
+                  <div class="relative flex-1">
+                    <Search class="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       type="search"
-                      value={query}
-                      onChange={(event) => setQuery(event.target.value)}
+                      value={query()}
+                      onInput={(event) => setQuery(event.currentTarget.value)}
                       placeholder="Search sites"
                       aria-label="Search sites"
-                      className="pl-10 font-mono [&::-webkit-search-cancel-button]:hidden"
+                      class="pl-10 font-mono [&::-webkit-search-cancel-button]:hidden"
                     />
                   </div>
-                  <div className="flex gap-2">
+                  <div class="flex gap-2">
                     <Choice
                       label="Show"
                       options={statuses}
-                      value={status}
-                      onChange={setStatus}
+                      value={status()}
+                      onChange={(value: Status) => setStatus(value)}
                     />
                     <Choice
                       label="Sort by"
                       options={orderNames}
-                      value={order}
-                      onChange={setOrder}
+                      value={order()}
+                      onChange={(value: Order) => setOrder(value)}
                     />
                   </div>
                 </div>
-              )}
-              {selecting && (
+              </Show>
+              <Show when={selecting()}>
                 <SiteSelection
-                  shownCount={shown.length}
-                  selected={selected}
+                  shownCount={shown().length}
+                  selected={selected()}
                   onSelectAll={(all) =>
                     setSelecting(
-                      new Set(all ? shown.map((site) => site.slug) : []),
+                      new Set(all ? shown().map((site) => site.slug) : []),
                     )
                   }
                   onCancel={() => setSelecting(null)}
                   onSwitch={switchSelected}
                   onDelete={deleteSelected}
                 />
-              )}
-              {shown.length > 0 ? (
+              </Show>
+              <Show
+                when={shown().length > 0}
+                fallback={
+                  <p class="rounded-xl border px-4 py-10 text-center text-sm text-muted-foreground">
+                    No matching sites
+                  </p>
+                }
+              >
                 <SiteList
-                  sites={shown}
-                  selected={selecting ?? undefined}
+                  sites={shown()}
+                  selected={selecting() ?? undefined}
                   onToggle={toggle}
                 />
-              ) : (
-                <p className="rounded-xl border px-4 py-10 text-center text-sm text-muted-foreground">
-                  No matching sites
-                </p>
-              )}
+              </Show>
             </div>
-          ) : (
-            <EmptyState
-              icon={Globe}
-              title="No sites yet"
-              description="Publish your first site here, or from the command line."
-            >
-              <Button asChild>
-                <Link to="/">Publish a site</Link>
-              </Button>
-            </EmptyState>
-          )}
-          <Sidebar sites={sites} usage={usage} />
+          </Show>
+          <Sidebar sites={sites()} usage={loaded().usage} />
         </div>
-      )}
+      </Show>
     </>
   );
 }
 
 type SidebarProps = { sites: Deployment[]; usage: Usage | null };
 
-function Sidebar({ sites, usage }: SidebarProps) {
-  const offline = sites.filter((site) => !online(site)).length;
+function Sidebar(props: SidebarProps) {
+  const offline = () => props.sites.filter((site) => !online(site)).length;
 
   return (
-    <aside className="space-y-4 text-sm">
-      {usage && (
-        <section className="space-y-3 rounded-xl bg-card shadow-raised px-4 py-3">
-          <h2 className="font-medium">Storage</h2>
-          <StorageUsage usage={usage} />
-        </section>
-      )}
-      <section className="space-y-1 rounded-xl bg-card shadow-raised px-4 py-3">
-        <h2 className="font-medium">Sites</h2>
-        <p className="font-mono text-muted-foreground">
-          {sites.length - offline} online · {offline} offline
+    <aside class="space-y-4 text-sm">
+      <Show when={props.usage}>
+        {(usage) => (
+          <section class="space-y-3 rounded-xl bg-card shadow-raised px-4 py-3">
+            <h2 class="font-medium">Storage</h2>
+            <StorageUsage usage={usage()} />
+          </section>
+        )}
+      </Show>
+      <section class="space-y-1 rounded-xl bg-card shadow-raised px-4 py-3">
+        <h2 class="font-medium">Sites</h2>
+        <p class="font-mono text-muted-foreground">
+          {props.sites.length - offline()} online · {offline()} offline
         </p>
       </section>
-      <section className="space-y-3 rounded-xl bg-card shadow-raised px-4 py-3">
-        <h2 className="font-medium">From the terminal</h2>
+      <section class="space-y-3 rounded-xl bg-card shadow-raised px-4 py-3">
+        <h2 class="font-medium">From the terminal</h2>
         <CliCommand command="redoost list" variant="compact" />
         <a
           href={installUrl}
           target="_blank"
           rel="noreferrer"
-          className="inline-block text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          class="inline-block text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
         >
           Install the CLI
         </a>

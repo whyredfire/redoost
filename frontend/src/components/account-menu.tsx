@@ -1,5 +1,6 @@
-import { Link } from "@tanstack/react-router";
-import { LogOut, Settings } from "lucide-react";
+import { Link } from "@tanstack/solid-router";
+import { Show } from "solid-js";
+import { LogOut, Settings } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -17,42 +18,41 @@ type AccountMenuProps = {
   onSignOut: () => void;
 };
 
-export function AccountMenu({ user, onSignOut }: AccountMenuProps) {
+export function AccountMenu(props: AccountMenuProps) {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="rounded-full"
-          aria-label="Your account"
-        >
-          <UserAvatar user={user} className="size-7" />
-        </Button>
+    <DropdownMenu placement="bottom-end">
+      <DropdownMenuTrigger
+        as={Button}
+        variant="ghost"
+        size="icon"
+        class="rounded-full"
+        aria-label="Your account"
+      >
+        <UserAvatar user={props.user} class="size-7" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-60">
-        {user && (
-          <>
-            <DropdownMenuLabel className="font-normal">
-              {user.name && (
-                <p className="truncate text-sm font-medium">{user.name}</p>
-              )}
-              {user.email && (
-                <p className="truncate text-xs text-muted-foreground">
-                  {user.email}
-                </p>
-              )}
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-          </>
-        )}
-        <DropdownMenuItem asChild>
-          <Link to="/settings">
-            <Settings />
-            Settings
-          </Link>
+      <DropdownMenuContent class="w-60">
+        <Show when={props.user}>
+          {(user) => (
+            <>
+              <DropdownMenuLabel class="font-normal">
+                <Show when={user().name}>
+                  <p class="truncate text-sm font-medium">{user().name}</p>
+                </Show>
+                <Show when={user().email}>
+                  <p class="truncate text-xs text-muted-foreground">
+                    {user().email}
+                  </p>
+                </Show>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+            </>
+          )}
+        </Show>
+        <DropdownMenuItem as={Link} to="/settings">
+          <Settings />
+          Settings
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={onSignOut}>
+        <DropdownMenuItem onSelect={() => props.onSignOut()}>
           <LogOut />
           Sign out
         </DropdownMenuItem>

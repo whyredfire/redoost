@@ -1,7 +1,7 @@
-import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
-import { Slot } from "radix-ui"
+import { omit } from "solid-js"
+import type { ComponentProps } from "@solidjs/web"
 
 const buttonVariants = cva(
   "sink inline-flex shrink-0 items-center justify-center gap-2 rounded-control text-sm font-medium whitespace-nowrap select-none transition-[background-color,color,box-shadow,scale] duration-150 ease-detent outline-none active:scale-[0.97] disabled:opacity-45 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
@@ -38,25 +38,24 @@ const buttonVariants = cva(
   }
 )
 
-function Button({
-  className,
-  variant = "default",
-  size = "default",
-  asChild = false,
-  ...props
-}: React.ComponentProps<"button"> &
-  VariantProps<typeof buttonVariants> & {
-    asChild?: boolean
-  }) {
-  const Comp = asChild ? Slot.Root : "button"
+function Button(
+  props: ComponentProps<"button"> & VariantProps<typeof buttonVariants>
+) {
+  const others = omit(props, "class", "variant", "size")
 
   return (
-    <Comp
+    <button
       data-slot="button"
-      data-variant={variant}
-      data-size={size}
-      className={cn(buttonVariants({ variant, size, className }))}
-      {...props}
+      data-variant={props.variant ?? "default"}
+      data-size={props.size ?? "default"}
+      class={cn(
+        buttonVariants({
+          variant: props.variant,
+          size: props.size,
+          className: props.class,
+        })
+      )}
+      {...others}
     />
   )
 }

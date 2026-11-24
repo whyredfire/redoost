@@ -1,4 +1,5 @@
-import { UserRound } from "lucide-react";
+import { Show } from "solid-js";
+import { UserRound } from "@/components/icons";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { User } from "@/lib/auth";
 
@@ -12,19 +13,21 @@ function initials(user: User | null) {
   return user?.email?.[0]?.toUpperCase() ?? null;
 }
 
-type UserAvatarProps = { user: User | null; className?: string };
+type UserAvatarProps = { user: User | null; class?: string };
 
-export function UserAvatar({ user, className }: UserAvatarProps) {
-  const letters = initials(user);
+export function UserAvatar(props: UserAvatarProps) {
+  const letters = () => initials(props.user);
 
   return (
-    <Avatar className={className}>
-      {user?.picture && (
-        // Google's image host can refuse requests with a referrer
-        <AvatarImage src={user.picture} alt="" referrerPolicy="no-referrer" />
-      )}
-      <AvatarFallback className="text-xs font-medium">
-        {letters ?? <UserRound className="size-4" />}
+    <Avatar class={props.class}>
+      <Show when={props.user?.picture}>
+        {/* Google's image host can refuse requests with a referrer */}
+        {(picture) => (
+          <AvatarImage src={picture()} alt="" referrerpolicy="no-referrer" />
+        )}
+      </Show>
+      <AvatarFallback class="text-xs font-medium">
+        {letters() ?? <UserRound class="size-4" />}
       </AvatarFallback>
     </Avatar>
   );

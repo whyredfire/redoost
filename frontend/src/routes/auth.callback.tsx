@@ -2,7 +2,7 @@ import {
   createFileRoute,
   redirect,
   type ErrorComponentProps,
-} from "@tanstack/react-router";
+} from "@tanstack/solid-router";
 import { Button } from "@/components/ui/button";
 import { finishSignIn, signIn, type Callback } from "@/lib/auth";
 import { errorMessage } from "@/lib/format";
@@ -22,14 +22,14 @@ export const Route = createFileRoute("/auth/callback")({
   errorComponent: SignInFailed,
 });
 
-function SignInFailed({ error }: ErrorComponentProps) {
+function SignInFailed(props: ErrorComponentProps) {
   return (
-    <div className="mx-auto flex max-w-md flex-col items-center gap-4 py-16 text-center">
-      <h1 className="text-2xl font-semibold tracking-tighter">
+    <div class="mx-auto flex max-w-md flex-col items-center gap-4 py-16 text-center">
+      <h1 class="text-2xl font-semibold tracking-tighter">
         Couldn't sign you in
       </h1>
-      <p role="alert" className="text-sm text-muted-foreground">
-        {errorMessage(error)}
+      <p role="alert" class="text-sm text-muted-foreground">
+        {errorMessage(props.error)}
       </p>
       <Button onClick={signIn}>Try again</Button>
     </div>

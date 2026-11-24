@@ -1,13 +1,25 @@
-import { useNavigate } from "@tanstack/react-router";
+import type {
+  SelectRootItemComponentProps,
+  SelectRootSectionComponentProps,
+} from "@kobalte/core/select";
+import { useNavigate } from "@tanstack/solid-router";
 import { cn } from "cn";
-import { ChevronRight } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
-import { ThinkingOrb } from "thinking-orbs";
+import type { JSX } from "@solidjs/web";
+import {
+  createMemo,
+  createSignal,
+  For,
+  onSettled,
+  Show,
+  type Accessor,
+} from "solid-js";
 import { SizeInfo, Sizes } from "@/components/compression-saving";
 import { Folder } from "@/components/detent/ui/Folder";
 import { RollingText } from "@/components/detent/ui/RollingText";
 import { stageSize } from "@/components/folder-drop";
+import { ChevronRight } from "@/components/icons";
 import { NewSiteSettings } from "@/components/new-site-settings";
+import { ThinkingOrb } from "@/components/thinking-orb";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,7 +28,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
   SelectLabel,
   SelectTrigger,
@@ -47,64 +58,78 @@ const changeColor: Record<FileChange | "removed", string> = {
   removed: "text-destructive",
 };
 
-function FileRow({
-  path,
-  file,
-  change,
-  compressed,
-}: ListedFile & { compressed: number | null }) {
-  const slash = path.lastIndexOf("/") + 1;
+type SiteChoice = { value: string; label: string; description?: string };
+type SiteGroup = { label: string; options: SiteChoice[] };
+
+const newSite: SiteChoice = { value: "new", label: "A new site" };
+
+function FileRow(props: ListedFile & { compressed: number | null }) {
+  const slash = () => props.path.lastIndexOf("/") + 1;
   return (
-    <li className="flex justify-between gap-4 px-4 py-2">
+    <li class="flex justify-between gap-4 px-4 py-2">
       <span
-        title={path}
-        className={`flex min-w-0 ${file ? "" : "text-muted-foreground line-through"}`}
+        title={props.path}
+        class={`flex min-w-0 ${props.file ? "" : "text-muted-foreground line-through"}`}
       >
-        <span className="min-w-0 truncate text-muted-foreground">
-          {path.slice(0, slash)}
+        <span class="min-w-0 truncate text-muted-foreground">
+          {props.path.slice(0, slash())}
         </span>
-        <span className="max-w-full shrink-0 break-all">
-          {path.slice(slash)}
+        <span class="max-w-full shrink-0 break-all">
+          {props.path.slice(slash())}
         </span>
       </span>
-      <span className="flex shrink-0 gap-3">
-        {change && <span className={changeColor[change]}>{change}</span>}
-        {file && (
-          <span className="text-muted-foreground">
-            <Sizes original={file.size} compressed={compressed} />
-          </span>
-        )}
+      <span class="flex shrink-0 gap-3">
+        <Show when={props.change}>
+          {(change) => <span class={changeColor[change()]}>{change()}</span>}
+        </Show>
+        <Show when={props.file}>
+          {(file) => (
+            <span class="text-muted-foreground">
+              <Sizes original={file().size} compressed={props.compressed} />
+            </span>
+          )}
+        </Show>
       </span>
     </li>
   );
 }
 
-function FileSection({
-  title,
-  files,
-  row,
-}: {
+// Rows are keyed by path, so a row stays put while its file's details change
+function Rows(props: {
+  files: ListedFile[];
+  row: (file: Accessor<ListedFile>) => JSX.Element;
+}) {
+  return (
+    <For each={props.files} keyed={(file) => file.path}>
+      {(file) => props.row(file)}
+    </For>
+  );
+}
+
+function FileSection(props: {
   title: string;
   files: ListedFile[];
-  row: (file: ListedFile) => ReactNode;
+  row: (file: Accessor<ListedFile>) => JSX.Element;
 }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = createSignal(true);
   return (
     <>
       <li>
         <button
           type="button"
-          className="flex w-full items-center gap-1.5 bg-muted/50 px-4 py-1.5 font-sans font-medium text-muted-foreground transition-colors hover:text-foreground"
-          aria-expanded={open}
-          onClick={() => setOpen(!open)}
+          class="flex w-full items-center gap-1.5 bg-muted/50 px-4 py-1.5 font-sans font-medium text-muted-foreground transition-colors hover:text-foreground"
+          aria-expanded={open() ? "true" : "false"}
+          onClick={() => setOpen(!open())}
         >
           <ChevronRight
-            className={`size-3.5 transition-transform ${open ? "rotate-90" : ""}`}
+            class={`size-3.5 transition-transform ${open() ? "rotate-90" : ""}`}
           />
-          {title} · {files.length}
+          {props.title} · {props.files.length}
         </button>
       </li>
-      {open && files.map(row)}
+      <Show when={open()}>
+        <Rows files={props.files} row={props.row} />
+      </Show>
     </>
   );
 }
@@ -124,78 +149,52 @@ function changeSummary(changes: Map<string, FileChange>, removed: number) {
     .join(" · ");
 }
 
-function Working({ children }: { children: ReactNode }) {
+function Working(props: { children: JSX.Element }) {
   return (
-    <span className="flex items-center gap-2">
+    <span class="flex items-center gap-2">
       <ThinkingOrb state="working" size={20} />
-      {children}
+      {props.children}
     </span>
   );
 }
 
-function ProgressRow({
-  value,
-  label,
-  children,
-}: {
+function ProgressRow(props: {
   value: number;
   label: string;
-  children: ReactNode;
+  children: JSX.Element;
 }) {
   return (
-    <div className="space-y-2 text-sm" aria-live="polite">
-      <div className="flex justify-between gap-2">
-        <Working>{children}</Working>
-        <RollingText text={`${value}%`} className="text-muted-foreground" />
+    <div class="space-y-2 text-sm" aria-live="polite">
+      <div class="flex justify-between gap-2">
+        <Working>{props.children}</Working>
+        <RollingText text={`${props.value}%`} class="text-muted-foreground" />
       </div>
-      <Progress value={value} aria-label={label} />
+      <Progress value={props.value} aria-label={props.label} />
     </div>
   );
 }
 
 export function PublishCard() {
-  const {
-    files,
-    compressed,
-    session,
-    stage,
-    message,
-    target,
-    lockedUntil,
-    description,
-    diff,
-    unchanged,
-    uploaded,
-    uploadCount,
-    busy,
-    compressedSize,
-    percentage,
-    startOver,
-    chooseTarget,
-    slug,
-    setSlug,
-    expiresAt,
-    setExpiresAt,
-    setDescription,
-    note,
-    setNote,
-    cancel,
-    publish,
-    takeOver,
-  } = useUpload();
-  const dragging = usePageDrop(!busy && stage !== "ready");
-  const [sites, setSites] = useState<Deployment[]>([]);
+  const upload = useUpload();
+  const dragging = usePageDrop(
+    () => !upload.busy && upload.stage !== "ready",
+  );
+  const [sites, setSites] = createSignal<Deployment[]>([]);
   const navigate = useNavigate();
 
-  useEffect(() => {
+  onSettled(() => {
     const token = loadToken();
     if (!token) return;
     // Without them, files can only go to a new site
-    listDeployments(token).then(setSites, () => {});
-  }, []);
+    listDeployments(token).then(
+      (sites) => setSites(sites),
+      () => {},
+    );
+  });
 
   // Drops the update as well, returning to the site it was for
   async function clear() {
+    const target = upload.target;
     if (target) {
       await navigate({
         to: "/sites/$slug",
@@ -204,280 +203,358 @@ export function PublishCard() {
         replace: true,
       });
     }
-    startOver();
+    upload.startOver();
   }
 
-  const listed: ListedFile[] = [
-    ...files.map(({ path, file }) => ({
+  const listed = createMemo((): ListedFile[] => [
+    ...upload.files.map(({ path, file }) => ({
       path,
       file,
-      change: diff?.changes.get(path),
+      change: upload.diff?.changes.get(path),
     })),
-    ...(diff?.removed ?? []).map((path) => ({
+    ...(upload.diff?.removed ?? []).map((path) => ({
       path,
       change: "removed" as const,
     })),
-  ];
-  const compressedCount = Object.keys(compressed).length;
-  const compressedPercentage = Math.floor(
-    (compressedCount / files.length) * 100,
-  );
-  const compared = diff !== null && compressedSize !== null;
+  ]);
+  const compressedCount = () => Object.keys(upload.compressed).length;
+  const compressedPercentage = () =>
+    Math.floor((compressedCount() / upload.files.length) * 100);
+  const compared = () => upload.diff !== null && upload.compressedSize !== null;
   // Split once every file is compared, so rows don't jump between sections
-  const split = compared && !unchanged;
+  const split = () => compared() && !upload.unchanged;
   // Updates show what they upload rather than the whole site
-  const uploadFiles = compared
-    ? files.filter(({ path }) => diff.changes.has(path))
-    : files;
-  const uploadSize = uploadFiles.reduce((sum, { file }) => sum + file.size, 0);
-  const uploadCompressed = compared
-    ? uploadFiles.reduce(
-        (sum, { path }) => sum + (compressed[path]?.file.size ?? 0),
-        0,
-      )
-    : compressedSize;
-  const changedFiles = listed
-    .filter(({ change }) => change)
-    .sort((a, b) => a.path.localeCompare(b.path));
-  const unchangedFiles = listed.filter(({ change }) => !change);
-  const row = (listedFile: ListedFile) => (
+  const uploadFiles = createMemo(() => {
+    const diff = upload.diff;
+    return compared() && diff
+      ? upload.files.filter(({ path }) => diff.changes.has(path))
+      : upload.files;
+  });
+  const uploadSize = () =>
+    uploadFiles().reduce((sum, { file }) => sum + file.size, 0);
+  const uploadCompressed = () =>
+    compared()
+      ? uploadFiles().reduce(
+          (sum, { path }) => sum + (upload.compressed[path]?.file.size ?? 0),
+          0,
+        )
+      : upload.compressedSize;
+  const changedFiles = createMemo(() =>
+    listed()
+      .filter(({ change }) => change)
+      .sort((a, b) => a.path.localeCompare(b.path)),
+  );
+  const unchangedFiles = createMemo(() =>
+    listed().filter(({ change }) => !change),
+  );
+  const row = (listedFile: Accessor<ListedFile>) => (
     <FileRow
-      key={listedFile.path}
-      {...listedFile}
-      compressed={compressed[listedFile.path]?.file.size ?? null}
+      path={listedFile().path}
+      file={listedFile().file}
+      change={listedFile().change}
+      compressed={upload.compressed[listedFile().path]?.file.size ?? null}
     />
   );
+  const siteChoices = createMemo((): (SiteChoice | SiteGroup)[] => [
+    newSite,
+    {
+      label: "Update a site",
+      options: sites().map(({ slug, description }) => ({
+        value: slug,
+        label: slug,
+        description: description || undefined,
+      })),
+    },
+  ]);
+  const chosen = createMemo(() => {
+    const target = upload.target;
+    if (!target) return newSite;
+    return (
+      (siteChoices()[1] as SiteGroup).options.find(
+        ({ value }) => value === target,
+      ) ?? { value: target, label: target }
+    );
+  });
 
   return (
     <Card
-      className={cn(
+      class={cn(
         stageSize,
         "transition-shadow duration-300 ease-detent",
-        dragging &&
+        dragging() &&
           "shadow-[0_0_0_2px_color-mix(in_oklch,var(--ink)_14%,transparent),var(--elev-float)]",
       )}
     >
-      <CardContent className="flex flex-1 flex-col">
-        <div className="grid flex-1 gap-6 duration-300 motion-safe:animate-in motion-safe:fade-in md:grid-cols-[20rem_1fr]">
-          <div className="flex flex-col gap-5">
+      <CardContent class="flex flex-1 flex-col">
+        <div class="grid flex-1 gap-6 duration-300 motion-safe:animate-in motion-safe:fade-in md:grid-cols-[20rem_1fr]">
+          <div class="flex flex-col gap-5">
             <div>
               <Folder
-                open={dragging}
-                sheets={files.slice(0, 4).map(({ path }) => ({
+                open={dragging()}
+                sheets={upload.files.slice(0, 4).map(({ path }) => ({
                   id: path,
                   name: path.slice(path.lastIndexOf("/") + 1),
                 }))}
-                pct={percentage}
-                busy={stage === "uploading"}
+                pct={upload.percentage}
+                busy={upload.stage === "uploading"}
               />
-              <p className="mt-4 text-2xl font-semibold tracking-tighter">
-                {files.length} {files.length === 1 ? "file" : "files"}
+              <p class="mt-4 text-2xl font-semibold tracking-tighter">
+                {upload.files.length}{" "}
+                {upload.files.length === 1 ? "file" : "files"}
               </p>
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <Sizes original={uploadSize} compressed={uploadCompressed} />
-                <SizeInfo update={compared} />
+              <div class="flex items-center gap-1.5 text-muted-foreground">
+                <Sizes original={uploadSize()} compressed={uploadCompressed()} />
+                <SizeInfo update={compared()} />
               </div>
-              <p className="mt-3 text-sm text-muted-foreground">
-                {dragging
+              <p class="mt-3 text-sm text-muted-foreground">
+                {dragging()
                   ? "Drop to replace these files."
                   : "Drop other files to replace them."}
               </p>
-              {sites.length > 0 && !session && !busy ? (
-                <div className="mt-4 space-y-1.5">
-                  <p className="text-sm text-muted-foreground">Publish as</p>
+              <Show
+                when={sites().length > 0 && !upload.session && !upload.busy}
+                fallback={
+                  <Show when={upload.target}>
+                    {(target) => (
+                      <p class="mt-3 text-sm">
+                        Updates <span class="font-mono">{target()}</span>
+                      </p>
+                    )}
+                  </Show>
+                }
+              >
+                <div class="mt-4 space-y-1.5">
+                  <p class="text-sm text-muted-foreground">Publish as</p>
                   <Select
-                    value={target ?? "new"}
-                    onValueChange={(value) =>
-                      chooseTarget(value === "new" ? null : value)
-                    }
+                    options={siteChoices()}
+                    optionValue="value"
+                    optionTextValue="label"
+                    optionGroupChildren="options"
+                    value={chosen()}
+                    onChange={(choice: SiteChoice | null) => {
+                      if (choice)
+                        upload.chooseTarget(
+                          choice.value === "new" ? null : choice.value,
+                        );
+                    }}
+                    itemComponent={(
+                      item: SelectRootItemComponentProps<SiteChoice>,
+                    ) => (
+                      <SelectItem item={item.item}>
+                        <Show
+                          when={item.item.rawValue.value !== "new"}
+                          fallback="A new site"
+                        >
+                          <span class="flex min-w-0 flex-col">
+                            <span class="font-mono">
+                              {item.item.rawValue.value}
+                            </span>
+                            <Show when={item.item.rawValue.description}>
+                              <span class="max-w-64 truncate text-xs text-muted-foreground">
+                                {item.item.rawValue.description}
+                              </span>
+                            </Show>
+                          </span>
+                        </Show>
+                      </SelectItem>
+                    )}
+                    sectionComponent={(
+                      section: SelectRootSectionComponentProps<SiteGroup>,
+                    ) => <SelectLabel>{section.section.rawValue.label}</SelectLabel>}
                   >
                     <SelectTrigger
-                      className={`w-full ${target ? "font-mono" : ""}`}
+                      class={`w-full ${upload.target ? "font-mono" : ""}`}
                       aria-label="Publish as"
                     >
                       {/* Only the slug, while the options also show descriptions */}
-                      <SelectValue>{target ?? "A new site"}</SelectValue>
+                      <SelectValue>{() => upload.target ?? "A new site"}</SelectValue>
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="new">A new site</SelectItem>
-                      <SelectGroup>
-                        <SelectLabel>Update a site</SelectLabel>
-                        {sites.map(({ slug, description }) => (
-                          <SelectItem key={slug} value={slug}>
-                            <span className="flex min-w-0 flex-col">
-                              <span className="font-mono">{slug}</span>
-                              {description && (
-                                <span className="max-w-64 truncate text-xs text-muted-foreground">
-                                  {description}
-                                </span>
-                              )}
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
+                    <SelectContent />
                   </Select>
                 </div>
-              ) : (
-                target && (
-                  <p className="mt-3 text-sm">
-                    Updates <span className="font-mono">{target}</span>
-                  </p>
-                )
-              )}
-              {!target && !session && (
+              </Show>
+              <Show when={!upload.target && !upload.session}>
                 <NewSiteSettings
-                  slug={slug}
-                  onSlug={setSlug}
-                  expiresAt={expiresAt}
-                  onExpiry={setExpiresAt}
-                  disabled={busy}
+                  slug={upload.slug}
+                  onSlug={upload.setSlug}
+                  expiresAt={upload.expiresAt}
+                  onExpiry={upload.setExpiresAt}
+                  disabled={upload.busy}
                 />
-              )}
-              {diff && (
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {unchanged
-                    ? "No changes"
-                    : changeSummary(diff.changes, diff.removed.length)}
-                </p>
-              )}
-              {target && !session && (
-                <div className="mt-4 space-y-1.5">
+              </Show>
+              <Show when={upload.diff}>
+                {(diff) => (
+                  <p class="mt-2 text-sm text-muted-foreground">
+                    {upload.unchanged
+                      ? "No changes"
+                      : changeSummary(diff().changes, diff().removed.length)}
+                  </p>
+                )}
+              </Show>
+              <Show when={upload.target && !upload.session}>
+                <div class="mt-4 space-y-1.5">
                   <label
-                    htmlFor="version-description"
-                    className="text-sm text-muted-foreground"
+                    for="version-description"
+                    class="text-sm text-muted-foreground"
                   >
                     What changed (optional)
                   </label>
                   <Input
                     id="version-description"
-                    value={note}
-                    onChange={(event) => setNote(event.target.value)}
+                    value={upload.note}
+                    onInput={(event) => upload.setNote(event.currentTarget.value)}
                     placeholder="Shown with this version"
-                    maxLength={200}
-                    disabled={busy}
+                    maxlength={200}
+                    disabled={upload.busy}
                   />
                 </div>
-              )}
-              {!session ? (
-                <div className="mt-4 space-y-1.5">
+              </Show>
+              <Show
+                when={!upload.session}
+                fallback={
+                  <Show when={upload.session?.description}>
+                    <p class="mt-3 text-sm break-words text-muted-foreground">
+                      {upload.session?.description}
+                    </p>
+                  </Show>
+                }
+              >
+                <div class="mt-4 space-y-1.5">
                   <label
-                    htmlFor="site-description"
-                    className="text-sm text-muted-foreground"
+                    for="site-description"
+                    class="text-sm text-muted-foreground"
                   >
                     Description (optional)
                   </label>
                   <Input
                     id="site-description"
-                    value={description ?? ""}
-                    onChange={(event) => setDescription(event.target.value)}
+                    value={upload.description ?? ""}
+                    onInput={(event) =>
+                      upload.setDescription(event.currentTarget.value)
+                    }
                     placeholder="What's this site for?"
-                    maxLength={200}
-                    disabled={busy}
+                    maxlength={200}
+                    disabled={upload.busy}
                   />
                 </div>
-              ) : (
-                session.description && (
-                  <p className="mt-3 text-sm break-words text-muted-foreground">
-                    {session.description}
-                  </p>
-                )
-              )}
+              </Show>
             </div>
 
-            {compressedSize === null && stage === "idle" && !message && (
+            <Show
+              when={
+                upload.compressedSize === null &&
+                upload.stage === "idle" &&
+                !upload.message
+              }
+            >
               <ProgressRow
-                value={compressedPercentage}
+                value={compressedPercentage()}
                 label="Compression progress"
               >
-                Compressing {compressedCount} of {files.length}
+                Compressing {compressedCount()} of {upload.files.length}
               </ProgressRow>
-            )}
+            </Show>
 
-            {stage === "uploading" && (
-              <ProgressRow value={percentage} label="Upload progress">
-                Uploading {uploaded} of {uploadCount}
+            <Show when={upload.stage === "uploading"}>
+              <ProgressRow value={upload.percentage} label="Upload progress">
+                Uploading {upload.uploaded} of {upload.uploadCount}
               </ProgressRow>
-            )}
+            </Show>
 
-            {statusText[stage] && (
-              <p className="text-sm text-muted-foreground" aria-live="polite">
-                <Working>{statusText[stage]}</Working>
-              </p>
-            )}
-
-            {message && (
-              <p role="alert" className="text-sm text-destructive">
-                {message}
-              </p>
-            )}
-
-            {lockedUntil && !busy && (
-              <div className="space-y-3 text-sm text-muted-foreground">
-                <p>
-                  It frees up at {formatTime(lockedUntil)}. If it was abandoned,
-                  like in a closed tab, you can cancel it now. An upload still
-                  running elsewhere would mix its files with these.
+            <Show when={statusText[upload.stage]}>
+              {(text) => (
+                <p class="text-sm text-muted-foreground" aria-live="polite">
+                  <Working>{text()}</Working>
                 </p>
-                <Button type="button" variant="outline" onClick={takeOver}>
+              )}
+            </Show>
+
+            <Show when={upload.message}>
+              <p role="alert" class="text-sm text-destructive">
+                {upload.message}
+              </p>
+            </Show>
+
+            <Show when={upload.lockedUntil && !upload.busy}>
+              <div class="space-y-3 text-sm text-muted-foreground">
+                <p>
+                  It frees up at {formatTime(upload.lockedUntil!)}. If it was
+                  abandoned, like in a closed tab, you can cancel it now. An
+                  upload still running elsewhere would mix its files with these.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => upload.takeOver()}
+                >
                   Cancel the other upload
                 </Button>
               </div>
-            )}
+            </Show>
 
-            <div className="mt-auto flex gap-3">
+            <div class="mt-auto flex gap-3">
               <Button
                 type="button"
-                className="flex-1"
-                disabled={busy || unchanged || compressedSize === null}
-                onClick={publish}
+                class="flex-1"
+                disabled={
+                  upload.busy ||
+                  upload.unchanged ||
+                  upload.compressedSize === null
+                }
+                onClick={() => upload.publish()}
               >
-                {busy
+                {upload.busy
                   ? "Publishing…"
-                  : !session
-                    ? target
+                  : !upload.session
+                    ? upload.target
                       ? "Update site"
                       : "Publish site"
-                    : stage === "error"
+                    : upload.stage === "error"
                       ? "Retry upload"
                       : "Resume upload"}
               </Button>
-              {busy ? (
-                <Button type="button" variant="outline" onClick={cancel}>
+              <Show
+                when={upload.busy}
+                fallback={
+                  <Button type="button" variant="ghost" onClick={clear}>
+                    Clear
+                  </Button>
+                }
+              >
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => upload.cancel()}
+                >
                   Cancel
                 </Button>
-              ) : (
-                <Button type="button" variant="ghost" onClick={clear}>
-                  Clear
-                </Button>
-              )}
+              </Show>
             </div>
           </div>
 
           {/* The fade sits on the scrolling viewport, so it dissolves the rows and not the border */}
-          <div className="relative min-h-40 rounded-xl border bg-muted/30 md:min-h-64">
+          <div class="relative min-h-40 rounded-xl border bg-muted/30 md:min-h-64">
             {/* Radix pins the root to position: relative, so this div takes the space */}
-            <div className="absolute inset-0">
-              <ScrollArea className="h-full [&>[data-slot=scroll-area-viewport]]:scroll-fade">
-                <ul className="divide-y font-mono text-xs">
-                  {split ? (
-                    <>
+            <div class="absolute inset-0">
+              <ScrollArea class="h-full [&>[data-slot=scroll-area-viewport]]:scroll-fade">
+                <ul class="divide-y font-mono text-xs">
+                  <Show
+                    when={split()}
+                    fallback={<Rows files={listed()} row={row} />}
+                  >
+                    <FileSection
+                      title="Changed"
+                      files={changedFiles()}
+                      row={row}
+                    />
+                    <Show when={unchangedFiles().length > 0}>
                       <FileSection
-                        title="Changed"
-                        files={changedFiles}
+                        title="Unchanged"
+                        files={unchangedFiles()}
                         row={row}
                       />
-                      {unchangedFiles.length > 0 && (
-                        <FileSection
-                          title="Unchanged"
-                          files={unchangedFiles}
-                          row={row}
-                        />
-                      )}
-                    </>
-                  ) : (
-                    listed.map(row)
-                  )}
+                    </Show>
+                  </Show>
                 </ul>
               </ScrollArea>
             </div>

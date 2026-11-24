@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 import { ConfirmButton } from "@/components/confirm-button";
 import { Button } from "@/components/ui/button";
 import type { Deployment } from "@/lib/deploy";
@@ -18,24 +18,28 @@ function sites(count: number) {
   return `${count} ${count === 1 ? "site" : "sites"}`;
 }
 
-export function SiteSelection({
-  shownCount,
-  selected,
-  onSelectAll,
-  onCancel,
-  onSwitch,
-  onDelete,
-}: SiteSelectionProps) {
-  const [switching, setSwitching] = useState(false);
-  const [switchError, setSwitchError] = useState("");
-  const all = shownCount > 0 && selected.length === shownCount;
-  const one = selected.length === 1;
+export function SiteSelection(props: SiteSelectionProps) {
+  let checkbox: HTMLInputElement | undefined;
+  const [switching, setSwitching] = createSignal(false);
+  const [switchError, setSwitchError] = createSignal("");
+  const all = createMemo(
+    () => props.shownCount > 0 && props.selected.length === props.shownCount,
+  );
+  const one = () => props.selected.length === 1;
+
+  // Some but not all, shown as a dash
+  createEffect(
+    () => props.selected.length > 0 && !all(),
+    (indeterminate) => {
+      if (checkbox) checkbox.indeterminate = indeterminate;
+    },
+  );
 
   async function switchTo(enabled: boolean) {
     setSwitching(true);
     setSwitchError("");
     try {
-      await onSwitch(enabled);
+      await props.onSwitch(enabled);
     } catch (cause) {
       setSwitchError(errorMessage(cause));
     } finally {
@@ -45,33 +49,30 @@ export function SiteSelection({
 
   return (
     // Stays under the header, so Delete is in reach however far the list scrolls
-    <div className="sticky top-[calc(3.5rem+1px)] z-5 -mt-2 mb-2 bg-background py-2">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-card shadow-raised px-4 py-2 text-sm">
+    <div class="sticky top-[calc(3.5rem+1px)] z-5 -mt-2 mb-2 bg-background py-2">
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-card shadow-raised px-4 py-2 text-sm">
         <input
           type="checkbox"
-          checked={all}
-          // Some but not all, shown as a dash
-          ref={(input) => {
-            if (input) input.indeterminate = selected.length > 0 && !all;
-          }}
-          onChange={() => onSelectAll(!all)}
+          checked={all()}
+          ref={(input) => (checkbox = input)}
+          onChange={() => props.onSelectAll(!all())}
           aria-label="Select all shown sites"
-          className="size-4 shrink-0 cursor-pointer accent-primary"
+          class="size-4 shrink-0 cursor-pointer accent-primary"
         />
-        <span className="flex-1 text-muted-foreground">
-          {selected.length > 0
-            ? `${sites(selected.length)} selected`
+        <span class="flex-1 text-muted-foreground">
+          {props.selected.length > 0
+            ? `${sites(props.selected.length)} selected`
             : "Select sites"}
         </span>
-        <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+        <Button type="button" variant="ghost" size="sm" onClick={() => props.onCancel()}>
           Cancel
         </Button>
-        <div className="flex gap-2 max-sm:basis-full max-sm:justify-end">
+        <div class="flex gap-2 max-sm:basis-full max-sm:justify-end">
           <Button
             type="button"
             variant="outline"
             size="sm"
-            disabled={switching || !selected.some((site) => site.enabled)}
+            disabled={switching() || !props.selected.some((site) => site.enabled)}
             onClick={() => switchTo(false)}
           >
             Take offline
@@ -80,42 +81,37 @@ export function SiteSelection({
             type="button"
             variant="outline"
             size="sm"
-            disabled={switching || !selected.some((site) => !site.enabled)}
+            disabled={switching() || !props.selected.some((site) => !site.enabled)}
             onClick={() => switchTo(true)}
           >
             Put online
           </Button>
           <ConfirmButton
-            question={`Delete ${sites(selected.length)}?`}
-            warning={`${one ? "It" : "They"} will stop working and ${one ? "its" : "their"} files will be removed. This can't be undone.`}
-            action={`Delete ${sites(selected.length)}`}
+            question={`Delete ${sites(props.selected.length)}?`}
+            warning={`${one() ? "It" : "They"} will stop working and ${one() ? "its" : "their"} files will be removed. This can't be undone.`}
+            action={`Delete ${sites(props.selected.length)}`}
             pending="Deleting…"
-            onConfirm={onDelete}
+            onConfirm={() => props.onDelete()}
+            variant="destructive"
+            size="sm"
+            disabled={props.selected.length === 0}
             details={
-              <ul className="max-h-40 overflow-y-auto rounded-lg border bg-muted/30 px-3 py-2 font-mono text-xs">
-                {selected.map(({ slug }) => (
-                  <li key={slug} className="truncate py-0.5">
-                    {slug}
-                  </li>
-                ))}
+              <ul class="max-h-40 overflow-y-auto rounded-lg border bg-muted/30 px-3 py-2 font-mono text-xs">
+                <For each={props.selected}>
+                  {({ slug }) => <li class="truncate py-0.5">{slug}</li>}
+                </For>
               </ul>
             }
           >
-            <Button
-              variant="destructive"
-              size="sm"
-              disabled={selected.length === 0}
-            >
-              Delete
-            </Button>
+            Delete
           </ConfirmButton>
         </div>
       </div>
-      {switchError && (
-        <p role="alert" className="mt-2 px-1 text-sm text-destructive">
-          {switchError}
+      <Show when={switchError()}>
+        <p role="alert" class="mt-2 px-1 text-sm text-destructive">
+          {switchError()}
         </p>
-      )}
+      </Show>
     </div>
   );
 }

@@ -230,7 +230,7 @@ export interface RootRouteChildren {
   SitesSlugRoute: typeof SitesSlugRoute
 }
 
-declare module '@tanstack/react-router' {
+declare module '@tanstack/solid-router' {
   interface FileRoutesByPath {
     '/': {
       id: '/'

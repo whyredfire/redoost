@@ -1,5 +1,6 @@
-import { Link } from "@tanstack/react-router";
-import { ChevronRight } from "lucide-react";
+import { Link } from "@tanstack/solid-router";
+import { For, Show } from "solid-js";
+import { ChevronRight } from "@/components/icons";
 import { LiveDot } from "@/components/live-dot";
 import { Card } from "@/components/ui/card";
 import { expired, online, type Deployment } from "@/lib/deploy";
@@ -12,69 +13,80 @@ type SiteListProps = {
   onToggle?: (slug: string) => void;
 };
 
-export function SiteList({ sites, selected, onToggle }: SiteListProps) {
+export function SiteList(props: SiteListProps) {
   return (
-    <Card className="py-0">
-      <ul className="divide-y">
-        {sites.map((site) => (
-          <li key={site.slug}>
-            {selected ? (
-              <label className="flex cursor-pointer items-center gap-4 px-5 py-4 transition-colors hover:bg-muted/40 has-checked:bg-muted/60">
-                <input
-                  type="checkbox"
-                  checked={selected.has(site.slug)}
-                  onChange={() => onToggle?.(site.slug)}
-                  aria-label={`Select ${site.slug}`}
-                  className="size-4 shrink-0 cursor-pointer accent-primary"
-                />
-                <SiteSummary site={site} />
-              </label>
-            ) : (
-              <Link
-                to="/sites/$slug"
-                params={{ slug: site.slug }}
-                className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none"
+    <Card class="py-0">
+      <ul class="divide-y">
+        <For each={props.sites} keyed={(site) => site.slug}>
+          {(site) => (
+            <li>
+              <Show
+                when={props.selected}
+                fallback={
+                  <Link
+                    to="/sites/$slug"
+                    params={{ slug: site().slug }}
+                    class="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none"
+                  >
+                    <SiteSummary site={site()} />
+                    <ChevronRight class="size-4 shrink-0 text-muted-foreground" />
+                  </Link>
+                }
               >
-                <SiteSummary site={site} />
-                <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-              </Link>
-            )}
-          </li>
-        ))}
+                {(selected) => (
+                  <label class="flex cursor-pointer items-center gap-4 px-5 py-4 transition-colors hover:bg-muted/40 has-checked:bg-muted/60">
+                    <input
+                      type="checkbox"
+                      checked={selected().has(site().slug)}
+                      onChange={() => props.onToggle?.(site().slug)}
+                      aria-label={`Select ${site().slug}`}
+                      class="size-4 shrink-0 cursor-pointer accent-primary"
+                    />
+                    <SiteSummary site={site()} />
+                  </label>
+                )}
+              </Show>
+            </li>
+          )}
+        </For>
       </ul>
     </Card>
   );
 }
 
-function SiteSummary({ site }: { site: Deployment }) {
-  const url = siteUrl(site.slug);
-  const domain = url ? new URL(url).host.slice(site.slug.length) : "";
+function SiteSummary(props: { site: Deployment }) {
+  const domain = () => {
+    const url = siteUrl(props.site.slug);
+    return url ? new URL(url).host.slice(props.site.slug.length) : "";
+  };
   return (
-    <div className="min-w-0 flex-1">
-      <p className="flex items-center gap-2.5 font-mono text-sm">
-        <LiveDot off={!online(site)} />
-        <span className="truncate">
-          <span className="font-medium">{site.slug}</span>
-          <span className="hidden text-muted-foreground sm:inline">
-            {domain}
-          </span>
+    <div class="min-w-0 flex-1">
+      <p class="flex items-center gap-2.5 font-mono text-sm">
+        <LiveDot off={!online(props.site)} />
+        <span class="truncate">
+          <span class="font-medium">{props.site.slug}</span>
+          <span class="hidden text-muted-foreground sm:inline">{domain()}</span>
         </span>
       </p>
-      {site.description && (
-        <p className="mt-1 truncate pl-4.5 text-sm text-muted-foreground">
-          {site.description}
+      <Show when={props.site.description}>
+        <p class="mt-1 truncate pl-4.5 text-sm text-muted-foreground">
+          {props.site.description}
         </p>
-      )}
-      <p className="mt-1 pl-4.5 font-mono text-xs text-muted-foreground">
-        {site.file_count} {site.file_count === 1 ? "file" : "files"} ·{" "}
-        {formatBytes(site.storage_size)}
-        {site.version_count > 1 && ` in ${site.version_count} versions`} ·{" "}
-        <span className="whitespace-nowrap">{formatDate(site.created_at)}</span>
-        {!site.enabled && " · offline"}
-        {site.expires_at &&
-          (expired(site)
+      </Show>
+      <p class="mt-1 pl-4.5 font-mono text-xs text-muted-foreground">
+        {props.site.file_count} {props.site.file_count === 1 ? "file" : "files"}{" "}
+        · {formatBytes(props.site.storage_size)}
+        {props.site.version_count > 1 &&
+          ` in ${props.site.version_count} versions`}{" "}
+        ·{" "}
+        <span class="whitespace-nowrap">
+          {formatDate(props.site.created_at)}
+        </span>
+        {!props.site.enabled && " · offline"}
+        {props.site.expires_at &&
+          (expired(props.site)
             ? " · expired"
-            : ` · expires ${formatDate(site.expires_at)}`)}
+            : ` · expires ${formatDate(props.site.expires_at)}`)}
       </p>
     </div>
   );

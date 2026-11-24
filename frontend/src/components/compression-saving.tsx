@@ -1,11 +1,12 @@
-import { Info } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { Show } from "solid-js";
+import { Info } from "@/components/icons";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { formatBytes } from "@/lib/format";
+import { Presence } from "@/lib/motion";
 
 // Smaller savings, like a site of mostly images, aren't worth mentioning
 function savedPercent(original: number, uploaded: number) {
@@ -21,44 +22,49 @@ const swap = {
   exit: { opacity: 0, filter: "blur(4px)" },
 };
 
-export function Sizes({ original, compressed }: SizesProps) {
-  const reduceMotion = useReducedMotion();
-  const smaller =
-    compressed !== null && compressed < original ? compressed : null;
+export function Sizes(props: SizesProps) {
+  const smaller = () =>
+    props.compressed !== null && props.compressed < props.original
+      ? props.compressed
+      : null;
 
   return (
-    <AnimatePresence mode="wait" initial={false}>
-      <motion.span
-        key={smaller === null ? "original" : "compressed"}
-        className="inline-block"
-        {...swap}
-        transition={{ duration: reduceMotion ? 0 : 0.2 }}
-      >
-        {smaller === null ? (
-          formatBytes(original)
-        ) : (
-          <>
-            <s className="opacity-60">{formatBytes(original)}</s> →{" "}
-            <span className="text-foreground">{formatBytes(smaller)}</span>
-          </>
-        )}
-      </motion.span>
-    </AnimatePresence>
+    <Presence
+      when={smaller() === null ? "original" : "compressed"}
+      mode="wait"
+      {...swap}
+      transition={{ duration: 0.2 }}
+    >
+      {(key) => (
+        <span class="inline-block">
+          {key === "original" ? (
+            formatBytes(props.original)
+          ) : (
+            <>
+              <s class="opacity-60">{formatBytes(props.original)}</s> →{" "}
+              <span class="text-foreground">
+                {formatBytes(smaller() ?? props.original)}
+              </span>
+            </>
+          )}
+        </span>
+      )}
+    </Presence>
   );
 }
 
 // Says which size is shown, since a site's size is easy to mistake for an update's
-export function SizeInfo({ update }: { update: boolean }) {
+export function SizeInfo(props: { update: boolean }) {
   return (
-    <Popover>
+    <Popover placement="bottom-start">
       <PopoverTrigger
-        className="rounded-full transition-colors hover:text-foreground"
+        class="rounded-full transition-colors hover:text-foreground"
         aria-label="What this size means"
       >
-        <Info className="size-4" />
+        <Info class="size-4" />
       </PopoverTrigger>
-      <PopoverContent className="text-sm" align="start">
-        {update
+      <PopoverContent class="text-sm">
+        {props.update
           ? "What this update uploads: only new and changed files. Text files like HTML, CSS, and JavaScript are gzipped in your browser first."
           : "The size of the whole site. Text files like HTML, CSS, and JavaScript are gzipped in your browser before uploading, so less is stored."}
       </PopoverContent>
@@ -68,17 +74,15 @@ export function SizeInfo({ update }: { update: boolean }) {
 
 type CompressionSavingProps = { original: number; uploaded: number };
 
-export function CompressionSaving({
-  original,
-  uploaded,
-}: CompressionSavingProps) {
-  const percent = savedPercent(original, uploaded);
-  if (percent === null) return null;
+export function CompressionSaving(props: CompressionSavingProps) {
+  const percent = () => savedPercent(props.original, props.uploaded);
 
   return (
-    <p className="text-sm text-muted-foreground">
-      <span className="font-medium text-foreground">{percent}%</span> smaller ·{" "}
-      {formatBytes(original)} uploaded as {formatBytes(uploaded)}
-    </p>
+    <Show when={percent() !== null}>
+      <p class="text-sm text-muted-foreground">
+        <span class="font-medium text-foreground">{percent()}%</span> smaller ·{" "}
+        {formatBytes(props.original)} uploaded as {formatBytes(props.uploaded)}
+      </p>
+    </Show>
   );
 }

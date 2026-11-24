@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { JSX } from "@solidjs/web";
 import { PageHeading } from "@/components/page-heading";
 
 const contact = "whyredfire@gmail.com";
@@ -6,7 +6,7 @@ const contact = "whyredfire@gmail.com";
 export function ContactLink() {
   return (
     <a
-      className="underline underline-offset-4 hover:text-foreground"
+      class="underline underline-offset-4 hover:text-foreground"
       href={`mailto:${contact}`}
     >
       {contact}
@@ -14,28 +14,28 @@ export function ContactLink() {
   );
 }
 
-type LegalPageProps = { title: string; updated: string; children: ReactNode };
+type LegalPageProps = {
+  title: string;
+  updated: string;
+  children: JSX.Element;
+};
 
-export function LegalPage({ title, updated, children }: LegalPageProps) {
+export function LegalPage(props: LegalPageProps) {
   return (
     <article>
-      <PageHeading title={title}>Last updated {updated}</PageHeading>
-      {children}
+      <PageHeading title={props.title}>
+        Last updated {props.updated}
+      </PageHeading>
+      {props.children}
     </article>
   );
 }
 
-export function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
+export function Section(props: { title: string; children: JSX.Element }) {
   return (
-    <section className="mt-8 first-of-type:mt-0">
-      <h2 className="font-semibold">{title}</h2>
-      <div className="mt-2 space-y-2 text-muted-foreground">{children}</div>
+    <section class="mt-8 first-of-type:mt-0">
+      <h2 class="font-semibold">{props.title}</h2>
+      <div class="mt-2 space-y-2 text-muted-foreground">{props.children}</div>
     </section>
   );
 }

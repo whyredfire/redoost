@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { createSignal, Show, untrack, type Accessor } from "solid-js";
 import { Choice } from "@/components/choice";
 import { Input } from "@/components/ui/input";
 
@@ -44,12 +44,13 @@ type ExpiryProps = {
   disabled?: boolean;
 };
 
+// The preset comes from the first value only; later values are picked through it
 export function useExpiry(
-  value: string | null,
+  value: Accessor<string | null>,
   onChange: (value: string | null) => void,
 ) {
-  const [preset, setPreset] = useState<Preset>(
-    value === null ? "never" : "date",
+  const [preset, setPreset] = createSignal<Preset>(
+    untrack(value) === null ? "never" : "date",
   );
 
   function choose(next: Preset) {
@@ -61,41 +62,44 @@ export function useExpiry(
   return [preset, choose] as const;
 }
 
-export function ExpiryDate({ value, onChange, disabled }: ExpiryProps) {
+export function ExpiryDate(props: ExpiryProps) {
   return (
     <Input
       type="date"
       aria-label="Last day online"
-      value={value ? dayOf(value) : ""}
+      value={props.value ? dayOf(props.value) : ""}
       min={localDay(new Date())}
-      onChange={(event) => {
-        if (event.target.value) onChange(endOfDay(event.target.value));
+      onInput={(event) => {
+        if (event.currentTarget.value)
+          props.onChange(endOfDay(event.currentTarget.value));
       }}
-      disabled={disabled}
+      disabled={props.disabled}
     />
   );
 }
 
-export function ExpirySelect({
-  label = "Expires",
-  value,
-  onChange,
-  disabled = false,
-}: ExpiryProps & { label?: string }) {
-  const [preset, choose] = useExpiry(value, onChange);
+export function ExpirySelect(props: ExpiryProps & { label?: string }) {
+  const [preset, choose] = useExpiry(
+    () => props.value,
+    (value) => props.onChange(value),
+  );
 
   return (
-    <div className="space-y-2">
+    <div class="space-y-2">
       <Choice
-        label={label}
+        label={props.label ?? "Expires"}
         options={presets.map(([key, text]) => [key, text] as const)}
-        value={preset}
+        value={preset()}
         onChange={choose}
-        disabled={disabled}
+        disabled={props.disabled ?? false}
       />
-      {preset === "date" && (
-        <ExpiryDate value={value} onChange={onChange} disabled={disabled} />
-      )}
+      <Show when={preset() === "date"}>
+        <ExpiryDate
+          value={props.value}
+          onChange={props.onChange}
+          disabled={props.disabled ?? false}
+        />
+      </Show>
     </div>
   );
 }

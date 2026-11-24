@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/solid-router";
 import { AboutSections } from "@/components/about-sections";
 
 export const Route = createFileRoute("/settings/about")({

@@ -1,21 +1,25 @@
-import type { ReactNode } from "react";
+import type { JSX } from "@solidjs/web";
+import { Show, children } from "solid-js";
 
 type PageHeadingProps = {
   title: string;
-  children?: ReactNode;
-  action?: ReactNode;
+  children?: JSX.Element;
+  action?: JSX.Element;
 };
 
-export function PageHeading({ title, children, action }: PageHeadingProps) {
+export function PageHeading(props: PageHeadingProps) {
+  const content = children(() => props.children);
   return (
-    <div className="mb-8 flex items-end justify-between gap-4">
+    <div class="mb-8 flex items-end justify-between gap-4">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tighter sm:text-4xl">
-          {title}
+        <h1 class="text-3xl font-semibold tracking-tighter sm:text-4xl">
+          {props.title}
         </h1>
-        {children && <p className="mt-2 text-muted-foreground">{children}</p>}
+        <Show when={content()}>
+          <p class="mt-2 text-muted-foreground">{content()}</p>
+        </Show>
       </div>
-      {action}
+      {props.action}
     </div>
   );
 }

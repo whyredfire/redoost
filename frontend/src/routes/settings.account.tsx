@@ -2,7 +2,8 @@ import {
   createFileRoute,
   useNavigate,
   useRouter,
-} from "@tanstack/react-router";
+} from "@tanstack/solid-router";
+import { Show } from "solid-js";
 import { DangerAction } from "@/components/danger-action";
 import { SettingsSection } from "@/components/settings-section";
 import { UserAvatar } from "@/components/user-avatar";
@@ -17,42 +18,40 @@ export const Route = createFileRoute("/settings/account")({
 function AccountSettings() {
   const router = useRouter();
   const navigate = useNavigate();
-  const { startOver } = useUpload();
+  const upload = useUpload();
   const user = signedInUser();
 
   async function remove() {
     await deleteAccount();
-    startOver();
+    upload.startOver();
     await navigate({ to: "/" });
     await router.invalidate();
   }
 
   return (
-    <div className="space-y-10">
+    <div class="space-y-10">
       <SettingsSection title="Account" description="Who you're signed in as.">
-        <div className="divide-y rounded-xl bg-card shadow-raised text-sm">
-          <div className="flex items-center gap-3 px-4 py-3">
-            <UserAvatar user={user} className="size-10" />
-            <div className="min-w-0">
-              <p className="truncate font-medium">
-                {user?.name ?? user?.email}
-              </p>
-              {user?.name && user.email && (
-                <p className="truncate text-muted-foreground">{user.email}</p>
-              )}
+        <div class="divide-y rounded-xl bg-card shadow-raised text-sm">
+          <div class="flex items-center gap-3 px-4 py-3">
+            <UserAvatar user={user} class="size-10" />
+            <div class="min-w-0">
+              <p class="truncate font-medium">{user?.name ?? user?.email}</p>
+              <Show when={user?.name && user.email}>
+                <p class="truncate text-muted-foreground">{user?.email}</p>
+              </Show>
             </div>
           </div>
           <dl>
-            {user && (
-              <div className="flex justify-between gap-4 px-4 py-3">
-                <dt className="shrink-0 text-muted-foreground">
-                  Signed in with
-                </dt>
-                <dd className="min-w-0 truncate">
-                  {providerNames[user.provider]}
-                </dd>
-              </div>
-            )}
+            <Show when={user}>
+              {(user) => (
+                <div class="flex justify-between gap-4 px-4 py-3">
+                  <dt class="shrink-0 text-muted-foreground">Signed in with</dt>
+                  <dd class="min-w-0 truncate">
+                    {providerNames[user().provider]}
+                  </dd>
+                </div>
+              )}
+            </Show>
           </dl>
         </div>
       </SettingsSection>

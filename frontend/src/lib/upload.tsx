@@ -1,12 +1,13 @@
+import type { JSX } from "@solidjs/web";
 import {
   createContext,
-  use,
-  useEffect,
-  useEffectEvent,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+  createEffect,
+  createMemo,
+  createSignal,
+  onSettled,
+  useContext,
+  type Accessor,
+} from "solid-js";
 import { ApiError } from "./api";
 import {
   cancelUpload,
@@ -73,54 +74,69 @@ function batched(update: () => void) {
 }
 
 function useUploadState() {
-  const [files, setFiles] = useState<SiteFile[]>([]);
-  const [compressed, setCompressed] = useState<Record<string, UploadFile>>({});
-  const [session, setSession] = useState<UploadSession | null>(loadSession);
-  const [stage, setStage] = useState<Stage>(
-    session?.deployment.state === "ready" ? "ready" : "idle",
+  const [files, setFiles] = createSignal<SiteFile[]>([]);
+  const [compressed, setCompressed] = createSignal<Record<string, UploadFile>>(
+    {},
   );
-  const [message, setMessage] = useState("");
+  const initialSession = loadSession();
+  const [session, setSession] = createSignal<UploadSession | null>(
+    initialSession,
+  );
+  const [stage, setStage] = createSignal<Stage>(
+    initialSession?.deployment.state === "ready" ? "ready" : "idle",
+  );
+  const [message, setMessage] = createSignal("");
   // The site whose files the next publish replaces
-  const [target, setTarget] = useState<string | null>(null);
+  const [target, setTarget] = createSignal<string | null>(null);
   // The address picked for a new site; null leaves it to the server
-  const [slug, setSlug] = useState<string | null>(null);
+  const [slug, setSlug] = createSignal<string | null>(null);
   // When a new site goes offline; null for never
-  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = createSignal<string | null>(null);
   // When another tab's or device's upload to the target frees it
-  const [lockedUntil, setLockedUntil] = useState<string | null>(null);
-  const [storedFiles, setStoredFiles] = useState<StoredFile[] | null>(null);
+  const [lockedUntil, setLockedUntil] = createSignal<string | null>(null);
+  const [storedFiles, setStoredFiles] = createSignal<StoredFile[] | null>(null);
   // Null leaves an updated site's description as it is, as when it couldn't be read
-  const [description, setDescription] = useState<string | null>(null);
-  const [note, setNote] = useState("");
-  const [checks, setChecks] = useState<SiteCheck[]>([]);
-  const [loaded, setLoaded] = useState(0);
-  const [uploaded, setUploaded] = useState(0);
-  const [uploadCount, setUploadCount] = useState(0);
-  const [uploadSize, setUploadSize] = useState(0);
-  const [limits, setLimits] = useState<Limits | null>(null);
-  const controller = useRef<AbortController | null>(null);
+  const [description, setDescription] = createSignal<string | null>(null);
+  const [note, setNote] = createSignal("");
+  const [checks, setChecks] = createSignal<SiteCheck[]>([]);
+  const [loaded, setLoaded] = createSignal(0);
+  const [uploaded, setUploaded] = createSignal(0);
+  const [uploadCount, setUploadCount] = createSignal(0);
+  const [uploadSize, setUploadSize] = createSignal(0);
+  const [limits, setLimits] = createSignal<Limits | null>(null);
+  let controller: AbortController | null = null;
   // Files are compressed and hashed as soon as they're selected, and Publish reuses them
-  const preparation = useRef<Promise<UploadFile[]> | null>(null);
+  let preparation: Promise<UploadFile[]> | null = null;
 
-  const busy = ["hashing", "creating", "uploading", "completing"].includes(
-    stage,
+  const busy = createMemo(() =>
+    ["hashing", "creating", "uploading", "completing"].includes(stage()),
   );
-  const live = stage === "ready" && session !== null;
-  const totalSize = files.reduce((sum, { file }) => sum + file.size, 0);
-  const compressedFiles = Object.values(compressed);
-  const compressedSize =
-    compressedFiles.length === files.length
-      ? compressedFiles.reduce((sum, { file }) => sum + file.size, 0)
-      : null;
-  const diff = storedFiles && siteChanges(files, compressedFiles, storedFiles);
-  const unchanged =
-    diff !== null &&
-    compressedSize !== null &&
-    diff.changes.size === 0 &&
-    diff.removed.length === 0;
-  const percentage = uploadSize ? Math.round((loaded / uploadSize) * 100) : 0;
+  const live = createMemo(() => stage() === "ready" && session() !== null);
+  const totalSize = () => files().reduce((sum, { file }) => sum + file.size, 0);
+  const compressedFiles = createMemo(() => Object.values(compressed()));
+  const compressedSize = createMemo(() =>
+    compressedFiles().length === files().length
+      ? compressedFiles().reduce((sum, { file }) => sum + file.size, 0)
+      : null,
+  );
+  const diff = createMemo(() => {
+    const stored = storedFiles();
+    return stored && siteChanges(files(), compressedFiles(), stored);
+  });
+  const unchanged = createMemo(() => {
+    const changes = diff();
+    return (
+      changes !== null &&
+      compressedSize() !== null &&
+      changes.changes.size === 0 &&
+      changes.removed.length === 0
+    );
+  });
+  const percentage = createMemo(() =>
+    uploadSize() ? Math.round((loaded() / uploadSize()) * 100) : 0,
+  );
 
-  useEffect(() => {
+  createEffect(target, (target) => {
     const token = loadToken();
     if (!target || !token) return;
     let current = true;
@@ -138,14 +154,14 @@ function useUploadState() {
     return () => {
       current = false;
     };
-  }, [target]);
+  });
 
-  useEffect(() => {
+  onSettled(() => {
     // Without limits, the API still rejects oversized sites when publishing
     readLimits()
-      .then(setLimits)
+      .then((limits) => setLimits(limits))
       .catch(() => {});
-  }, []);
+  });
 
   function forgetSite() {
     clearSession();
@@ -159,7 +175,7 @@ function useUploadState() {
   }
 
   function clearFiles() {
-    preparation.current = null;
+    preparation = null;
     setFiles([]);
     setCompressed({});
     setMessage("");
@@ -175,7 +191,7 @@ function useUploadState() {
 
   // Sends the user back to the drop box with a checklist if anything fails
   function rejected(uploads: SiteFile[]) {
-    const results = siteChecks(uploads, limits);
+    const results = siteChecks(uploads, limits());
     if (results.every(({ passed }) => passed)) return false;
     clearFiles();
     setChecks(results);
@@ -188,7 +204,7 @@ function useUploadState() {
       return;
     }
     // A published site is done with; new files start a new one
-    if (live) forgetSite();
+    if (live()) forgetSite();
     clearFiles();
     setStage("idle");
     // Before any file is read, so an oversized one can't fill the tab's memory
@@ -202,7 +218,7 @@ function useUploadState() {
     const { schedule, flush } = batched(() => {
       const prepared = batch;
       batch = {};
-      if (preparation.current === run) {
+      if (preparation === run) {
         setCompressed((current) => ({ ...current, ...prepared }));
       }
     });
@@ -210,22 +226,23 @@ function useUploadState() {
       batch[file.path] = file;
       schedule();
     });
-    preparation.current = run;
+    preparation = run;
     try {
       await run;
       flush();
     } catch (error) {
-      if (preparation.current !== run) return;
+      if (preparation !== run) return;
       showError(errorMessage(error));
     }
   }
 
   function startOver() {
-    controller.current?.abort();
+    controller?.abort();
     // An unfinished upload keeps its site locked, so it's released here
     const token = loadToken();
-    if (session && session.deployment.state !== "ready" && token) {
-      cancelUpload(session.deployment.slug, token).catch(() => {});
+    const current = session();
+    if (current && current.deployment.state !== "ready" && token) {
+      cancelUpload(current.deployment.slug, token).catch(() => {});
     }
     forgetSite();
     clearFiles();
@@ -272,9 +289,10 @@ function useUploadState() {
   // For uploads abandoned elsewhere, like in a closed tab
   async function takeOver() {
     const token = loadToken();
-    if (!target || !token) return;
+    const slug = target();
+    if (!slug || !token) return;
     try {
-      await cancelUpload(target, token);
+      await cancelUpload(slug, token);
     } catch (error) {
       setMessage(errorMessage(error));
       return;
@@ -283,18 +301,18 @@ function useUploadState() {
   }
 
   function cancel() {
-    controller.current?.abort();
+    controller?.abort();
   }
 
   async function publish() {
     const abort = new AbortController();
-    controller.current = abort;
+    controller = abort;
     setMessage("");
     setLockedUntil(null);
     setStage("hashing");
 
     try {
-      const uploads = await preparation.current!;
+      const uploads = await preparation!;
       if (rejected(uploads)) {
         setStage("idle");
         return;
@@ -302,22 +320,23 @@ function useUploadState() {
       const manifest = fileManifest(uploads);
       abort.signal.throwIfAborted();
 
-      let active = session;
+      let active = session();
       if (!active) {
         setStage("creating");
         let deployment: DeploymentUploads;
-        if (target) {
-          deployment = await prepareUpdate(target, manifest, abort.signal);
+        const update = target();
+        if (update) {
+          deployment = await prepareUpdate(update, manifest, abort.signal);
         } else {
           const token = publishToken();
           try {
             deployment = await createDeployment(
               {
                 files: manifest,
-                slug: slug ?? undefined,
-                description: description ?? undefined,
-                version_description: note || undefined,
-                expires_at: expiresAt ?? undefined,
+                slug: slug() ?? undefined,
+                description: description() ?? undefined,
+                version_description: note() || undefined,
+                expires_at: expiresAt() ?? undefined,
               },
               token,
               abort.signal,
@@ -332,9 +351,9 @@ function useUploadState() {
         active = {
           deployment,
           manifest,
-          originalSize: totalSize,
-          description: description ?? undefined,
-          note: note || undefined,
+          originalSize: totalSize(),
+          description: description() ?? undefined,
+          note: note() || undefined,
         };
         saveSession(active);
         setSession(active);
@@ -397,42 +416,84 @@ function useUploadState() {
       }
       setStage("error");
     } finally {
-      controller.current = null;
+      controller = null;
     }
   }
 
   return {
-    files,
-    compressed,
-    limits,
-    session,
-    stage,
-    message,
-    target,
-    lockedUntil,
-    description,
-    diff,
-    unchanged,
-    checks,
-    uploaded,
-    uploadCount,
-    busy,
-    live,
-    compressedSize,
-    percentage,
+    get files() {
+      return files();
+    },
+    get compressed() {
+      return compressed();
+    },
+    get limits() {
+      return limits();
+    },
+    get session() {
+      return session();
+    },
+    get stage() {
+      return stage();
+    },
+    get message() {
+      return message();
+    },
+    get target() {
+      return target();
+    },
+    get lockedUntil() {
+      return lockedUntil();
+    },
+    get description() {
+      return description();
+    },
+    get diff() {
+      return diff();
+    },
+    get unchanged() {
+      return unchanged();
+    },
+    get checks() {
+      return checks();
+    },
+    get uploaded() {
+      return uploaded();
+    },
+    get uploadCount() {
+      return uploadCount();
+    },
+    get busy() {
+      return busy();
+    },
+    get live() {
+      return live();
+    },
+    get compressedSize() {
+      return compressedSize();
+    },
+    get percentage() {
+      return percentage();
+    },
     clearFiles,
     showError,
     selectFiles,
     startOver,
     selectUpdate,
     chooseTarget,
-    slug,
-    setSlug,
-    expiresAt,
-    setExpiresAt,
-    setDescription,
-    note,
-    setNote,
+    get slug() {
+      return slug();
+    },
+    setSlug: (slug: string | null) => setSlug(slug),
+    get expiresAt() {
+      return expiresAt();
+    },
+    setExpiresAt: (expiresAt: string | null) => setExpiresAt(expiresAt),
+    setDescription: (description: string | null) => setDescription(description),
+    get note() {
+      return note();
+    },
+    setNote: (note: string) => setNote(note),
     cancel,
     publish,
     takeOver,
@@ -440,34 +501,34 @@ function useUploadState() {
 }
 
 // Shared by the drop page and the publish page, so files survive the route change
-const Upload = createContext<ReturnType<typeof useUploadState> | null>(null);
+const Upload = createContext<ReturnType<typeof useUploadState>>();
 
-export function UploadProvider({ children }: { children: ReactNode }) {
-  return <Upload value={useUploadState()}>{children}</Upload>;
+export function UploadProvider(props: { children: JSX.Element }) {
+  return <Upload value={useUploadState()}>{props.children}</Upload>;
 }
 
 export function useUpload() {
-  return use(Upload)!;
+  return useContext(Upload);
 }
 
 // The whole page is the drop target, so a stray drop never opens the file
 export function usePageDrop(
-  accepts: boolean,
+  accepts: Accessor<boolean>,
   onFiles?: (files: SiteFile[]) => void,
-) {
-  const { selectFiles, showError, limits } = useUpload();
-  const [dragging, setDragging] = useState(false);
+): Accessor<boolean> {
+  const upload = useUpload();
+  const [dragging, setDragging] = createSignal(false);
 
-  const receive = useEffectEvent(async (items: DataTransferItemList) => {
+  async function receive(items: DataTransferItemList) {
     try {
-      const selected = await droppedFiles(items, limits);
-      (onFiles ?? selectFiles)(selected);
+      const selected = await droppedFiles(items, upload.limits);
+      (onFiles ?? upload.selectFiles)(selected);
     } catch (error) {
-      showError(errorMessage(error));
+      upload.showError(errorMessage(error));
     }
-  });
+  }
 
-  useEffect(() => {
+  createEffect(accepts, (accepts) => {
     // Elements the drag is over; a count breaks when one is removed mid-drag
     const entered = new Set<Node>();
     const hasFiles = (event: DragEvent) =>
@@ -509,7 +570,7 @@ export function usePageDrop(
       removeEventListener("dragleave", leave);
       removeEventListener("drop", drop);
     };
-  }, [accepts]);
+  });
 
   return dragging;
 }

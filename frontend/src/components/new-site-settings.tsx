@@ -1,8 +1,8 @@
-import { RefreshCw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { createEffect, createSignal, Show } from "solid-js";
 import { Phrase } from "@/components/detent/components/phrase/Phrase";
 import { ExpiryDate, presets, useExpiry } from "@/components/expiry-select";
 import { Hint } from "@/components/hint";
+import { RefreshCw } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { suggestSlugs } from "@/lib/deploy";
 import { formatDate, siteUrl } from "@/lib/format";
@@ -17,16 +17,13 @@ type NewSiteSettingsProps = {
 };
 
 // Where a new site goes and how long it stays, read as one sentence
-export function NewSiteSettings({
-  slug,
-  onSlug,
-  expiresAt,
-  onExpiry,
-  disabled,
-}: NewSiteSettingsProps) {
-  const [options, setOptions] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [preset, choose] = useExpiry(expiresAt, onExpiry);
+export function NewSiteSettings(props: NewSiteSettingsProps) {
+  const [options, setOptions] = createSignal<string[]>([]);
+  const [loading, setLoading] = createSignal(false);
+  const [preset, choose] = useExpiry(
+    () => props.expiresAt,
+    (expiresAt) => props.onExpiry(expiresAt),
+  );
 
   async function suggest() {
     const token = loadToken();
@@ -35,7 +32,7 @@ export function NewSiteSettings({
     try {
       const slugs = await suggestSlugs(token);
       setOptions(slugs);
-      if (slugs[0]) onSlug(slugs[0]);
+      if (slugs[0]) props.onSlug(slugs[0]);
     } catch {
       // Then the server picks one when publishing
     } finally {
@@ -43,17 +40,22 @@ export function NewSiteSettings({
     }
   }
 
-  useEffect(() => {
-    if (slug === null) void suggest();
-  }, [slug]);
+  createEffect(
+    () => props.slug,
+    (slug) => {
+      if (slug === null) void suggest();
+    },
+  );
 
-  const address = slug && siteUrl(slug)?.replace(/^https?:\/\//, "");
-  const offline = expiresAt
-    ? `goes offline on ${formatDate(expiresAt)}`
-    : "stays online until you delete it";
+  const address = () =>
+    props.slug && siteUrl(props.slug)?.replace(/^https?:\/\//, "");
+  const offline = () =>
+    props.expiresAt
+      ? `goes offline on ${formatDate(props.expiresAt)}`
+      : "stays online until you delete it";
 
   return (
-    <fieldset className="mt-4 space-y-2" disabled={disabled}>
+    <fieldset class="mt-4 space-y-2" disabled={props.disabled}>
       <Phrase
         title="New site"
         aside={
@@ -63,18 +65,18 @@ export function NewSiteSettings({
               variant="ghost"
               size="icon-xs"
               aria-label="Offer other addresses"
-              disabled={loading}
+              disabled={loading()}
               onClick={suggest}
             >
-              <RefreshCw className={loading ? "animate-spin" : ""} />
+              <RefreshCw class={loading() ? "animate-spin" : ""} />
             </Button>
           </Hint>
         }
         parts={[
           "Publish it at ",
-          options.length > 0
-            ? { id: "slug", label: "Address", options }
-            : (slug ?? "an address picked for you"),
+          options().length > 0
+            ? { id: "slug", label: "Address", options: options() }
+            : (props.slug ?? "an address picked for you"),
           " and keep it online ",
           {
             id: "expiry",
@@ -84,19 +86,20 @@ export function NewSiteSettings({
           ".",
         ]}
         value={{
-          slug: slug ?? "",
-          expiry: presets.find(([key]) => key === preset)![2],
+          slug: props.slug ?? "",
+          expiry: presets.find(([key]) => key === preset())![2],
         }}
         onChange={(values) => {
-          if (values.slug && values.slug !== slug) onSlug(String(values.slug));
+          if (values.slug && values.slug !== props.slug)
+            props.onSlug(String(values.slug));
           const next = presets.find(([, , words]) => words === values.expiry);
-          if (next && next[0] !== preset) choose(next[0]);
+          if (next && next[0] !== preset()) choose(next[0]);
         }}
-        says={() => (address ? `${address} · ${offline}` : offline)}
+        says={() => (address() ? `${address()} · ${offline()}` : offline())}
       />
-      {preset === "date" && (
-        <ExpiryDate value={expiresAt} onChange={onExpiry} />
-      )}
+      <Show when={preset() === "date"}>
+        <ExpiryDate value={props.expiresAt} onChange={props.onExpiry} />
+      </Show>
     </fieldset>
   );
 }

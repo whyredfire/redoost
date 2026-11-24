@@ -1,74 +1,92 @@
-import { useLayoutEffect, useRef, useState } from 'react'
-import { animate, motion, useMotionValue } from 'motion/react'
+import { createEffect, createMemo, createSignal, For, onSettled, Show, untrack } from 'solid-js'
+import { animate, motionValue, styleEffect } from 'motion'
+import { animated } from '@/lib/motion'
 
 const roll = { type: 'spring', stiffness: 380, damping: 34, mass: 0.8 } as const
 
-export function RollingText({ text, className = '', proportional = false, still = false }: { text: string; className?: string; proportional?: boolean; still?: boolean }) {
-  const chars = [...text]
-  const probe = useRef<HTMLSpanElement>(null)
-  const [widths, setWidths] = useState<number[] | null>(null)
+export function RollingText(props: { text: string; class?: string; proportional?: boolean; still?: boolean }) {
+  // Keyed from the right, so digits keep their place as the text grows
+  const chars = createMemo(() => {
+    const all = [...props.text]
+    return all.map((c, i) => ({ c, digit: /\d/.test(c), key: /\d/.test(c) ? `${all.length - i}` : `${all.length - i}${c}` }))
+  })
+  let probe: HTMLSpanElement | undefined
+  const [widths, setWidths] = createSignal<number[] | null>(null)
 
-  useLayoutEffect(() => {
-    if (!proportional || !probe.current) return
-    const read = () => {
-      const box = probe.current!
-      const z = box.offsetWidth ? box.getBoundingClientRect().width / box.offsetWidth : 1
-      const em = parseFloat(getComputedStyle(box).fontSize) || 16
-      setWidths([...box.children].map((c) => (c as HTMLElement).getBoundingClientRect().width / z / em))
-    }
-    read()
-    document.fonts?.ready.then(read)
-  }, [proportional])
+  createEffect(
+    () => !!props.proportional,
+    (proportional) => {
+      if (!proportional || !probe) return
+      const read = () => {
+        const box = probe!
+        const z = box.offsetWidth ? box.getBoundingClientRect().width / box.offsetWidth : 1
+        const em = parseFloat(getComputedStyle(box).fontSize) || 16
+        setWidths([...box.children].map((c) => (c as HTMLElement).getBoundingClientRect().width / z / em))
+      }
+      read()
+      void document.fonts?.ready.then(read)
+    },
+  )
 
   return (
-    <span className={`relative inline-flex ${proportional ? '' : 'tnum'} ${className}`} style={{ lineHeight: '1.25em', height: '1.25em' }}>
-      <span className="sr-only">{text}</span>
-      {proportional && (
-        <span aria-hidden className="pointer-events-none absolute left-0 top-0 size-0 overflow-hidden">
-          <span ref={probe} className="invisible flex w-max whitespace-pre">
+    <span class={`relative inline-flex ${props.proportional ? '' : 'tnum'} ${props.class ?? ''}`} style={{ 'line-height': '1.25em', height: '1.25em' }}>
+      <span class="sr-only">{props.text}</span>
+      <Show when={props.proportional}>
+        <span aria-hidden="true" class="pointer-events-none absolute left-0 top-0 size-0 overflow-hidden">
+          <span ref={(el) => (probe = el)} class="invisible flex w-max whitespace-pre">
             {Array.from({ length: 10 }, (_, n) => (
-              <span key={n}>{n}</span>
+              <span>{n}</span>
             ))}
           </span>
         </span>
-      )}
-      {chars.map((c, i) => {
-        const key = chars.length - i
-        return /\d/.test(c) ? (
-          <Digit key={key} d={+c} width={proportional && widths ? widths[+c] : undefined} still={still} />
-        ) : (
-          <span key={`${key}${c}`} aria-hidden className="whitespace-pre">
-            {c}
-          </span>
-        )
-      })}
+      </Show>
+      <For each={chars()} keyed={(x) => x.key}>
+        {(x) => (
+          <Show
+            when={x().digit}
+            fallback={
+              <span aria-hidden="true" class="whitespace-pre">
+                {x().c}
+              </span>
+            }
+          >
+            <Digit d={+x().c} width={props.proportional && widths() ? widths()![+x().c] : undefined} still={!!props.still} />
+          </Show>
+        )}
+      </For>
     </span>
   )
 }
 
-function Digit({ d, width, still }: { d: number; width?: number; still: boolean }) {
-  const w = useMotionValue<string>(width === undefined ? '1ch' : `${width}em`)
-  const had = useRef(width !== undefined)
-  useLayoutEffect(() => {
-    if (width === undefined) return
-    if (!had.current) {
-      had.current = true
-      w.set(`${width}em`)
-      return
-    }
-    const ctl = animate(w, `${width}em`, roll)
-    return () => ctl.stop()
-  }, [width, w])
+function Digit(props: { d: number; width?: number; still: boolean }) {
+  // motion.span style={{ width }} on a motion value, so the width springs in em
+  const w = motionValue<string>(untrack(() => (props.width === undefined ? '1ch' : `${props.width}em`)))
+  let had = untrack(() => props.width !== undefined)
+  let stop: VoidFunction | undefined
+  onSettled(() => () => stop?.())
+  createEffect(
+    () => props.width,
+    (width) => {
+      if (width === undefined) return
+      if (!had) {
+        had = true
+        w.set(`${width}em`)
+        return
+      }
+      const ctl = animate(w, `${width}em`, roll)
+      return () => ctl.stop()
+    },
+  )
 
   return (
-    <motion.span aria-hidden className="relative inline-block overflow-hidden" style={{ height: '1.25em', width: w }}>
-      <motion.span className="absolute inset-x-0 top-0 flex flex-col items-center" initial={false} animate={{ y: `${-d * 10}%` }} transition={still ? { duration: 0 } : roll}>
+    <span ref={(el) => (stop = styleEffect(el, { width: w }))} aria-hidden="true" class="relative inline-block overflow-hidden" style={{ height: '1.25em' }}>
+      <span class="absolute inset-x-0 top-0 flex flex-col items-center" ref={animated(() => ({ y: `${-props.d * 10}%` }), () => (props.still ? { duration: 0 } : roll))}>
         {Array.from({ length: 10 }, (_, n) => (
-          <span key={n} className="block" style={{ height: '1.25em' }}>
+          <span class="block" style={{ height: '1.25em' }}>
             {n}
           </span>
         ))}
-      </motion.span>
-    </motion.span>
+      </span>
+    </span>
   )
 }

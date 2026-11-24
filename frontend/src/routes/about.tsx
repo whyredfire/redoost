@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/solid-router";
 import { AboutSections } from "@/components/about-sections";
 import { PageHeading } from "@/components/page-heading";
 

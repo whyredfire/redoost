@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { CircleCheck } from "lucide-react";
-import { useState } from "react";
+import { createFileRoute } from "@tanstack/solid-router";
+import { Show, createSignal } from "solid-js";
+import { CircleCheck } from "@/components/icons";
 import { SignInPrompt } from "@/components/sign-in-prompt";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api";
@@ -15,34 +15,19 @@ export const Route = createFileRoute("/cli/$id")({
 });
 
 function CliLoginPage() {
-  const { id } = Route.useParams();
+  const params = Route.useParams();
   const token = useToken();
-  const [approving, setApproving] = useState(false);
-  const [approved, setApproved] = useState(false);
-  const [error, setError] = useState("");
-
-  if (!token) {
-    return (
-      <div className="mx-auto flex max-w-md flex-col items-center gap-3 py-16 text-center">
-        <LoginCommand />
-        <h1 className="mt-3 mb-3 text-2xl font-semibold tracking-tighter">
-          Sign in to the redoost CLI
-        </h1>
-        <SignInPrompt
-          className="w-full"
-          title="Sign in to continue"
-          description="Then you can let the CLI act as your account."
-        />
-      </div>
-    );
-  }
+  const [approving, setApproving] = createSignal(false);
+  const [approved, setApproved] = createSignal(false);
+  const [error, setError] = createSignal("");
 
   async function approve() {
-    if (!token) return;
+    const current = token();
+    if (!current) return;
     setApproving(true);
     setError("");
     try {
-      await approveCliLogin(id, token);
+      await approveCliLogin(params().id, current);
       setApproved(true);
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 404) {
@@ -55,51 +40,68 @@ function CliLoginPage() {
     }
   }
 
-  if (approved) {
-    return (
-      <div className="mx-auto flex max-w-md flex-col items-center gap-3 py-16 text-center">
-        <CircleCheck className="size-8 text-emerald-600 dark:text-emerald-500" />
-        <h1 className="text-2xl font-semibold tracking-tighter">
-          You're signed in
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          The CLI finishes signing in by itself. You can close this tab.
-        </p>
-      </div>
-    );
-  }
-
-  const email = signedInUser()?.email;
   return (
-    <div className="mx-auto flex max-w-md flex-col items-center gap-3 py-16 text-center">
-      <LoginCommand />
-      <h1 className="mt-3 text-2xl font-semibold tracking-tighter">
-        Sign in to the redoost CLI?
-      </h1>
-      <p className="text-sm text-muted-foreground">
-        The CLI will act as{" "}
-        <span className="font-medium text-foreground">
-          {email ?? "your account"}
-        </span>
-        . Only continue if you just ran{" "}
-        <code className="font-mono">redoost login</code> yourself.
-      </p>
-      <Button className="mt-3" disabled={approving} onClick={approve}>
-        {approving ? "Signing in…" : "Continue"}
-      </Button>
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
-    </div>
+    <Show
+      when={token()}
+      fallback={
+        <div class="mx-auto flex max-w-md flex-col items-center gap-3 py-16 text-center">
+          <LoginCommand />
+          <h1 class="mt-3 mb-3 text-2xl font-semibold tracking-tighter">
+            Sign in to the redoost CLI
+          </h1>
+          <SignInPrompt
+            class="w-full"
+            title="Sign in to continue"
+            description="Then you can let the CLI act as your account."
+          />
+        </div>
+      }
+    >
+      <Show
+        when={!approved()}
+        fallback={
+          <div class="mx-auto flex max-w-md flex-col items-center gap-3 py-16 text-center">
+            <CircleCheck class="size-8 text-emerald-600 dark:text-emerald-500" />
+            <h1 class="text-2xl font-semibold tracking-tighter">
+              You're signed in
+            </h1>
+            <p class="text-sm text-muted-foreground">
+              The CLI finishes signing in by itself. You can close this tab.
+            </p>
+          </div>
+        }
+      >
+        <div class="mx-auto flex max-w-md flex-col items-center gap-3 py-16 text-center">
+          <LoginCommand />
+          <h1 class="mt-3 text-2xl font-semibold tracking-tighter">
+            Sign in to the redoost CLI?
+          </h1>
+          <p class="text-sm text-muted-foreground">
+            The CLI will act as{" "}
+            <span class="font-medium text-foreground">
+              {signedInUser()?.email ?? "your account"}
+            </span>
+            . Only continue if you just ran{" "}
+            <code class="font-mono">redoost login</code> yourself.
+          </p>
+          <Button class="mt-3" disabled={approving()} onClick={approve}>
+            {approving() ? "Signing in…" : "Continue"}
+          </Button>
+          <Show when={error()}>
+            <p role="alert" class="text-sm text-destructive">
+              {error()}
+            </p>
+          </Show>
+        </div>
+      </Show>
+    </Show>
   );
 }
 
 function LoginCommand() {
   return (
-    <p className="rounded-lg border bg-muted/40 px-3 py-1.5 font-mono text-sm">
-      <span className="text-brand select-none">$ </span>redoost login
+    <p class="rounded-lg border bg-muted/40 px-3 py-1.5 font-mono text-sm">
+      <span class="text-brand select-none">$ </span>redoost login
     </p>
   );
 }

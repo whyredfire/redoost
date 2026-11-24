@@ -1,5 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Monitor, Moon, Sun } from "lucide-react";
+import { createFileRoute } from "@tanstack/solid-router";
+import { For } from "solid-js";
+import { Monitor, Moon, Sun } from "@/components/icons";
 import { SettingsSection } from "@/components/settings-section";
 import { setTheme, useTheme, type Theme } from "@/lib/theme";
 
@@ -22,28 +23,23 @@ function AppearanceSettings() {
       title="Theme"
       description="System follows your device, switching when it does. Saved in this browser."
     >
-      <div
-        role="radiogroup"
-        aria-label="Theme"
-        className="grid grid-cols-3 gap-3"
-      >
-        {themes.map(({ value, label, icon: Icon }) => (
-          <label
-            key={value}
-            className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border px-4 py-4 text-sm text-muted-foreground transition-colors hover:bg-muted/40 has-checked:border-brand has-checked:text-foreground has-focus-visible:ring-2 has-focus-visible:ring-ring"
-          >
-            <input
-              type="radio"
-              name="theme"
-              value={value}
-              checked={theme === value}
-              onChange={() => setTheme(value)}
-              className="sr-only"
-            />
-            <Icon className="size-5" />
-            {label}
-          </label>
-        ))}
+      <div role="radiogroup" aria-label="Theme" class="grid grid-cols-3 gap-3">
+        <For each={themes}>
+          {(option) => (
+            <label class="flex cursor-pointer flex-col items-center gap-2 rounded-xl border px-4 py-4 text-sm text-muted-foreground transition-colors hover:bg-muted/40 has-checked:border-brand has-checked:text-foreground has-focus-visible:ring-2 has-focus-visible:ring-ring">
+              <input
+                type="radio"
+                name="theme"
+                value={option.value}
+                checked={theme() === option.value}
+                onChange={() => setTheme(option.value)}
+                class="sr-only"
+              />
+              <option.icon class="size-5" />
+              {option.label}
+            </label>
+          )}
+        </For>
       </div>
     </SettingsSection>
   );

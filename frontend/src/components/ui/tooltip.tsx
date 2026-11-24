@@ -1,53 +1,45 @@
-import * as React from "react"
 import { cn } from "cn"
-import { Tooltip as TooltipPrimitive } from "radix-ui"
+import * as TooltipPrimitive from "@kobalte/core/tooltip"
+import type { PolymorphicProps } from "@kobalte/core/polymorphic"
+import { omit } from "solid-js"
+import type { ValidComponent } from "@solidjs/web"
 
-function TooltipProvider({
-  delayDuration = 0,
-  ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
+// Radix's defaults: no open delay (was TooltipProvider's delayDuration), closing at once, above the trigger, 4px away
+function Tooltip(props: TooltipPrimitive.TooltipRootProps) {
   return (
-    <TooltipPrimitive.Provider
-      data-slot="tooltip-provider"
-      delayDuration={delayDuration}
+    <TooltipPrimitive.Root
+      openDelay={0}
+      closeDelay={0}
+      placement="top"
+      gutter={4}
       {...props}
     />
   )
 }
 
-function Tooltip({
-  ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Root>) {
-  return <TooltipPrimitive.Root data-slot="tooltip" {...props} />
-}
-
-function TooltipTrigger({
-  ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {
+function TooltipTrigger<T extends ValidComponent = "button">(
+  props: PolymorphicProps<T, TooltipPrimitive.TooltipTriggerProps<T>>
+) {
   return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />
 }
 
-function TooltipContent({
-  className,
-  sideOffset = 4,
-  children,
-  ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Content>) {
+function TooltipContent(
+  props: PolymorphicProps<"div", TooltipPrimitive.TooltipContentProps<"div">>
+) {
+  const others = omit(props, "class")
   return (
     <TooltipPrimitive.Portal>
       <TooltipPrimitive.Content
         data-slot="tooltip-content"
-        sideOffset={sideOffset}
-        className={cn(
-          "z-50 w-fit origin-(--radix-tooltip-content-transform-origin) animate-in rounded-chip bg-foreground px-3 py-1.5 text-xs text-balance text-background fade-in-0 zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
-          className
+        class={cn(
+          // Kobalte doesn't expose the side, so this slides in as from above the trigger
+          "z-50 w-fit origin-(--kb-tooltip-content-transform-origin) animate-in rounded-chip bg-foreground px-3 py-1.5 text-xs text-balance text-background fade-in-0 zoom-in-95 slide-in-from-bottom-2 data-[closed]:animate-out data-[closed]:fade-out-0 data-[closed]:zoom-out-95",
+          props.class
         )}
-        {...props}
-      >
-        {children}
-      </TooltipPrimitive.Content>
+        {...others}
+      />
     </TooltipPrimitive.Portal>
   )
 }
 
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
+export { Tooltip, TooltipTrigger, TooltipContent }

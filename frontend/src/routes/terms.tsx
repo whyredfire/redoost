@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/solid-router";
 import { ContactLink, LegalPage, Section } from "@/components/legal-page";
 
 export const Route = createFileRoute("/terms")({
@@ -24,7 +24,7 @@ function TermsPage() {
       </Section>
 
       <Section title="What's not allowed">
-        <ul className="list-disc space-y-1 pl-5">
+        <ul class="list-disc space-y-1 pl-5">
           <li>Phishing, or pretending to be someone else</li>
           <li>Malware, or anything that harms visitors' devices</li>
           <li>Illegal content, or content you don't have the rights to</li>

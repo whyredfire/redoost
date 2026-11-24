@@ -1,25 +1,22 @@
-import { RouterProvider, createRouter } from "@tanstack/react-router";
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { RouterProvider, createRouter } from "@tanstack/solid-router";
+import { render } from "@solidjs/web";
 import { UploadProvider } from "@/lib/upload";
 import { routeTree } from "./routeTree.gen";
 import "../styles/globals.css";
 
 const router = createRouter({ routeTree, defaultPreload: "intent" });
 
-declare module "@tanstack/react-router" {
+declare module "@tanstack/solid-router" {
   interface Register {
     router: typeof router;
   }
 }
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
+render(
+  () => (
     <UploadProvider>
-      <TooltipProvider>
-        <RouterProvider router={router} />
-      </TooltipProvider>
+      <RouterProvider router={router} />
     </UploadProvider>
-  </StrictMode>,
+  ),
+  document.getElementById("root")!,
 );

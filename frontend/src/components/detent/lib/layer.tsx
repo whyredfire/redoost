@@ -1,50 +1,42 @@
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import type { ReactNode, RefObject } from 'react'
-import { createPortal } from 'react-dom'
-import { motion, useReducedMotion } from 'motion/react'
+import { createContext, createEffect, createSignal, useContext } from 'solid-js'
+import type { Accessor } from 'solid-js'
+import { Portal } from '@solidjs/web'
+import type { JSX } from '@solidjs/web'
+import { animated, useReducedMotion } from '@/lib/motion'
 import { spring } from '@/components/detent/lib/motion'
 
-type Host = { layers: HTMLElement | null; frame: HTMLElement | null; recede: (on: boolean) => void }
+type Host = { layers: Accessor<HTMLElement | null>; frame: Accessor<HTMLElement | null>; recede: (on: boolean) => void }
 const HostContext = createContext<Host | null>(null)
 
-export function LayerHost({ children, className = '', layerClassName = '' }: { children: ReactNode; className?: string; layerClassName?: string }) {
-  const [layers, setLayers] = useState<HTMLElement | null>(null)
-  const [frame, setFrame] = useState<HTMLElement | null>(null)
-  const [back, setBack] = useState(0)
+export function LayerHost(props: { children: JSX.Element; class?: string; layerClass?: string }) {
+  const [layers, setLayers] = createSignal<HTMLElement | null>(null)
+  const [frame, setFrame] = createSignal<HTMLElement | null>(null)
+  const [back, setBack] = createSignal(0)
   const reduce = useReducedMotion()
-  const recede = useCallback((on: boolean) => setBack((n) => Math.max(0, n + (on ? 1 : -1))), [])
-  const host = useMemo<Host>(() => ({ layers, frame, recede }), [layers, frame, recede])
+  const recede = (on: boolean) => setBack((n) => Math.max(0, n + (on ? 1 : -1)))
   return (
-    <HostContext.Provider value={host}>
-      <div ref={setFrame} className={`relative isolate overflow-hidden ${className}`}>
-        <motion.div className="h-full w-full origin-top" initial={false} animate={reduce ? {} : { scale: back ? 0.97 : 1, opacity: back ? 0.92 : 1 }} transition={spring.soft}>
-          {children}
-        </motion.div>
-        <div ref={setLayers} className={`pointer-events-none absolute inset-0 z-50 ${layerClassName}`} />
+    <HostContext value={{ layers, frame, recede }}>
+      <div ref={setFrame} class={`relative isolate overflow-hidden ${props.class ?? ''}`}>
+        <div class="h-full w-full origin-top" ref={animated(() => (reduce() ? {} : { scale: back() ? 0.97 : 1, opacity: back() ? 0.92 : 1 }), spring.soft)}>
+          {props.children}
+        </div>
+        <div ref={setLayers} class={`pointer-events-none absolute inset-0 z-50 ${props.layerClass ?? ''}`} />
       </div>
-    </HostContext.Provider>
+    </HostContext>
   )
 }
 
-const noop = () => () => {}
-export const useMounted = () =>
-  useSyncExternalStore(
-    noop,
-    () => true,
-    () => false,
-  )
+// Client-only app, so always mounted; kept for callers written against the hook
+export const useMounted = (): Accessor<boolean> => () => true
 
 export function useHost() {
   const host = useContext(HostContext)
-  return { contained: !!host, layers: host?.layers ?? null, frame: host?.frame ?? null, recede: host?.recede ?? (() => {}) }
+  return { contained: !!host, layers: host?.layers ?? (() => null), frame: host?.frame ?? (() => null), recede: host?.recede ?? (() => {}) }
 }
 
-export function Layer({ children }: { children: ReactNode }) {
-  const mounted = useMounted()
+export function Layer(props: { children: JSX.Element }) {
   const { contained, layers } = useHost()
-  if (!mounted) return null
-  if (contained && !layers) return null
-  return createPortal(children, contained ? layers! : document.body)
+  return <>{contained && !layers() ? null : <Portal mount={contained ? layers()! : document.body}>{props.children}</Portal>}</>
 }
 
 export const fill = (contained: boolean) => (contained ? 'absolute inset-0' : 'fixed inset-0')
@@ -96,27 +88,24 @@ export function originOf(side: Side, arrow: number) {
 
 const open: object[] = []
 
-export function useDismiss(active: boolean, inside: RefObject<HTMLElement | null>[], onDismiss: (why: 'escape' | 'outside') => void) {
-  const me = useRef({})
-  const latest = useRef({ inside, onDismiss })
-  useLayoutEffect(() => {
-    latest.current = { inside, onDismiss }
-  })
-  useEffect(() => {
-    if (!active) return
-    const token = me.current
+type El = () => HTMLElement | null | undefined
+
+export function useDismiss(active: Accessor<boolean>, inside: El[], onDismiss: (why: 'escape' | 'outside') => void) {
+  createEffect(active, (on) => {
+    if (!on) return
+    const token = {}
     open.push(token)
     const top = () => open[open.length - 1] === token
     const key = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || !top()) return
       e.stopPropagation()
-      latest.current.onDismiss('escape')
+      onDismiss('escape')
     }
     const press = (e: PointerEvent) => {
       if (!top()) return
       const t = e.target as Node
-      if (latest.current.inside.some((r) => r.current?.contains(t))) return
-      latest.current.onDismiss('outside')
+      if (inside.some((el) => el()?.contains(t))) return
+      onDismiss('outside')
     }
     document.addEventListener('keydown', key, true)
     document.addEventListener('pointerdown', press, true)
@@ -125,41 +114,45 @@ export function useDismiss(active: boolean, inside: RefObject<HTMLElement | null
       document.removeEventListener('keydown', key, true)
       document.removeEventListener('pointerdown', press, true)
     }
-  }, [active])
+  })
 }
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
 
-export function useFocusTrap(box: RefObject<HTMLElement | null>, active: boolean, quiet: boolean, first?: RefObject<HTMLElement | null>) {
-  useEffect(() => {
-    if (!active || quiet) return
-    const before = document.activeElement as HTMLElement | null
-    const raf = requestAnimationFrame(() => {
-      const el = first?.current ?? box.current?.querySelector<HTMLElement>(FOCUSABLE) ?? box.current
-      el?.focus({ preventScroll: true })
-    })
-    const key = (e: KeyboardEvent) => {
-      if (e.key !== 'Tab' || !box.current) return
-      const all = [...box.current.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.offsetParent !== null)
-      if (!all.length) return e.preventDefault()
-      const i = all.indexOf(document.activeElement as HTMLElement)
-      const next = e.shiftKey ? (i <= 0 ? all.length - 1 : i - 1) : i === all.length - 1 ? 0 : i + 1
-      e.preventDefault()
-      all[next]?.focus({ preventScroll: true })
-    }
-    document.addEventListener('keydown', key)
-    return () => {
-      cancelAnimationFrame(raf)
-      document.removeEventListener('keydown', key)
-      if (before?.isConnected) before.focus({ preventScroll: true })
-    }
-  }, [active, quiet, box, first])
+export function useFocusTrap(box: El, active: Accessor<boolean>, quiet: Accessor<boolean>, first?: El) {
+  createEffect(
+    () => active() && !quiet(),
+    (on) => {
+      if (!on) return
+      const before = document.activeElement as HTMLElement | null
+      const raf = requestAnimationFrame(() => {
+        const el = first?.() ?? box()?.querySelector<HTMLElement>(FOCUSABLE) ?? box()
+        el?.focus({ preventScroll: true })
+      })
+      const key = (e: KeyboardEvent) => {
+        const root = box()
+        if (e.key !== 'Tab' || !root) return
+        const all = [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.offsetParent !== null)
+        if (!all.length) return e.preventDefault()
+        const i = all.indexOf(document.activeElement as HTMLElement)
+        const next = e.shiftKey ? (i <= 0 ? all.length - 1 : i - 1) : i === all.length - 1 ? 0 : i + 1
+        e.preventDefault()
+        all[next]?.focus({ preventScroll: true })
+      }
+      document.addEventListener('keydown', key)
+      return () => {
+        cancelAnimationFrame(raf)
+        document.removeEventListener('keydown', key)
+        if (before?.isConnected) before.focus({ preventScroll: true })
+      }
+    },
+  )
 }
 
 let locks = 0
-export function useScrollLock(active: boolean) {
-  useEffect(() => {
-    if (!active) return
+export function useScrollLock(active: Accessor<boolean>) {
+  createEffect(active, (on) => {
+    if (!on) return
     const html = document.documentElement
     if (locks++ === 0) {
       const bar = innerWidth - html.clientWidth
@@ -172,22 +165,17 @@ export function useScrollLock(active: boolean) {
         html.style.paddingRight = ''
       }
     }
-  }, [active])
+  })
 }
 
-export function useReposition(active: boolean, fn: () => void) {
-  const latest = useRef(fn)
-  useLayoutEffect(() => {
-    latest.current = fn
-  })
-  useEffect(() => {
-    if (!active) return
-    const run = () => latest.current()
-    addEventListener('resize', run)
-    addEventListener('scroll', run, true)
+export function useReposition(active: Accessor<boolean>, fn: () => void) {
+  createEffect(active, (on) => {
+    if (!on) return
+    addEventListener('resize', fn)
+    addEventListener('scroll', fn, true)
     return () => {
-      removeEventListener('resize', run)
-      removeEventListener('scroll', run, true)
+      removeEventListener('resize', fn)
+      removeEventListener('scroll', fn, true)
     }
-  }, [active])
+  })
 }
