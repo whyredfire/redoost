@@ -28,9 +28,6 @@ COPY --from=builder /redoost-api /usr/local/bin/redoost-api
 
 ARG VERSION=dev
 ENV REDOOST_VERSION=$VERSION
-# The CLI wheel built by the same release, which redoost update checks against
-ARG CLI_SHA256=
-ENV REDOOST_CLI_SHA256=$CLI_SHA256
 
 USER 65532:65532
 EXPOSE 8000

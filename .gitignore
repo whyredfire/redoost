@@ -1,8 +1,6 @@
 .env
-.venv/
 target/
 backend/data/
 backend/*.db
-__pycache__/
-*.py[cod]
 cli/dist/
+node_modules/

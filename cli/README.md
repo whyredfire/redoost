@@ -1,26 +1,24 @@
 # redoost CLI
 
-Publish static sites to redoost from the command line. Needs Python 3.11 or
-newer.
+Publish static sites to redoost from the command line. It needs Node.js 20 or later.
 
-Install it from `main`, so `redoost` works from anywhere:
+Install it globally with the script, which uses npm:
 
 ```sh
-# Install with uv
-uv tool install "git+https://github.com/whyredfire/redoost#subdirectory=cli"
-
-# Or with pipx
-pipx install "git+https://github.com/whyredfire/redoost#subdirectory=cli"
+curl -fsSL https://redoost.whyredfire.dev/install.sh | sh
 ```
 
-`main` can be ahead of what's deployed. Each
-[release](https://github.com/whyredfire/redoost/releases) attaches the CLI as a
-wheel, with the same commands pinned to that version in its notes.
+Any redoost serves the same script at `/install.sh`; `REDOOST_VERSION=0.7.0` installs that release instead. Or install it yourself:
+
+```sh
+npm i -g redoost
+```
+
+`bun add -g redoost` works too, as long as Node.js is installed, since the CLI runs on Node. Or run it without installing, as in `npx redoost publish ./dist`, or `bunx redoost publish ./dist`, which works with Bun alone.
 
 ## For AI agents
 
-The redoost skill teaches agents like Claude Code, Codex, and Cursor to install
-the CLI, sign in, and publish and manage sites:
+The redoost skill teaches agents like Claude Code, Codex, and Cursor to install the CLI, sign in, and publish and manage sites:
 
 ```sh
 npx skills add whyredfire/redoost
@@ -28,34 +26,23 @@ npx skills add whyredfire/redoost
 
 ## Signing in
 
-`redoost login` prints a link. Open it on any device, sign in to the dashboard,
-and continue; the CLI finishes signing in by itself, so it works without a
-browser on the machine. Links expire after 10 minutes.
+`redoost login` prints a link. Open it on any device, sign in to the dashboard, and continue; the CLI finishes signing in by itself, so it works without a browser on the machine. Links expire after 10 minutes.
 
-Each sign-in is a token named after the machine, saved per server in
-`~/.config/redoost/config.json`, readable only by you, and good for 30 days. The
-dashboard lists them under Settings → API tokens, where you can sign a machine
-out; `redoost logout` revokes the token and forgets it.
+Each sign-in is a token named after the machine, saved per server in `~/.config/redoost/config.json`, readable only by you, and good for 30 days. The dashboard lists them under Settings → API tokens, where you can sign a machine out; `redoost logout` revokes the token and forgets it.
 
 ### From a pipeline
 
-Pipelines can't open a link, so they use a token made under Settings → API
-tokens instead, with the scopes they need, usually just read and publish, and
-an expiry if you like. Either set it as `REDOOST_TOKEN` where the CLI runs,
-which takes precedence over a saved sign-in, or run `redoost login --token`
-once to save it. For example, in GitHub Actions, with the token saved as a
-repository secret:
+Pipelines can't open a link, so they use a token made under Settings → API tokens instead, with the scopes they need, usually just read and publish, and an expiry if you like. Either set it as `REDOOST_TOKEN` where the CLI runs, which takes precedence over a saved sign-in, or run `redoost login --token` once to save it. For example, in GitHub Actions, with the token saved as a repository secret:
 
 ```yaml
-- run: uv tool install "git+https://github.com/whyredfire/redoost#subdirectory=cli"
-- run: redoost publish ./dist --update brave-otter-1a2b
+- run: npx redoost publish ./dist --update brave-otter-1a2b
   env:
     REDOOST_TOKEN: ${{ secrets.REDOOST_TOKEN }}
 ```
 
 ## Commands
 
-| Command | |
+| Command |  |
 | --- | --- |
 | `redoost login` | Sign in through a link; `--token` signs in with an API token instead |
 | `redoost logout` | Revoke and forget this sign-in |
@@ -72,28 +59,23 @@ repository secret:
 | `redoost describe <slug> <text>` | Change a site's description, or clear it with `""` |
 | `redoost expire <slug> <when>` | Set when a site goes offline: a date, online through that day, a time, or `never` |
 | `redoost delete <slug>...` | Delete one or more sites |
-| `redoost update` | Update the CLI to the release your server runs |
+| `redoost update` | Install the release your server runs, with npm or Bun, whichever installed the CLI |
 
-Publishing and previewing leave out dotfiles like `.env` and `.git/`, except
-`.well-known/`, and links to files outside the folder.
+Publishing and previewing leave out dotfiles like `.env` and `.git/`, except `.well-known/`, and links to files outside the folder.
 
-Once a day, commands run in a terminal check whether the server runs a newer
-release, and suggest `redoost update` if so.
+Once a day, commands run in a terminal check whether the server runs a newer release, and suggest `redoost update` if so.
 
-Every command takes `--json` to print its result as JSON, with progress on
-stderr, and `--server` (or `REDOOST_SERVER`) to use another redoost, such as
-`http://localhost:8081` for the Compose stack. `REDOOST_TOKEN` signs in with an
-API token instead of a saved sign-in.
+Every command takes `--json` to print its result as JSON, with progress on stderr, and `--server` (or `REDOOST_SERVER`) to use another redoost, such as `http://localhost:8081` for the Compose stack. `REDOOST_TOKEN` signs in with an API token instead of a saved sign-in.
 
 ## Development
 
+The CLI is TypeScript in the repository's Bun workspace, sharing the API client and site handling with the dashboard through `shared/`. From the repository root, `bun install`, then in `cli/`:
+
 ```sh
-uv sync
-uv run ruff format --check .
-uv run ruff check .
-uv run basedpyright src tests
-uv run pytest
+bun run typecheck
+bun test                  # builds the CLI, then runs it against a fake API and S3
+bun run build             # dist/redoost.js, one file with no dependencies
+node dist/redoost.js --help
 ```
 
-`.python-version` pins Python 3.11, so code that needs a newer Python fails
-here first.
+`REDOOST_TEST_RUNTIME=node bun test` runs the built CLI under Node instead of Bun.

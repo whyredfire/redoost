@@ -1,70 +1,76 @@
+import { errorMessage } from "@redoost/shared";
+import type { Deployment } from "@redoost/shared";
 import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
+
 import { ConfirmButton } from "@/components/confirm-button";
 import { Button } from "@/components/ui/button";
-import type { Deployment } from "@/lib/deploy";
-import { errorMessage } from "@/lib/format";
 
-type SiteSelectionProps = {
-  // How many sites are listed right now, which select all picks
+interface SiteSelectionProps {
   shownCount: number;
   selected: Deployment[];
   onSelectAll: (all: boolean) => void;
   onCancel: () => void;
   onSwitch: (enabled: boolean) => Promise<void>;
   onDelete: () => Promise<void>;
-};
-
-function sites(count: number) {
-  return `${count} ${count === 1 ? "site" : "sites"}`;
 }
 
-export function SiteSelection(props: SiteSelectionProps) {
+const sites = (count: number) => `${count} ${count === 1 ? "site" : "sites"}`;
+
+export const SiteSelection = (props: SiteSelectionProps) => {
   let checkbox: HTMLInputElement | undefined;
   const [switching, setSwitching] = createSignal(false);
   const [switchError, setSwitchError] = createSignal("");
+
   const all = createMemo(
-    () => props.shownCount > 0 && props.selected.length === props.shownCount,
+    () => props.shownCount > 0 && props.selected.length === props.shownCount
   );
+
   const one = () => props.selected.length === 1;
 
-  // Some but not all, shown as a dash
   createEffect(
     () => props.selected.length > 0 && !all(),
     (indeterminate) => {
-      if (checkbox) checkbox.indeterminate = indeterminate;
-    },
+      if (checkbox) {
+        checkbox.indeterminate = indeterminate;
+      }
+    }
   );
 
-  async function switchTo(enabled: boolean) {
+  const switchTo = async (enabled: boolean) => {
     setSwitching(true);
     setSwitchError("");
+
     try {
       await props.onSwitch(enabled);
-    } catch (cause) {
-      setSwitchError(errorMessage(cause));
+    } catch (error) {
+      setSwitchError(errorMessage(error));
     } finally {
       setSwitching(false);
     }
-  }
+  };
 
   return (
-    // Stays under the header, so Delete is in reach however far the list scrolls
-    <div class="sticky top-[calc(3.5rem+1px)] z-5 -mt-2 mb-2 bg-background py-2">
-      <div class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-card shadow-raised px-4 py-2 text-sm">
+    <div class="bg-background sticky top-[calc(3.5rem+1px)] z-5 -mt-2 mb-2 py-2">
+      <div class="bg-card shadow-raised flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl px-4 py-2 text-sm">
         <input
           type="checkbox"
           checked={all()}
           ref={(input) => (checkbox = input)}
           onChange={() => props.onSelectAll(!all())}
           aria-label="Select all shown sites"
-          class="size-4 shrink-0 cursor-pointer accent-primary"
+          class="accent-primary size-4 shrink-0 cursor-pointer"
         />
-        <span class="flex-1 text-muted-foreground">
+        <span class="text-muted-foreground flex-1">
           {props.selected.length > 0
             ? `${sites(props.selected.length)} selected`
             : "Select sites"}
         </span>
-        <Button type="button" variant="ghost" size="sm" onClick={() => props.onCancel()}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => props.onCancel()}
+        >
           Cancel
         </Button>
         <div class="flex gap-2 max-sm:basis-full max-sm:justify-end">
@@ -72,7 +78,9 @@ export function SiteSelection(props: SiteSelectionProps) {
             type="button"
             variant="outline"
             size="sm"
-            disabled={switching() || !props.selected.some((site) => site.enabled)}
+            disabled={
+              switching() || !props.selected.some((site) => site.enabled)
+            }
             onClick={() => switchTo(false)}
           >
             Take offline
@@ -81,7 +89,9 @@ export function SiteSelection(props: SiteSelectionProps) {
             type="button"
             variant="outline"
             size="sm"
-            disabled={switching() || !props.selected.some((site) => !site.enabled)}
+            disabled={
+              switching() || !props.selected.some((site) => !site.enabled)
+            }
             onClick={() => switchTo(true)}
           >
             Put online
@@ -96,7 +106,7 @@ export function SiteSelection(props: SiteSelectionProps) {
             size="sm"
             disabled={props.selected.length === 0}
             details={
-              <ul class="max-h-40 overflow-y-auto rounded-lg border bg-muted/30 px-3 py-2 font-mono text-xs">
+              <ul class="bg-muted/30 max-h-40 overflow-y-auto rounded-lg border px-3 py-2 font-mono text-xs">
                 <For each={props.selected}>
                   {({ slug }) => <li class="truncate py-0.5">{slug}</li>}
                 </For>
@@ -108,10 +118,10 @@ export function SiteSelection(props: SiteSelectionProps) {
         </div>
       </div>
       <Show when={switchError()}>
-        <p role="alert" class="mt-2 px-1 text-sm text-destructive">
+        <p role="alert" class="text-destructive mt-2 px-1 text-sm">
           {switchError()}
         </p>
       </Show>
     </div>
   );
-}
+};

@@ -1,54 +1,66 @@
 import { createEffect, createSignal, Show } from "solid-js";
-import { Phrase } from "@/components/detent/components/phrase/Phrase";
+
+import { Phrase } from "@/components/detent/components/phrase/phrase";
 import { ExpiryDate, presets, useExpiry } from "@/components/expiry-select";
 import { Hint } from "@/components/hint";
 import { RefreshCw } from "@/components/icons";
 import { Button } from "@/components/ui/button";
-import { suggestSlugs } from "@/lib/deploy";
+import { api } from "@/lib/api";
 import { formatDate, siteUrl } from "@/lib/format";
 import { loadToken } from "@/lib/session";
 
-type NewSiteSettingsProps = {
+interface NewSiteSettingsProps {
   slug: string | null;
   onSlug: (slug: string) => void;
   expiresAt: string | null;
   onExpiry: (expiresAt: string | null) => void;
   disabled: boolean;
-};
+}
 
-// Where a new site goes and how long it stays, read as one sentence
-export function NewSiteSettings(props: NewSiteSettingsProps) {
+export const NewSiteSettings = (props: NewSiteSettingsProps) => {
   const [options, setOptions] = createSignal<string[]>([]);
   const [loading, setLoading] = createSignal(false);
+
   const [preset, choose] = useExpiry(
     () => props.expiresAt,
-    (expiresAt) => props.onExpiry(expiresAt),
+    (expiresAt) => props.onExpiry(expiresAt)
   );
 
-  async function suggest() {
+  const suggest = async () => {
     const token = loadToken();
-    if (!token) return;
+
+    if (!token) {
+      return;
+    }
+
     setLoading(true);
+
     try {
-      const slugs = await suggestSlugs(token);
+      const slugs = await api(token).suggestSlugs();
       setOptions(slugs);
-      if (slugs[0]) props.onSlug(slugs[0]);
+
+      if (slugs[0]) {
+        props.onSlug(slugs[0]);
+      }
     } catch {
-      // Then the server picks one when publishing
+      // WARNING: ignored on purpose, since the server picks an address when publishing
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   createEffect(
     () => props.slug,
     (slug) => {
-      if (slug === null) void suggest();
-    },
+      if (slug === null) {
+        void suggest();
+      }
+    }
   );
 
   const address = () =>
-    props.slug && siteUrl(props.slug)?.replace(/^https?:\/\//, "");
+    props.slug && siteUrl(props.slug)?.replace(/^https?:\/\//u, "");
+
   const offline = () =>
     props.expiresAt
       ? `goes offline on ${formatDate(props.expiresAt)}`
@@ -81,19 +93,24 @@ export function NewSiteSettings(props: NewSiteSettingsProps) {
           {
             id: "expiry",
             label: "Expires",
-            options: presets.map(([, , words]) => words),
+            options: presets.map((option) => option[2]),
           },
           ".",
         ]}
         value={{
           slug: props.slug ?? "",
-          expiry: presets.find(([key]) => key === preset())![2],
+          expiry: presets.find(([key]) => key === preset())?.[2] ?? "",
         }}
         onChange={(values) => {
-          if (values.slug && values.slug !== props.slug)
+          if (values.slug && values.slug !== props.slug) {
             props.onSlug(String(values.slug));
-          const next = presets.find(([, , words]) => words === values.expiry);
-          if (next && next[0] !== preset()) choose(next[0]);
+          }
+
+          const next = presets.find((option) => option[2] === values.expiry);
+
+          if (next && next[0] !== preset()) {
+            choose(next[0]);
+          }
         }}
         says={() => (address() ? `${address()} · ${offline()}` : offline())}
       />
@@ -102,4 +119,4 @@ export function NewSiteSettings(props: NewSiteSettingsProps) {
       </Show>
     </fieldset>
   );
-}
+};

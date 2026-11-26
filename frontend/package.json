@@ -5,15 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "bunx --bun vite",
-    "build": "bunx --bun vite build"
+    "build": "bunx --bun vite build",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@kobalte/core": "^2.0.0-alpha.5",
+    "@redoost/shared": "workspace:*",
     "@solidjs/web": "^2.0.3",
     "@tanstack/solid-router": "^2.0.0-rc.12",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.2",
-    "fflate": "^0.8.3",
     "lucide": "^1.79.0",
     "motion": "^14.14.0",
     "shadcn": "^4.23.0",
@@ -25,10 +26,8 @@
     "@solidjs/vite-plugin": "^3.0.0-next.35",
     "@tailwindcss/vite": "^4.3.5",
     "@tanstack/router-plugin": "^1.169.0",
-    "@types/node": "^26.6.6",
     "tailwindcss": "^4.3.5",
     "takumi-js": "^2.21.0",
-    "typescript": "^7.0.2",
     "vite": "^8.3.8"
   }
 }

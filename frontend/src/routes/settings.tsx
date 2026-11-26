@@ -1,5 +1,6 @@
 import { Link, Outlet, createFileRoute } from "@tanstack/solid-router";
 import { For, Show } from "solid-js";
+
 import {
   HardDrive,
   Info,
@@ -11,10 +12,6 @@ import { PageHeading } from "@/components/page-heading";
 import { SignInPrompt } from "@/components/sign-in-prompt";
 import { useToken } from "@/lib/session";
 
-export const Route = createFileRoute("/settings")({
-  component: SettingsLayout,
-});
-
 const sections = [
   { to: "/settings/account", label: "Account", icon: UserRound },
   { to: "/settings/storage", label: "Storage", icon: HardDrive },
@@ -23,7 +20,7 @@ const sections = [
   { to: "/settings/about", label: "About", icon: Info },
 ] as const;
 
-function SettingsLayout() {
+const SettingsLayout = () => {
   const token = useToken();
 
   return (
@@ -46,7 +43,7 @@ function SettingsLayout() {
             {(section) => (
               <Link
                 to={section.to}
-                class="flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground data-[status=active]:bg-muted data-[status=active]:font-medium data-[status=active]:text-foreground"
+                class="text-muted-foreground hover:bg-muted/60 hover:text-foreground data-[status=active]:bg-muted data-[status=active]:text-foreground flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors data-[status=active]:font-medium"
               >
                 <section.icon class="size-4" />
                 {section.label}
@@ -60,4 +57,8 @@ function SettingsLayout() {
       </div>
     </Show>
   );
-}
+};
+
+export const Route = createFileRoute("/settings")({
+  component: SettingsLayout,
+});

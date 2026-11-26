@@ -1,0 +1,9 @@
+pre-commit:
+  jobs:
+    - name: ultracite
+      run: bunx ultracite fix {staged_files}
+      # The TypeScript workspace and its root config; the backend and chart have their own checks
+      glob:
+        - "{shared,frontend,cli}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,jsonc,css,html,md,yaml,yml}"
+        - "{package.json,oxlint.config.ts,oxfmt.config.ts}"
+      stage_fixed: true

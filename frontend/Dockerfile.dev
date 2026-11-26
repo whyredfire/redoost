@@ -4,8 +4,15 @@ FROM oven/bun:1.4.5-slim@sha256:b780593f3e10918cbdaec3d5a08d52224b9198069a65eb47
 WORKDIR /app
 
 COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile
+COPY shared/package.json shared/
+COPY frontend/package.json frontend/
+COPY cli/package.json cli/
+# Everything, so the root's tsc and ultracite run here too. --ignore-scripts skips the
+# prepare script, which installs git hooks and needs git
+RUN bun install --frozen-lockfile --ignore-scripts
 
-COPY . .
+COPY shared shared
+COPY frontend frontend
+WORKDIR /app/frontend
 
 CMD ["bun", "run", "dev"]

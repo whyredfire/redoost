@@ -115,7 +115,7 @@
           "ss07" 1, /* Tech-focused square punctuation */
           "cv11" 1, /* Sleek geometric single-story 'a' */
           "cv06" 1; /* Clean, simplified 'u' */
-    @apply bg-background font-sans text-foreground;
+    @apply bg-background text-foreground font-sans;
   }
 }
 

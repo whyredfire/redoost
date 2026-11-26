@@ -1,28 +1,11 @@
+import { siteUrl as originUrl } from "@redoost/shared";
+
 import { config } from "./config";
 
-export function siteUrl(slug: string) {
-  if (!config.sitesOrigin) return null;
-  const url = new URL(config.sitesOrigin);
-  url.hostname = `${slug}.${url.hostname}`;
-  return url.origin;
-}
+export const siteUrl = (slug: string) => originUrl(config.sitesOrigin, slug);
 
-export function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KiB`;
-  // Number() drops a trailing .0, so 10 MiB isn't shown as 10.0 MiB
-  if (bytes < 1024 ** 3) return `${Number((bytes / 1024 ** 2).toFixed(1))} MiB`;
-  return `${Number((bytes / 1024 ** 3).toFixed(1))} GiB`;
-}
+export const formatDate = (date: string) =>
+  new Date(date).toLocaleDateString(undefined, { dateStyle: "medium" });
 
-export function formatDate(date: string) {
-  return new Date(date).toLocaleDateString(undefined, { dateStyle: "medium" });
-}
-
-export function formatTime(date: string) {
-  return new Date(date).toLocaleTimeString(undefined, { timeStyle: "short" });
-}
-
-export function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error);
-}
+export const formatTime = (date: string) =>
+  new Date(date).toLocaleTimeString(undefined, { timeStyle: "short" });

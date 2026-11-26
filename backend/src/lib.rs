@@ -118,10 +118,8 @@ async fn health(State(state): State<AppState>) -> (StatusCode, Json<Value>) {
     )
 }
 
-// The dashboard's origin only forwards /api, which is where the CLI looks. The CLI
-// checks cli_sha256 before updating itself; it's missing for development builds.
+// The dashboard's origin only forwards /api, which is where the CLI looks. The CLI now
+// updates through npm; cli_sha256 stays null so older Python CLIs refuse to self-update.
 async fn read_version(State(state): State<AppState>) -> Json<Value> {
-    let settings = &state.settings;
-    let cli_sha256 = Some(&settings.cli_sha256).filter(|sha256| !sha256.is_empty());
-    Json(json!({"version": settings.version, "cli_sha256": cli_sha256}))
+    Json(json!({"version": state.settings.version, "cli_sha256": null}))
 }

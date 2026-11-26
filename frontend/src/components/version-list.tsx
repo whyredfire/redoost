@@ -1,48 +1,47 @@
+import { errorMessage, formatBytes } from "@redoost/shared";
+import type { Version } from "@redoost/shared";
 import { For, Show, createMemo, createSignal } from "solid-js";
-import { History, Trash2 } from "@/components/icons";
-import { ConfirmButton } from "@/components/confirm-button";
-import { Button } from "@/components/ui/button";
-import { Hint } from "@/components/hint";
-import { SiteDescription } from "@/components/site-description";
-import type { Version } from "@/lib/deploy";
-import {
-  errorMessage,
-  formatBytes,
-  formatDate,
-  formatTime,
-} from "@/lib/format";
 
-type VersionListProps = {
+import { ConfirmButton } from "@/components/confirm-button";
+import { Hint } from "@/components/hint";
+import { History, Trash2 } from "@/components/icons";
+import { SiteDescription } from "@/components/site-description";
+import { Button } from "@/components/ui/button";
+import { formatDate, formatTime } from "@/lib/format";
+
+interface VersionListProps {
   versions: Version[];
   busy: boolean;
   onRestore: (id: string) => Promise<void>;
   onDescribe: (id: string, description: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onPrune: () => Promise<void>;
-};
+}
 
-export function VersionList(props: VersionListProps) {
+export const VersionList = (props: VersionListProps) => {
   const [restoring, setRestoring] = createSignal<string | null>(null);
   const [error, setError] = createSignal("");
+
   const others = createMemo(
-    () => props.versions.filter((version) => !version.current).length,
+    () => props.versions.filter((version) => !version.current).length
   );
 
-  async function restore(id: string) {
+  const restore = async (id: string) => {
     setRestoring(id);
     setError("");
+
     try {
       await props.onRestore(id);
-    } catch (cause) {
-      setError(errorMessage(cause));
+    } catch (error_) {
+      setError(errorMessage(error_));
     } finally {
       setRestoring(null);
     }
-  }
+  };
 
   return (
     <div class="space-y-3">
-      <ul class="divide-y rounded-xl bg-card shadow-raised text-sm">
+      <ul class="bg-card shadow-raised divide-y rounded-xl text-sm">
         <For each={props.versions} keyed={(version) => version.id}>
           {(version) => (
             <li class="flex items-center justify-between gap-4 px-4 py-2.5">
@@ -53,7 +52,7 @@ export function VersionList(props: VersionListProps) {
                     {formatTime(version().created_at)}
                   </span>
                   <Show when={version().current}>
-                    <span class="shrink-0 rounded-md bg-brand/10 px-1.5 py-0.5 text-xs text-brand">
+                    <span class="bg-brand/10 text-brand shrink-0 rounded-md px-1.5 py-0.5 text-xs">
                       Current
                     </span>
                   </Show>
@@ -66,7 +65,7 @@ export function VersionList(props: VersionListProps) {
                   placeholder="What changed?"
                   compact
                 />
-                <p class="font-mono text-xs text-muted-foreground">
+                <p class="text-muted-foreground font-mono text-xs">
                   {version().id} · {version().file_count}{" "}
                   {version().file_count === 1 ? "file" : "files"} ·{" "}
                   {formatBytes(version().size)}
@@ -104,7 +103,7 @@ export function VersionList(props: VersionListProps) {
         </For>
       </ul>
       <Show when={error()}>
-        <p role="alert" class="text-sm text-destructive">
+        <p role="alert" class="text-destructive text-sm">
           {error()}
         </p>
       </Show>
@@ -129,4 +128,4 @@ export function VersionList(props: VersionListProps) {
       </Show>
     </div>
   );
-}
+};

@@ -1,4 +1,12 @@
 import {
+  ApiError,
+  errorMessage,
+  expired,
+  formatBytes,
+  online,
+} from "@redoost/shared";
+import type { Deployment, SiteFile } from "@redoost/shared";
+import {
   Link,
   createFileRoute,
   notFound,
@@ -6,6 +14,7 @@ import {
   useRouter,
 } from "@tanstack/solid-router";
 import { For, Show, createSignal, untrack } from "solid-js";
+
 import { DangerAction } from "@/components/danger-action";
 import { ExpirySelect } from "@/components/expiry-select";
 import { FolderDrop } from "@/components/folder-drop";
@@ -17,88 +26,71 @@ import { SitePreview } from "@/components/site-preview";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { VersionList } from "@/components/version-list";
-import { ApiError } from "@/lib/api";
-import {
-  changeDeployment,
-  deleteDeployment,
-  deleteVersion,
-  describeVersion,
-  expired,
-  online,
-  pruneVersions,
-  readDeployment,
-  readVersions,
-  restoreVersion,
-  type Deployment,
-} from "@/lib/deploy";
-import {
-  errorMessage,
-  formatBytes,
-  formatDate,
-  formatTime,
-  siteUrl,
-} from "@/lib/format";
+import { api } from "@/lib/api";
+import { formatDate, formatTime, siteUrl } from "@/lib/format";
 import {
   clearSession,
   loadSession,
   loadSignedIn,
   loadToken,
 } from "@/lib/session";
-import type { SiteFile } from "@/lib/site-files";
 import { usePageDrop, useUpload } from "@/lib/upload";
 
-export const Route = createFileRoute("/sites_/$slug")({
-  loader: ({ params }) => loadSite(params.slug),
-  head: ({ params }) => ({ meta: [{ title: `${params.slug} · redoost` }] }),
-  component: SitePage,
-  errorComponent: () => (
-    <p role="alert" class="text-sm text-destructive">
-      This site couldn't be loaded. Try again in a moment.
-    </p>
-  ),
-});
+const expiryNote = (site: Deployment) => {
+  if (!site.expires_at) {
+    return "Stays online until you take it offline.";
+  }
 
-type ExpirySectionProps = {
-  site: Deployment;
-  onSave: (expiresAt: string | null) => Promise<void>;
+  if (expired(site)) {
+    return `Expired on ${formatDate(site.expires_at)}. Pick a new date, or never, to put it back.`;
+  }
+
+  return `Goes offline on ${formatDate(site.expires_at)} at ${formatTime(site.expires_at)}.`;
 };
 
-// Keyed by slug where it's used, so the draft follows the site shown
-function ExpirySection(props: ExpirySectionProps) {
-  // Seeded once, like useState: a reload after saving another setting keeps the draft
+const statusLabel = (site: Deployment) => {
+  if (!site.enabled) {
+    return "Offline";
+  }
+
+  return expired(site) ? "Expired" : "Online";
+};
+
+interface ExpirySectionProps {
+  site: Deployment;
+  onSave: (expiresAt: string | null) => Promise<void>;
+}
+
+const ExpirySection = (props: ExpirySectionProps) => {
   const [expiresAt, setExpiresAt] = createSignal(
-    untrack(() => props.site.expires_at),
+    untrack(() => props.site.expires_at)
   );
+
   const [saving, setSaving] = createSignal(false);
   const [error, setError] = createSignal("");
 
-  async function save() {
+  const save = async () => {
     setSaving(true);
     setError("");
+
     try {
       await props.onSave(expiresAt());
-    } catch (cause) {
-      setError(errorMessage(cause));
+    } catch (error_) {
+      setError(errorMessage(error_));
     } finally {
       setSaving(false);
     }
-  }
+  };
 
   return (
-    <section class="space-y-3 rounded-xl bg-card shadow-raised px-4 py-3">
+    <section class="bg-card shadow-raised space-y-3 rounded-xl px-4 py-3">
       <h2 class="font-medium">Expires</h2>
       <ExpirySelect
         value={expiresAt()}
         onChange={(value) => setExpiresAt(value)}
         disabled={saving()}
       />
-      <p class="text-muted-foreground">
-        {!props.site.expires_at
-          ? "Stays online until you take it offline."
-          : expired(props.site)
-            ? `Expired on ${formatDate(props.site.expires_at)}. Pick a new date, or never, to put it back.`
-            : `Goes offline on ${formatDate(props.site.expires_at)} at ${formatTime(props.site.expires_at)}.`}
-      </p>
+      <p class="text-muted-foreground">{expiryNote(props.site)}</p>
       <Show when={error()}>
         <p role="alert" class="text-destructive">
           {error()}
@@ -111,27 +103,27 @@ function ExpirySection(props: ExpirySectionProps) {
       </Show>
     </section>
   );
-}
+};
 
-function loadSite(slug: string) {
-  return loadSignedIn(async (token) => {
+const loadSite = (slug: string) =>
+  loadSignedIn(async (token) => {
     try {
       const [site, versions] = await Promise.all([
-        readDeployment(slug, token),
-        readVersions(slug, token),
+        api(token).readDeployment(slug),
+        api(token).readVersions(slug),
       ]);
+
       return { site, versions };
     } catch (error) {
-      // Other people's sites look the same as missing ones
       if (error instanceof ApiError && [403, 404].includes(error.status)) {
         throw notFound();
       }
+
       throw error;
     }
   });
-}
 
-function SitePage() {
+const SitePage = () => {
   const loaded = Route.useLoaderData();
   const site = () => loaded()?.site ?? null;
   const router = useRouter();
@@ -140,61 +132,93 @@ function SitePage() {
   const [switching, setSwitching] = createSignal(false);
   const [switchError, setSwitchError] = createSignal("");
 
-  function update(files: SiteFile[]) {
+  const update = (files: SiteFile[]) => {
     const current = site();
-    if (!current) return;
+
+    if (!current) {
+      return;
+    }
+
     upload.selectUpdate(current.slug, files);
     navigate({ to: "/publish" });
-  }
+  };
 
   const dragging = usePageDrop(() => site() !== null && !upload.busy, update);
 
-  // Read when called, so the handlers act on the site shown then
-  const slug = () => site()!.slug;
+  const slug = () => {
+    const current = site();
 
-  async function change(run: (token: string) => Promise<unknown>) {
+    if (!current) {
+      throw new Error("No site is shown");
+    }
+
+    return current.slug;
+  };
+
+  const change = async <T,>(run: (token: string) => Promise<T>) => {
     const token = loadToken();
-    if (!token) return;
+
+    if (!token) {
+      return;
+    }
+
     await run(token);
     await router.invalidate();
-  }
+  };
 
   const describe = (description: string) =>
-    change((token) => changeDeployment(slug(), { description }, token));
-  const expire = (expires_at: string | null) =>
-    change((token) => changeDeployment(slug(), { expires_at }, token));
-  const restore = (id: string) =>
-    change((token) => restoreVersion(slug(), id, token));
-  const describeVersionOf = (id: string, description: string) =>
-    change((token) => describeVersion(slug(), id, description, token));
-  const removeVersion = (id: string) =>
-    change((token) => deleteVersion(slug(), id, token));
-  const prune = () => change((token) => pruneVersions(slug(), token));
+    change((token) => api(token).changeDeployment(slug(), { description }));
 
-  async function toggle(enabled: boolean) {
+  const expire = (expires_at: string | null) =>
+    change((token) => api(token).changeDeployment(slug(), { expires_at }));
+
+  const restore = (id: string) =>
+    change((token) => api(token).restoreVersion(slug(), id));
+
+  const describeVersionOf = (id: string, description: string) =>
+    change((token) => api(token).describeVersion(slug(), id, description));
+
+  const removeVersion = (id: string) =>
+    change((token) => api(token).deleteVersion(slug(), id));
+
+  const prune = () => change((token) => api(token).pruneVersions(slug()));
+
+  const toggle = async (enabled: boolean) => {
     const token = loadToken();
-    if (!token) return;
+
+    if (!token) {
+      return;
+    }
+
     setSwitching(true);
     setSwitchError("");
+
     try {
-      await changeDeployment(slug(), { enabled }, token);
+      await api(token).changeDeployment(slug(), { enabled });
       await router.invalidate();
-    } catch (cause) {
-      setSwitchError(errorMessage(cause));
+    } catch (error) {
+      setSwitchError(errorMessage(error));
     } finally {
       setSwitching(false);
     }
-  }
+  };
 
-  async function remove() {
+  const remove = async () => {
     const token = loadToken();
-    if (!token) return;
+
+    if (!token) {
+      return;
+    }
+
     const removed = slug();
-    await deleteDeployment(removed, token);
-    // The publish page would otherwise still show the deleted site as live
-    if (loadSession()?.deployment.slug === removed) clearSession();
+    await api(token).deleteDeployment(removed);
+
+    if (loadSession()?.deployment.slug === removed) {
+      clearSession();
+    }
+
     await navigate({ to: "/sites" });
-  }
+  };
 
   return (
     <Show
@@ -206,58 +230,58 @@ function SitePage() {
         />
       }
     >
-      {(site) => {
-        const url = () => siteUrl(site().slug);
-        const live = () => online(site());
-        const details = () => [
-          {
-            label: "Files",
-            value: site().file_count.toLocaleString(),
-          },
-          { label: "Size", value: formatBytes(site().total_size) },
-          {
-            label: "Storage",
-            value: `${formatBytes(site().storage_size)} · ${site().version_count} ${site().version_count === 1 ? "version" : "versions"}`,
-          },
-          { label: "Published", value: formatDate(site().created_at) },
-          {
-            label: "Expires",
-            value: site().expires_at ? formatDate(site().expires_at!) : "Never",
-          },
-          {
-            label: "Status",
-            value: !site().enabled
-              ? "Offline"
-              : expired(site())
-                ? "Expired"
-                : "Online",
-          },
-        ];
+      {(shown) => {
+        const url = () => siteUrl(shown().slug);
+        const live = () => online(shown());
+
+        const details = () => {
+          const current = shown();
+
+          return [
+            {
+              label: "Files",
+              value: current.file_count.toLocaleString(),
+            },
+            { label: "Size", value: formatBytes(current.total_size) },
+            {
+              label: "Storage",
+              value: `${formatBytes(current.storage_size)} · ${current.version_count} ${current.version_count === 1 ? "version" : "versions"}`,
+            },
+            { label: "Published", value: formatDate(current.created_at) },
+            {
+              label: "Expires",
+              value: current.expires_at
+                ? formatDate(current.expires_at)
+                : "Never",
+            },
+            { label: "Status", value: statusLabel(current) },
+          ];
+        };
 
         return (
           <>
             <Link
               to="/sites"
-              class="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+              class="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-sm transition-colors"
             >
               <ArrowLeft class="size-4" />
               Your sites
             </Link>
             <h1 class="mt-6 font-mono text-2xl font-semibold tracking-tight break-all sm:text-3xl">
-              {site().slug}
+              {shown().slug}
             </h1>
             <div class="mt-2">
               <SiteDescription
-                description={site().description}
+                description={shown().description}
                 onSave={describe}
               />
             </div>
 
             <div class="mt-8 grid grid-cols-[minmax(0,1fr)] items-start gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
               <div class="space-y-4">
-                <SiteAddress slug={site().slug} live={live()} />
+                <SiteAddress slug={shown().slug} live={live()} />
                 <Show when={live() && url()}>
-                  {(url) => <SitePreview url={url()} />}
+                  {(href) => <SitePreview url={href()} />}
                 </Show>
                 <section
                   id="update"
@@ -267,7 +291,7 @@ function SitePage() {
                   <Show
                     when={!upload.busy}
                     fallback={
-                      <p class="rounded-xl border px-4 py-6 text-center text-sm text-muted-foreground">
+                      <p class="text-muted-foreground rounded-xl border px-4 py-6 text-center text-sm">
                         Wait for the current upload to finish.
                       </p>
                     }
@@ -287,7 +311,7 @@ function SitePage() {
                 <Show when={(loaded()?.versions.length ?? 0) > 0}>
                   <section aria-label="Versions" class="pt-6">
                     <VersionList
-                      versions={loaded()!.versions}
+                      versions={loaded()?.versions ?? []}
                       busy={upload.busy}
                       onRestore={restore}
                       onDescribe={describeVersionOf}
@@ -299,7 +323,7 @@ function SitePage() {
               </div>
 
               <aside class="space-y-4 text-sm">
-                <section class="rounded-xl bg-card shadow-raised">
+                <section class="bg-card shadow-raised rounded-xl">
                   <h2 class="border-b px-4 py-3 font-medium">Details</h2>
                   <dl class="divide-y">
                     <For each={details()}>
@@ -312,18 +336,18 @@ function SitePage() {
                     </For>
                   </dl>
                 </section>
-                <section class="space-y-2 rounded-xl bg-card shadow-raised px-4 py-3">
+                <section class="bg-card shadow-raised space-y-2 rounded-xl px-4 py-3">
                   <div class="flex items-center justify-between gap-4">
                     <h2 class="font-medium">Online</h2>
                     <Switch
-                      checked={site().enabled}
+                      checked={shown().enabled}
                       disabled={switching()}
                       onChange={toggle}
                       aria-label="Online"
                     />
                   </div>
                   <p class="text-muted-foreground">
-                    {site().enabled
+                    {shown().enabled
                       ? "Visitors can reach it. Turning it off takes up to a minute."
                       : "Visitors see “Site not found”. Its files and address are kept."}
                   </p>
@@ -333,8 +357,8 @@ function SitePage() {
                     </p>
                   </Show>
                 </section>
-                <Show when={site().slug} keyed>
-                  {(_slug) => <ExpirySection site={site()} onSave={expire} />}
+                <Show when={shown().slug} keyed>
+                  {(_slug) => <ExpirySection site={shown()} onSave={expire} />}
                 </Show>
                 <DangerAction
                   title="Delete site"
@@ -351,4 +375,15 @@ function SitePage() {
       }}
     </Show>
   );
-}
+};
+
+export const Route = createFileRoute("/sites_/$slug")({
+  loader: ({ params }) => loadSite(params.slug),
+  head: ({ params }) => ({ meta: [{ title: `${params.slug} · redoost` }] }),
+  component: SitePage,
+  errorComponent: () => (
+    <p role="alert" class="text-destructive text-sm">
+      This site couldn't be loaded. Try again in a moment.
+    </p>
+  ),
+});

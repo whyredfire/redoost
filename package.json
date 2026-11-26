@@ -1,0 +1,25 @@
+{
+  "private": true,
+  "workspaces": [
+    "shared",
+    "frontend",
+    "cli"
+  ],
+  "type": "module",
+  "scripts": {
+    "check": "ultracite check",
+    "fix": "ultracite fix",
+    "typecheck": "bun run --filter '*' typecheck",
+    "test": "bun run --filter '*' test",
+    "prepare": "lefthook install"
+  },
+  "devDependencies": {
+    "@interfere/landmines": "^0.1.1",
+    "@types/node": "^26.6.6",
+    "lefthook": "^2.2.2",
+    "oxfmt": "^0.79.0",
+    "oxlint": "^1.94.0",
+    "typescript": "^7.0.2",
+    "ultracite": "8.3.1"
+  }
+}

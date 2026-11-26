@@ -1,44 +1,22 @@
+import { formatBytes } from "@redoost/shared";
+import type { Deployment } from "@redoost/shared";
 import { Link, createFileRoute, useRouter } from "@tanstack/solid-router";
 import { For, Show } from "solid-js";
+
 import { ConfirmButton } from "@/components/confirm-button";
 import { SettingsSection } from "@/components/settings-section";
 import { StorageUsage } from "@/components/storage-usage";
-import {
-  listDeployments,
-  pruneVersions,
-  readLimits,
-  readUsage,
-  type Deployment,
-} from "@/lib/deploy";
-import { formatBytes } from "@/lib/format";
+import { api } from "@/lib/api";
 import { loadSignedIn, loadToken } from "@/lib/session";
 
-export const Route = createFileRoute("/settings/storage")({
-  loader: () =>
-    loadSignedIn(async (token) => {
-      const [usage, sites, limits] = await Promise.all([
-        readUsage(token),
-        listDeployments(token),
-        readLimits(),
-      ]);
-      return { usage, sites, limits };
-    }),
-  head: () => ({ meta: [{ title: "Storage · redoost" }] }),
-  component: StorageSettings,
-  errorComponent: () => (
-    <p role="alert" class="text-sm text-destructive">
-      Storage use couldn't be loaded. Try again in a moment.
-    </p>
-  ),
-});
-
-function SiteUsage(props: {
+const SiteUsage = (props: {
   site: Deployment;
   used: number;
   onPrune: () => Promise<void>;
-}) {
+}) => {
   const share = () =>
     props.used ? (props.site.storage_size / props.used) * 100 : 0;
+
   const older = () => props.site.version_count - 1;
 
   return (
@@ -51,17 +29,17 @@ function SiteUsage(props: {
         >
           {props.site.slug}
         </Link>
-        <span class="shrink-0 font-mono text-muted-foreground">
+        <span class="text-muted-foreground shrink-0 font-mono">
           {formatBytes(props.site.storage_size)}
         </span>
       </div>
-      <div class="h-1 overflow-hidden rounded-full bg-muted">
+      <div class="bg-muted h-1 overflow-hidden rounded-full">
         <div
-          class="h-full rounded-full bg-brand"
+          class="bg-brand h-full rounded-full"
           style={{ width: `${Math.max(share(), 1)}%` }}
         />
       </div>
-      <p class="truncate text-xs text-muted-foreground">
+      <p class="text-muted-foreground truncate text-xs">
         {props.site.version_count}{" "}
         {props.site.version_count === 1 ? "version" : "versions"}
         <Show when={older() > 0}>
@@ -73,7 +51,7 @@ function SiteUsage(props: {
             onConfirm={props.onPrune}
             as="button"
             type="button"
-            class="underline underline-offset-2 hover:text-foreground"
+            class="hover:text-foreground underline underline-offset-2"
           >
             Delete older versions
           </ConfirmButton>
@@ -82,42 +60,48 @@ function SiteUsage(props: {
       </p>
     </li>
   );
-}
+};
 
-function StorageSettings() {
+const StorageSettings = () => {
   const loaded = Route.useLoaderData();
   const router = useRouter();
 
-  async function prune(slug: string) {
+  const prune = async (slug: string) => {
     const token = loadToken();
-    if (!token) throw new Error("Sign in again to delete versions.");
-    await pruneVersions(slug, token);
+
+    if (!token) {
+      throw new Error("Sign in again to delete versions.");
+    }
+
+    await api(token).pruneVersions(slug);
     await router.invalidate();
-  }
+  };
 
   return (
     <Show when={loaded()}>
-      {(loaded) => {
-        const usage = () => loaded().usage;
+      {(data) => {
+        const usage = () => data().usage;
+
         const largest = () =>
-          loaded().sites.toSorted((a, b) => b.storage_size - a.storage_size);
-        // Uploads in progress, and versions waiting out Nginx's cache before deletion
+          data().sites.toSorted((a, b) => b.storage_size - a.storage_size);
+
         const elsewhere = () =>
           usage().used -
-          loaded().sites.reduce((sum, site) => sum + site.storage_size, 0);
+          data().sites.reduce((sum, site) => sum + site.storage_size, 0);
+
         const limitRows = () => [
           { label: "Storage per account", value: formatBytes(usage().limit) },
           {
             label: "Largest site",
-            value: formatBytes(loaded().limits.max_deployment_size),
+            value: formatBytes(data().limits.max_deployment_size),
           },
           {
             label: "Largest file",
-            value: formatBytes(loaded().limits.max_file_size),
+            value: formatBytes(data().limits.max_file_size),
           },
           {
             label: "Files per site",
-            value: loaded().limits.max_deployment_files.toLocaleString(),
+            value: data().limits.max_deployment_files.toLocaleString(),
           },
         ];
 
@@ -127,7 +111,7 @@ function StorageSettings() {
               title="Storage"
               description="Every kept version of every site counts in full."
             >
-              <div class="space-y-3 rounded-xl bg-card shadow-raised px-4 py-3 text-sm">
+              <div class="bg-card shadow-raised space-y-3 rounded-xl px-4 py-3 text-sm">
                 <StorageUsage usage={usage()} />
               </div>
             </SettingsSection>
@@ -139,12 +123,12 @@ function StorageSettings() {
               <Show
                 when={largest().length > 0}
                 fallback={
-                  <p class="rounded-xl border px-4 py-6 text-center text-sm text-muted-foreground">
+                  <p class="text-muted-foreground rounded-xl border px-4 py-6 text-center text-sm">
                     No sites yet.
                   </p>
                 }
               >
-                <ul class="divide-y rounded-xl bg-card shadow-raised text-sm">
+                <ul class="bg-card shadow-raised divide-y rounded-xl text-sm">
                   <For each={largest()}>
                     {(site) => (
                       <SiteUsage
@@ -155,7 +139,7 @@ function StorageSettings() {
                     )}
                   </For>
                   <Show when={elsewhere() > 0}>
-                    <li class="flex justify-between gap-4 px-4 py-3 text-muted-foreground">
+                    <li class="text-muted-foreground flex justify-between gap-4 px-4 py-3">
                       <span>
                         Uploads in progress and versions being deleted
                       </span>
@@ -172,7 +156,7 @@ function StorageSettings() {
               title="Limits"
               description="What this server allows. Larger sites and files are turned away before uploading."
             >
-              <dl class="divide-y rounded-xl bg-card shadow-raised text-sm">
+              <dl class="bg-card shadow-raised divide-y rounded-xl text-sm">
                 <For each={limitRows()}>
                   {(row) => (
                     <div class="flex justify-between gap-4 px-4 py-3">
@@ -188,4 +172,24 @@ function StorageSettings() {
       }}
     </Show>
   );
-}
+};
+
+export const Route = createFileRoute("/settings/storage")({
+  loader: () =>
+    loadSignedIn(async (token) => {
+      const [usage, sites, limits] = await Promise.all([
+        api(token).readUsage(),
+        api(token).listDeployments(),
+        api().readLimits(),
+      ]);
+
+      return { usage, sites, limits };
+    }),
+  head: () => ({ meta: [{ title: "Storage · redoost" }] }),
+  component: StorageSettings,
+  errorComponent: () => (
+    <p role="alert" class="text-destructive text-sm">
+      Storage use couldn't be loaded. Try again in a moment.
+    </p>
+  ),
+});

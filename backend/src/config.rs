@@ -21,8 +21,6 @@ pub struct Settings {
     pub app_origin: String,
     /// Version reported by /health
     pub version: String,
-    /// SHA-256 of the CLI wheel from the same release
-    pub cli_sha256: String,
     /// Postgres database URL, postgres://user:password@host/db
     pub database_url: String,
     /// Key that signs the API's tokens
@@ -75,7 +73,6 @@ impl Settings {
             log_level: required("LOG_LEVEL")?,
             app_origin: required("APP_ORIGIN")?,
             version: optional("VERSION").unwrap_or_else(|| "dev".into()),
-            cli_sha256: optional("CLI_SHA256").unwrap_or_default(),
             database_url: database_url(&required("DATABASE_URL")?)?,
             jwt_secret: required("JWT_SECRET")?,
             oidc_issuer: optional("OIDC_ISSUER")

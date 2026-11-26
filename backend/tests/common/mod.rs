@@ -89,7 +89,6 @@ pub async fn serial() -> MutexGuard<'static, ()> {
     for name in [
         "REDOOST_OIDC_ISSUER",
         "REDOOST_VERSION",
-        "REDOOST_CLI_SHA256",
         "REDOOST_UPLOAD_WINDOW",
         "REDOOST_MAX_ACCOUNT_SIZE",
         "REDOOST_KEPT_VERSIONS",

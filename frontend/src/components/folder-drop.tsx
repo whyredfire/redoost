@@ -1,15 +1,16 @@
+import { errorMessage } from "@redoost/shared";
+import type { Limits, SiteCheck, SiteFile } from "@redoost/shared";
+import type { JSX } from "@solidjs/web";
 import { cn } from "cn";
 import { For, Show } from "solid-js";
-import type { JSX } from "@solidjs/web";
-import { Folder } from "@/components/detent/ui/Folder";
+
+import { Folder } from "@/components/detent/ui/folder";
 import { Check } from "@/components/icons";
 import { Button } from "@/components/ui/button";
-import type { Limits } from "@/lib/deploy";
-import { errorMessage } from "@/lib/format";
 import { Presence } from "@/lib/motion";
-import { pickedFiles, type SiteCheck, type SiteFile } from "@/lib/site-files";
+import { pickedFiles } from "@/lib/site-files";
 
-type Props = {
+interface Props {
   prompt?: JSX.Element;
   heading?: boolean;
   hint?: JSX.Element;
@@ -23,9 +24,8 @@ type Props = {
   checks: SiteCheck[];
   onError: (message: string) => void;
   onDismiss: () => void;
-};
+}
 
-// Shared with the publish card, so the box keeps its size
 export const stageSize =
   "min-h-[max(38rem,calc(100svh-8.5rem))] lg:min-h-[max(36rem,calc(100svh-14rem))]";
 
@@ -34,36 +34,38 @@ const layer = {
   hidden: { opacity: 0, filter: "blur(8px)" },
 };
 
-// Drops are handled page-wide by usePageDrop; this is the visible target
-export function FolderDrop(props: Props) {
+export const FolderDrop = (props: Props) => {
   const failed = () => props.error !== "" || props.checks.length > 0;
-  // Dragging over an error goes back to the folder, which opens for the drop
   const view = () => (failed() && !props.dragging ? "error" : "prompt");
   let folderInput!: HTMLInputElement;
   let filesInput!: HTMLInputElement;
 
-  async function pick(event: Event & { currentTarget: HTMLInputElement }) {
+  const pick = async (event: Event & { currentTarget: HTMLInputElement }) => {
     const input = event.currentTarget;
-    if (!input.files) return;
+
+    if (!input.files) {
+      return;
+    }
+
     try {
       const selected = await pickedFiles(input.files, props.limits);
       props.onFiles(selected);
-    } catch (cause) {
-      props.onError(errorMessage(cause));
+    } catch (error) {
+      props.onError(errorMessage(error));
     } finally {
-      // Clearing it empties input.files, so only once they've been read
+      // WARNING: clearing the input empties input.files, so only clear it once they've been read
       input.value = "";
     }
-  }
+  };
 
   return (
     <div
       class={cn(
-        "relative isolate flex flex-col rounded-card bg-card text-center transition-shadow duration-300 ease-detent motion-safe:animate-in motion-safe:fade-in",
+        "rounded-card bg-card ease-detent motion-safe:animate-in motion-safe:fade-in relative isolate flex flex-col text-center transition-shadow duration-300",
         props.dragging
           ? "shadow-[0_0_0_2px_color-mix(in_oklch,var(--ink)_14%,transparent),var(--elev-float)]"
           : "shadow-raised",
-        props.class,
+        props.class
       )}
     >
       <div aria-hidden="true" class="dot-grid absolute inset-0 -z-10" />
@@ -76,9 +78,9 @@ export function FolderDrop(props: Props) {
             exit={layer.hidden}
             transition={{ duration: 0.3 }}
           >
-            {(view) => (
+            {(shown) => (
               <div class="col-start-1 row-start-1 flex w-full flex-col items-center">
-                {view === "prompt" && (
+                {shown === "prompt" && (
                   <>
                     <div class="mb-6 [zoom:0.75]">
                       <Folder open={props.dragging} />
@@ -94,10 +96,10 @@ export function FolderDrop(props: Props) {
                     )}
                     <p
                       class={cn(
-                        "text-balance text-muted-foreground",
+                        "text-muted-foreground text-balance",
                         props.heading
                           ? "mt-4 mb-8 max-w-xl sm:text-lg"
-                          : "mt-1 mb-6 max-w-md text-sm",
+                          : "mt-1 mb-6 max-w-md text-sm"
                       )}
                     >
                       {props.hint ?? "A folder, a zip, or an HTML file"}
@@ -123,12 +125,12 @@ export function FolderDrop(props: Props) {
                     {props.footer}
                   </>
                 )}
-                {view === "error" && (
+                {shown === "error" && (
                   <>
                     <p class="text-lg font-medium">Couldn't use these files</p>
                     <p
                       role="alert"
-                      class="mt-1 mb-6 text-sm text-muted-foreground"
+                      class="text-muted-foreground mt-1 mb-6 text-sm"
                     >
                       {props.checks.length > 0
                         ? "Fix the unchecked items and try again."
@@ -139,10 +141,10 @@ export function FolderDrop(props: Props) {
                         <For each={props.checks}>
                           {(check) => (
                             <li
-                              class={`flex items-center gap-3 rounded-xl px-4 py-3 ${check.passed ? "bg-muted/60 text-muted-foreground line-through" : "bg-card font-medium shadow-raised"}`}
+                              class={`flex items-center gap-3 rounded-xl px-4 py-3 ${check.passed ? "bg-muted/60 text-muted-foreground line-through" : "bg-card shadow-raised font-medium"}`}
                             >
                               <span
-                                class={`flex size-4 shrink-0 items-center justify-center rounded border ${check.passed ? "border-transparent bg-muted-foreground text-background" : "border-foreground"}`}
+                                class={`flex size-4 shrink-0 items-center justify-center rounded border ${check.passed ? "bg-muted-foreground text-background border-transparent" : "border-foreground"}`}
                               >
                                 {check.passed && <Check class="size-3" />}
                               </span>
@@ -185,4 +187,4 @@ export function FolderDrop(props: Props) {
       />
     </div>
   );
-}
+};

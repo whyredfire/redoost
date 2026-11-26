@@ -1,16 +1,23 @@
-import { Progress } from "@/components/ui/progress";
-import type { Usage } from "@/lib/deploy";
-import { formatBytes } from "@/lib/format";
+import { formatBytes } from "@redoost/shared";
+import type { Usage } from "@redoost/shared";
 
-export function StorageUsage(props: { usage: Usage }) {
+import { Progress } from "@/components/ui/progress";
+
+const indicatorColor = (percentage: number) => {
+  if (percentage >= 95) {
+    return "[&_[data-slot=progress-indicator]]:bg-destructive";
+  }
+
+  if (percentage >= 80) {
+    return "[&_[data-slot=progress-indicator]]:bg-amber-500";
+  }
+
+  return "";
+};
+
+export const StorageUsage = (props: { usage: Usage }) => {
   const percentage = () =>
     Math.min((props.usage.used / props.usage.limit) * 100, 100);
-  const color = () =>
-    percentage() >= 95
-      ? "[&_[data-slot=progress-indicator]]:bg-destructive"
-      : percentage() >= 80
-        ? "[&_[data-slot=progress-indicator]]:bg-amber-500"
-        : "";
 
   return (
     <>
@@ -26,9 +33,8 @@ export function StorageUsage(props: { usage: Usage }) {
         </span>
       </div>
       <Progress
-        // A sliver stays visible, so a little use doesn't look like none
         value={props.usage.used > 0 ? Math.max(percentage(), 2) : 0}
-        class={color()}
+        class={indicatorColor(percentage())}
         aria-label="Storage used"
       />
       <p class="text-muted-foreground">
@@ -36,4 +42,4 @@ export function StorageUsage(props: { usage: Usage }) {
       </p>
     </>
   );
-}
+};

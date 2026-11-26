@@ -1,9 +1,9 @@
 import { cn } from "cn";
+
 import { LiveDot } from "@/components/live-dot";
 import { RotatingWord } from "@/components/rotating-word";
 import { config } from "@/lib/config";
 
-// Equally long, so the domain after them stays put
 const slugs = [
   "brave-otter-1a2b",
   "quiet-heron-7f3c",
@@ -11,20 +11,20 @@ const slugs = [
   "amber-koala-09ad",
 ];
 
-export function AddressPreview(props: { class?: string }) {
+export const AddressPreview = (props: { class?: string }) => {
   const origin = config.sitesOrigin ? new URL(config.sitesOrigin) : null;
 
   return (
     <div
       aria-hidden="true"
       class={cn(
-        "flex items-center gap-3 overflow-hidden rounded-xl bg-card shadow-raised px-4 py-3.5 font-mono text-sm whitespace-nowrap shadow-xs sm:text-base",
-        props.class,
+        "bg-card shadow-raised flex items-center gap-3 overflow-hidden rounded-xl px-4 py-3.5 font-mono text-sm whitespace-nowrap shadow-xs sm:text-base",
+        props.class
       )}
     >
       <LiveDot pulse />
       <span class="min-w-0 truncate">
-        <span class="hidden text-muted-foreground sm:inline">
+        <span class="text-muted-foreground hidden sm:inline">
           {origin ? `${origin.protocol}//` : ""}
         </span>
         <RotatingWord words={slugs} />
@@ -32,4 +32,4 @@ export function AddressPreview(props: { class?: string }) {
       </span>
     </div>
   );
-}
+};

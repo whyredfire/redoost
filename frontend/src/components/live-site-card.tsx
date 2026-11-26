@@ -1,7 +1,8 @@
-import { cn } from "cn";
 import { Link } from "@tanstack/solid-router";
+import { cn } from "cn";
 import { animate } from "motion";
 import { onSettled, Show } from "solid-js";
+
 import { CompressionSaving } from "@/components/compression-saving";
 import { stageSize } from "@/components/folder-drop";
 import { ExternalLink } from "@/components/icons";
@@ -14,12 +15,13 @@ import { useReducedMotion } from "@/lib/motion";
 import { useUpload } from "@/lib/upload";
 
 const stagger = 0.08;
+
 const rise = {
   hidden: { opacity: 0, y: 12, filter: "blur(4px)" },
   shown: { opacity: 1, y: 0, filter: "blur(0px)" },
 };
 
-export function LiveSiteCard() {
+export const LiveSiteCard = () => {
   const upload = useUpload();
   const reduceMotion = useReducedMotion();
 
@@ -28,12 +30,14 @@ export function LiveSiteCard() {
       {(session) => {
         const slug = () => session().deployment.slug;
         const url = () => siteUrl(slug());
-        // The variants' staggered rise, played once on what's there when the card mounts
         const risen: HTMLElement[] = [];
         const rises = (el: HTMLElement) => risen.push(el);
         onSettled(() => {
-          if (reduceMotion()) return;
-          risen.forEach((el, i) =>
+          if (reduceMotion()) {
+            return;
+          }
+
+          for (const [i, el] of risen.entries()) {
             animate(
               el,
               {
@@ -41,10 +45,11 @@ export function LiveSiteCard() {
                 y: [rise.hidden.y, rise.shown.y],
                 filter: [rise.hidden.filter, rise.shown.filter],
               },
-              { duration: 0.4, ease: "easeOut", delay: i * stagger },
-            ),
-          );
+              { duration: 0.4, ease: "easeOut", delay: i * stagger }
+            );
+          }
         });
+
         return (
           <Card class={cn(stageSize, "py-0")}>
             <CardContent class="flex flex-1 flex-col gap-6 py-6 lg:px-8 lg:py-8">
@@ -94,13 +99,13 @@ export function LiveSiteCard() {
                   </div>
                 </div>
                 <Show when={session().deployment.description}>
-                  <p class="text-sm break-words text-muted-foreground">
+                  <p class="text-muted-foreground text-sm break-words">
                     {session().deployment.description}
                   </p>
                 </Show>
                 <Show when={session().originalSize !== undefined}>
                   <CompressionSaving
-                    original={session().originalSize!}
+                    original={session().originalSize ?? 0}
                     uploaded={session().deployment.total_size}
                   />
                 </Show>
@@ -118,4 +123,4 @@ export function LiveSiteCard() {
       }}
     </Show>
   );
-}
+};

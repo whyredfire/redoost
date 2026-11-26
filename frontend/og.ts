@@ -1,11 +1,11 @@
 import { readFile } from "node:fs/promises";
-import { container, text } from "takumi-js/helpers";
+
 import { render } from "takumi-js";
+import { container, text } from "takumi-js/helpers";
 import { Renderer } from "takumi-js/node";
 
-// The link preview image, served as /og.png by the Vite plugin in vite.config.ts
-function card() {
-  return container({
+const card = () =>
+  container({
     style: {
       display: "flex",
       flexDirection: "column",
@@ -19,7 +19,13 @@ function card() {
     },
     children: [
       container({
-        style: { display: "flex", alignItems: "center", gap: 16, fontSize: 28, fontWeight: 700 },
+        style: {
+          display: "flex",
+          alignItems: "center",
+          gap: 16,
+          fontSize: 28,
+          fontWeight: 700,
+        },
         children: [
           container({
             style: {
@@ -48,7 +54,10 @@ function card() {
           lineHeight: 1,
           letterSpacing: "-0.05em",
         },
-        children: [text("Drop a folder."), text("Get an address.", { color: "#a1a1a1" })],
+        children: [
+          text("Drop a folder."),
+          text("Get an address.", { color: "#a1a1a1" }),
+        ],
       }),
       container({
         style: {
@@ -86,9 +95,8 @@ function card() {
       }),
     ],
   });
-}
 
-export async function renderOgImage() {
+export const renderOgImage = async () => {
   const renderer = new Renderer();
   await renderer.registerFont({
     name: "Inter",
@@ -98,5 +106,6 @@ export async function renderOgImage() {
     name: "Geist Mono",
     data: await readFile("public/fonts/GeistMonoVariable.woff2"),
   });
+
   return render(card(), { renderer, width: 1200, height: 630 });
-}
+};

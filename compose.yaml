@@ -115,30 +115,34 @@ services:
           path: ./backend/Cargo.lock
 
   frontend:
+    # From the repository root, for the workspace's lockfile and shared/
     build:
-      context: ./frontend
-      dockerfile: Dockerfile.dev
+      context: .
+      dockerfile: frontend/Dockerfile.dev
     environment:
       REDOOST_SITES_ORIGIN: http://${REDOOST_SITES_DOMAIN}:8081
     develop:
       watch:
         - action: sync
           path: ./frontend/src
-          target: /app/src
+          target: /app/frontend/src
         - action: sync
           path: ./frontend/styles
-          target: /app/styles
+          target: /app/frontend/styles
         - action: sync
           path: ./frontend/public
-          target: /app/public
+          target: /app/frontend/public
         - action: sync
           path: ./frontend/index.html
-          target: /app/index.html
+          target: /app/frontend/index.html
         - action: sync
           path: ./frontend/vite.config.ts
-          target: /app/vite.config.ts
+          target: /app/frontend/vite.config.ts
+        - action: sync
+          path: ./shared/src
+          target: /app/shared/src
         - action: rebuild
-          path: ./frontend/bun.lock
+          path: ./bun.lock
 
   sites:
     image: nginx:1.31.9-alpine-slim@sha256:5bfced78d24d644270bedb0a9968697042e38d5c03fb6354603df025279c1cbe

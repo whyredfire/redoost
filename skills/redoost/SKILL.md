@@ -14,15 +14,16 @@ each account's sites up to 500 MiB in total.
 
 ## Install the CLI
 
-If the `redoost` command isn't available, install it with uv; it needs Python
-3.10 or newer:
+If the `redoost` command isn't available, install it from npm. It needs
+Node.js 20 or later:
 
 ```sh
-uv tool install "git+https://github.com/whyredfire/redoost#subdirectory=cli"
+npm install -g redoost
 ```
 
-Without uv, use
-`pipx install "git+https://github.com/whyredfire/redoost#subdirectory=cli"`.
+To run it once without installing, use `npx redoost <command>`, or
+`bunx redoost <command>` on a machine that only has Bun. On Linux or macOS,
+`curl -fsSL https://redoost.whyredfire.dev/install.sh | sh` installs it too.
 If it's already installed, `redoost update` brings it up to date.
 
 It uses redoost.whyredfire.dev. For another redoost, add

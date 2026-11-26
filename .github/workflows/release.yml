@@ -22,41 +22,16 @@ jobs:
     needs: check
     uses: ./.github/workflows/build.yml
 
-  test-cli:
-    needs: check
-    uses: ./.github/workflows/cli.yml
-
-  # Built before the images, so the API can vouch for the wheel redoost update installs
-  cli:
-    needs: test-cli
-    runs-on: ubuntu-slim
-    outputs:
-      sha256: ${{ steps.build.outputs.sha256 }}
-    steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.3.3
-      - id: build
-        working-directory: cli
-        env:
-          VERSION: ${{ inputs.version }}
-        run: |
-          uv version "$VERSION" --no-sync
-          uv build
-          echo "sha256=$(sha256sum dist/*.whl | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
-      - uses: actions/upload-artifact@v7
-        with:
-          name: cli
-          path: cli/dist/
-
   build:
-    needs: [test, cli]
+    needs: test
     strategy:
       matrix:
         include:
           - image: redoost-api
             context: backend
           - image: redoost-frontend
-            context: frontend
+            context: .
+            file: frontend/Dockerfile
     uses: docker/github-builder/.github/workflows/build.yml@v1
     permissions:
       contents: read
@@ -64,6 +39,7 @@ jobs:
       packages: write
     with:
       context: ${{ matrix.context }}
+      file: ${{ matrix.file }}
       output: image
       push: true
       platforms: linux/amd64,linux/arm64
@@ -71,7 +47,6 @@ jobs:
       cache-scope: ${{ matrix.image }}
       build-args: |
         VERSION=${{ inputs.version }}
-        CLI_SHA256=${{ needs.cli.outputs.sha256 }}
       sbom: true
       set-meta-labels: true
       set-meta-annotations: true
@@ -90,23 +65,22 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # npm trusted publishing: npm trades this for a short-lived publish token, and signs provenance with it
+      id-token: write
     env:
       VERSION: ${{ inputs.version }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@v10.3.3
 
       - name: Set the version
         run: |
           # Update version in chart/Chart.yaml
           yq -i '.version = strenv(VERSION) | .appVersion = strenv(VERSION)' chart/Chart.yaml
 
-          # Update version in cli/pyproject.toml
-          (cd cli && uv version "$VERSION" --no-sync)
-
-          # Update version in frontend/package.json
+          # Update version in cli/package.json and frontend/package.json; the API's comes from REDOOST_VERSION
+          yq -i '.version = strenv(VERSION)' cli/package.json
           yq -i '.version = strenv(VERSION)' frontend/package.json
 
       # yq drops blank lines, so only its changes are applied, as a patch
@@ -116,17 +90,28 @@ jobs:
           yq '.api.image.tag = strenv(VERSION) | .frontend.image.tag = strenv(VERSION)' chart/values.yaml |
             diff -B chart/values.yaml - | patch chart/values.yaml
 
-      # Attached to the release, so the CLI installs from a tag without PyPI
-      - uses: actions/download-artifact@v8
+      - uses: oven-sh/setup-bun@v2
         with:
-          name: cli
-          path: cli/dist/
+          bun-version: 1.4.5
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      # Trusted publishing needs npm 11.5.1 or later, newer than some Node 24 releases bundle
+      - run: npm install -g npm@^11.5.1
+      - run: bun install --frozen-lockfile
+      - run: bun run --cwd cli build
+
+      # Before tagging, so a failed publish leaves nothing to undo. No token: npmjs.com trusts
+      # this repository's release.yml (Settings → Trusted publishing on the package)
+      - name: Publish the CLI to npm
+        working-directory: cli
+        run: npm publish --access public
 
       # Commit subjects since the previous release, without automated commits
       - name: Write the changelog
         run: |
           previous=$(git describe --tags --abbrev=0 2>/dev/null || true)
-          wheel="https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}/redoost-${VERSION}-py3-none-any.whl"
           {
             echo "## Changes"
             echo
@@ -135,12 +120,15 @@ jobs:
             echo
             echo "## CLI"
             echo
-            echo '```sh'
-            echo "# Install with uv"
-            echo "uv tool install $wheel"
+            echo "Needs Node.js 20 or later."
             echo
-            echo "# Or with pipx"
-            echo "pipx install $wheel"
+            echo '```sh'
+            echo "npm i -g redoost@${VERSION}"
+            echo "# Or run it without installing, with Node.js or Bun"
+            echo "npx redoost@${VERSION} --help"
+            echo "bunx redoost@${VERSION} --help"
+            echo "# Or with the install script"
+            echo "curl -fsSL https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}/install.sh | REDOOST_VERSION=${VERSION} sh"
             echo '```'
             if [ -n "$previous" ]; then
               echo
@@ -158,4 +146,4 @@ jobs:
           git commit -am "chore: Release v${VERSION}"
           git tag "v${VERSION}"
           git push origin HEAD "v${VERSION}"
-          gh release create "v${VERSION}" --title "v${VERSION}" --notes-file "$RUNNER_TEMP/notes.md" cli/dist/*
+          gh release create "v${VERSION}" --title "v${VERSION}" --notes-file "$RUNNER_TEMP/notes.md" frontend/public/install.sh

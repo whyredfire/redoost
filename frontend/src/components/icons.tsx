@@ -30,19 +30,26 @@ import {
   Trash2 as Trash2Node,
   UserRound as UserRoundNode,
   X as XNode,
-  type IconNode,
 } from "lucide";
+import type { IconNode } from "lucide";
 import { omit } from "solid-js";
 
-// lucide-solid doesn't run on Solid 2, so icons are drawn from lucide's own data
-export type LucideIcon = (props: JSX.SvgSVGAttributes<SVGSVGElement>) => JSX.Element;
+export type LucideIcon = (
+  props: JSX.SvgSVGAttributes<SVGSVGElement>
+) => JSX.Element;
 
-function icon(name: string, node: IconNode): LucideIcon {
-  // Lucide's data is trusted static markup
+const icon = (name: string, node: IconNode) => {
+  // WARNING: this markup goes into innerHTML, so node must only ever be lucide's static icon data
   const markup = node
-    .map(([tag, attrs]) => `<${tag} ${Object.entries(attrs).map(([key, value]) => `${key}="${value}"`).join(" ")}/>`)
+    .map(
+      ([tag, attrs]) =>
+        `<${tag} ${Object.entries(attrs)
+          .map(([key, value]) => `${key}="${value}"`)
+          .join(" ")}/>`
+    )
     .join("");
-  return (props) => (
+
+  const Icon: LucideIcon = (props) => (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="24"
@@ -55,11 +62,13 @@ function icon(name: string, node: IconNode): LucideIcon {
       stroke-linejoin="round"
       aria-hidden={props["aria-label"] ? undefined : "true"}
       {...omit(props, "class")}
-      class={cn("lucide", `lucide-${name}`, props.class as string)}
+      class={cn("lucide", `lucide-${name}`, props.class)}
       innerHTML={markup}
     />
   );
-}
+
+  return Icon;
+};
 
 export const ArrowLeft = icon("arrow-left", ArrowLeftNode);
 export const Bot = icon("bot", BotNode);

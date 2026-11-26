@@ -1,92 +1,76 @@
-import { authorization, checkResponse, readResponse } from "./api";
+import { ApiError } from "@redoost/shared";
+import type { AuthConfig, Provider, SignedIn, User } from "@redoost/shared";
+
+import { api } from "./api";
 import { clearSession, clearToken, loadToken, saveToken } from "./session";
-
-export type Provider = "google";
-
-type AuthConfig = {
-  oidc: {
-    provider: Provider;
-    authorization_endpoint: string;
-    client_id: string;
-    scope: string;
-  } | null;
-  // Local development signs in as a dev user instead
-  dev: boolean;
-};
-
-export type User = {
-  id: string;
-  provider: Provider;
-  email: string | null;
-  name: string | null;
-  picture: string | null;
-};
 
 export const providerNames: Record<Provider, string> = { google: "Google" };
 
 const signInKey = "redoost.sign-in";
 const redirectUri = `${location.origin}/auth/callback`;
 
-async function loadAuthConfig(): Promise<AuthConfig> {
+const loadAuthConfig = async () => {
   try {
-    const response = await fetch("/api/auth/config");
-    return await readResponse<AuthConfig>(response);
+    return await api().authConfig();
   } catch {
-    // Without it, signing in isn't offered
-    return { oidc: null, dev: false };
+    return { oidc: null, dev: false } satisfies AuthConfig;
   }
-}
+};
 
-// Set whenever the token is, so the header can show who's signed in
 let user: User | null = null;
 
-export function signedInUser() {
-  return user;
-}
+export const signedInUser = () => user;
 
-async function saveSignIn(response: Response) {
-  const signedIn = await readResponse<{ token: string; user: User }>(response);
-  user = signedIn.user;
+const saveSignIn = (signedIn: SignedIn) => {
+  ({ user } = signedIn);
   saveToken(signedIn.token);
-}
+};
 
-// Dropped up front, so the dashboard asks for a new token instead of failing later
-async function checkToken() {
+const checkToken = async () => {
   const token = loadToken();
-  if (!token) return;
-  const response = await fetch("/api/auth/me", {
-    headers: authorization(token),
-  }).catch(() => null);
-  if (response?.status === 401) clearToken();
-  if (response?.ok) user = await response.json();
-}
+
+  if (!token) {
+    return;
+  }
+
+  try {
+    user = await api(token).me();
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      clearToken();
+    }
+  }
+};
 
 export const [authConfig] = await Promise.all([loadAuthConfig(), checkToken()]);
 
-function base64url(bytes: Uint8Array) {
-  return btoa(String.fromCharCode(...bytes))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-}
+const base64url = (bytes: Uint8Array) =>
+  btoa(String.fromCodePoint(...bytes))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/[=]+$/u, "");
 
-function randomString() {
-  return base64url(crypto.getRandomValues(new Uint8Array(32)));
-}
+const randomString = () =>
+  base64url(crypto.getRandomValues(new Uint8Array(32)));
 
-export async function signIn() {
+export const signIn = async () => {
   const { oidc } = authConfig;
-  if (!oidc) return;
-  // PKCE, so a stolen code can't be exchanged without this browser's verifier
+
+  if (!oidc) {
+    return;
+  }
+
   const state = randomString();
   const verifier = randomString();
+
   const digest = await crypto.subtle.digest(
     "SHA-256",
-    new TextEncoder().encode(verifier),
+    new TextEncoder().encode(verifier)
   );
+
   sessionStorage.setItem(
     signInKey,
-    JSON.stringify({ state, verifier, returnTo: location.pathname }),
+    JSON.stringify({ state, verifier, returnTo: location.pathname })
   );
 
   const url = new URL(oidc.authorization_endpoint);
@@ -100,71 +84,65 @@ export async function signIn() {
     code_challenge_method: "S256",
   }).toString();
   location.assign(url);
+};
+
+export interface Callback {
+  code?: string;
+  state?: string;
+  error?: string;
 }
 
-export type Callback = { code?: string; state?: string; error?: string };
-
-export async function finishSignIn({ code, state, error }: Callback) {
+export const finishSignIn = async ({ code, state, error }: Callback) => {
   const saved = sessionStorage.getItem(signInKey);
   sessionStorage.removeItem(signInKey);
-  if (error) throw new Error("Sign-in was cancelled or denied.");
-  const started = saved
-    ? (JSON.parse(saved) as {
-        state: string;
-        verifier: string;
-        returnTo: string;
-      })
-    : null;
+
+  if (error) {
+    throw new Error("Sign-in was cancelled or denied.");
+  }
+
+  const started: {
+    state: string;
+    verifier: string;
+    returnTo: string;
+  } | null = saved ? JSON.parse(saved) : null;
+
   if (!code || !started || started.state !== state) {
     throw new Error("This sign-in link has expired. Sign in again.");
   }
 
-  const response = await fetch("/api/auth/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      code,
-      code_verifier: started.verifier,
-      redirect_uri: redirectUri,
-    }),
-  });
-  await saveSignIn(response);
+  saveSignIn(await api().signIn(code, started.verifier, redirectUri));
   clearSession();
+
   return started.returnTo;
-}
+};
 
-export async function signInAsDev() {
-  const response = await fetch("/api/auth/dev", { method: "POST" });
-  await saveSignIn(response);
-}
+export const signInAsDev = async () => {
+  saveSignIn(await api().signInAsDev());
+};
 
-export function signOut() {
+export const signOut = () => {
   clearSession();
   user = null;
   clearToken();
-}
+};
 
-export async function deleteAccount() {
+export const deleteAccount = async () => {
   const token = loadToken();
-  if (!token) return;
-  const response = await fetch("/api/auth/me", {
-    method: "DELETE",
-    headers: authorization(token),
-  });
-  await checkResponse(response);
+
+  if (!token) {
+    return;
+  }
+
+  await api(token).deleteMe();
   signOut();
-}
+};
 
-export async function approveCliLogin(id: string, token: string) {
-  const response = await fetch(`/api/auth/cli/${id}`, {
-    method: "POST",
-    headers: authorization(token),
-  });
-  await checkResponse(response);
-}
-
-export function publishToken() {
+export const publishToken = () => {
   const token = loadToken();
-  if (!token) throw new Error("Sign in to publish.");
+
+  if (!token) {
+    throw new Error("Sign in to publish.");
+  }
+
   return token;
-}
+};

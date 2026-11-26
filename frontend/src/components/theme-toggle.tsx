@@ -2,7 +2,7 @@ import { Moon, Sun } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { setTheme, useTheme } from "@/lib/theme";
 
-export function ThemeToggle() {
+export const ThemeToggle = () => {
   const { dark } = useTheme();
 
   return (
@@ -16,4 +16,4 @@ export function ThemeToggle() {
       {dark() ? <Sun /> : <Moon />}
     </Button>
   );
-}
+};

@@ -49,8 +49,9 @@ account: those take the dashboard's JWT.
 ## API
 
 - `GET /health`
-- `GET /api/version`: the deployed version, and the SHA-256 of the CLI wheel
-  released with it, which `redoost update` checks before installing.
+- `GET /api/version`: the deployed version, which `redoost update` installs
+  from npm. `cli_sha256` is always `null`, so CLIs from before the npm
+  release (Python) don't try to update themselves.
 - `GET /api/deployments/limits`: the file, deployment, and file count limits.
 - `GET /api/deployments/usage`: bytes the user's sites take up, and the most
   they can.

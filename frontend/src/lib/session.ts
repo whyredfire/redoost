@@ -1,70 +1,83 @@
+import { ApiError } from "@redoost/shared";
+import type { DeploymentUploads, ManifestFile } from "@redoost/shared";
 import { createSignal } from "solid-js";
-import { ApiError } from "./api";
-import type { UploadSession } from "./deploy";
+
+export interface UploadSession {
+  deployment: DeploymentUploads;
+  manifest: ManifestFile[];
+  originalSize?: number;
+  description?: string;
+  note?: string;
+}
 
 const storageKey = "redoost.upload";
 const tokenKey = "redoost.token";
 
-export function loadSession(): UploadSession | null {
+export const loadSession = () => {
   try {
     const saved = sessionStorage.getItem(storageKey);
+
     if (saved) {
-      const session = JSON.parse(saved) as UploadSession;
+      const session: UploadSession = JSON.parse(saved);
       const { state, locked_until } = session.deployment;
+
       if (state === "ready" || Date.now() < Date.parse(locked_until)) {
         return session;
       }
     }
   } catch {
-    // Malformed sessions are discarded below
+    clearSession();
+
+    return null;
   }
+
   clearSession();
+
   return null;
-}
+};
 
-export function saveSession(session: UploadSession) {
+export const saveSession = (session: UploadSession) => {
   sessionStorage.setItem(storageKey, JSON.stringify(session));
-}
+};
 
-export function clearSession() {
+export const clearSession = () => {
   sessionStorage.removeItem(storageKey);
-}
+};
 
-// Kept across tabs, so every tab acts as the same user
-export function loadToken() {
-  return localStorage.getItem(tokenKey);
-}
+export const loadToken = () => localStorage.getItem(tokenKey);
 
 const [token, setToken] = createSignal(loadToken());
+
 addEventListener("storage", () => setToken(loadToken()));
 
-export function saveToken(value: string) {
+export const saveToken = (value: string) => {
   localStorage.setItem(tokenKey, value);
   setToken(value);
-}
+};
 
-export function clearToken() {
+export const clearToken = () => {
   localStorage.removeItem(tokenKey);
   setToken(null);
-}
+};
 
-export function useToken() {
-  return token;
-}
+export const useToken = () => token;
 
-// Null when signed out, or when the token turns out expired, so pages ask to sign in
-export async function loadSignedIn<T>(
-  load: (token: string) => Promise<T>,
-): Promise<T | null> {
-  const token = loadToken();
-  if (!token) return null;
+export const loadSignedIn = async <T>(load: (token: string) => Promise<T>) => {
+  const saved = loadToken();
+
+  if (!saved) {
+    return null;
+  }
+
   try {
-    return await load(token);
+    return await load(saved);
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       clearToken();
+
       return null;
     }
+
     throw error;
   }
-}
+};

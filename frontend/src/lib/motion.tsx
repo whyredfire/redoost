@@ -1,9 +1,6 @@
 import type { JSX } from "@solidjs/web";
-import {
-  animate,
-  type AnimationOptions,
-  type DOMKeyframesDefinition,
-} from "motion";
+import { animate } from "motion";
+import type { AnimationOptions, DOMKeyframesDefinition } from "motion";
 import {
   children,
   createEffect,
@@ -13,142 +10,171 @@ import {
   untrack,
 } from "solid-js";
 
-// Stands in for motion/react's MotionConfig reducedMotion="user"
 const query = matchMedia("(prefers-reduced-motion: reduce)");
 const [reduced, setReduced] = createSignal(query.matches);
+
 query.addEventListener("change", (event) => setReduced(event.matches));
 
-export function useReducedMotion() {
-  return reduced;
-}
+export const useReducedMotion = () => reduced;
 
 export type Target = DOMKeyframesDefinition;
 
-// motion's animate, instant when motion is reduced
-export function animateTo(
+type Transition = AnimationOptions | (() => AnimationOptions | undefined);
+
+export const animateTo = (
   element: Element,
   target: Target,
-  options?: AnimationOptions,
-) {
-  // Read when the animation starts; a later change doesn't restart it
-  return animate(
+  options?: AnimationOptions
+) =>
+  animate(
     element,
     target,
     untrack(reduced)
       ? { ...options, type: undefined, duration: 0, delay: 0 }
-      : options,
+      : options
   );
+
+interface Finishable {
+  then: (onResolve: () => void) => Promise<void>;
 }
 
-// motion.div's animate prop, as a ref: follows target(), jumping to the first one like initial={false}
-export function animated(
-  target: () => Target,
-  transition?: AnimationOptions | (() => AnimationOptions | undefined),
-) {
+export const afterAnimation = async (
+  animation: Finishable,
+  done: () => void
+) => {
+  await animation;
+  done();
+};
+
+const isGetter = (
+  transition: Transition | undefined
+): transition is () => AnimationOptions | undefined =>
+  typeof transition === "function";
+
+export const animated = (target: () => Target, transition?: Transition) => {
   let element: Element | undefined;
   let first = true;
   createEffect(
-    () =>
-      [
-        target(),
-        typeof transition === "function" ? transition() : transition,
-      ] as const,
+    () => [target(), isGetter(transition) ? transition() : transition] as const,
     ([value, options]) => {
-      if (!element) return;
+      if (!element) {
+        return;
+      }
+
       animateTo(element, value, first ? { duration: 0 } : options);
       first = false;
-    },
+    }
   );
+
   return (next: Element) => {
     element = next;
   };
-}
+};
 
-function fromTo(from: Target, to: Target): Target {
-  const frames: Record<string, unknown> = {};
-  for (const key of Object.keys(to)) {
-    const start = (from as Record<string, unknown>)[key];
-    const end = (to as Record<string, unknown>)[key];
-    frames[key] = start === undefined ? end : [start, end];
-  }
-  return frames as Target;
-}
+const fromTo = (from: Target, to: Target) => {
+  const starts = new Map(Object.entries(from));
 
-type Entry<T> = {
+  const frames: Target = Object.fromEntries(
+    Object.entries(to).map(([key, end]) => {
+      const start = starts.get(key);
+
+      return [key, start === undefined ? end : [start, end]];
+    })
+  );
+
+  return frames;
+};
+
+interface Entry<T> {
   id: number;
   value: T;
   appear: boolean;
   element?: () => Element | undefined;
-};
+}
 
-type PresenceProps<T> = {
-  // Each distinct truthy value is its own child, like a key; falsy shows nothing
+interface PresenceProps<T> {
   when: T | undefined | null | false;
-  // Where an entering child starts; left out, it appears without animating
   initial?: Target;
   animate?: Target;
   exit?: Target;
   transition?: AnimationOptions;
   exitTransition?: AnimationOptions;
-  // AnimatePresence's initial: false (the default) skips the first child's entrance
   appear?: boolean;
-  // AnimatePresence mode="wait": the old child leaves before the new one enters
   mode?: "wait" | "sync";
-  // Must render a single element, which is what animates
+  // WARNING: must render a single element; only the first element child is animated
   children: (value: T) => JSX.Element;
-};
+}
 
-// AnimatePresence: keeps a removed child mounted until its exit animation ends
-export function Presence<T>(props: PresenceProps<T>) {
+export const Presence = <T,>(props: PresenceProps<T>) => {
   const [entries, setEntries] = createSignal<Entry<T>[]>([]);
   let count = 0;
   let current: Entry<T> | undefined;
 
+  const remove = (entry: Entry<T>) =>
+    setEntries((list) => list.filter((item) => item !== entry));
+
   createEffect(
     () => props.when,
     (value) =>
-      // Props are read as they are when the child changes, not tracked
       untrack(() => {
         const first = count === 0;
-        if (current && value === current.value) return;
-        const leaving = current;
-        current = value
-          ? {
-              id: ++count,
-              value: value as T,
-              appear: first ? !!props.appear : true,
-            }
-          : undefined;
-        if (first && !value) count++;
-        const next = current;
-        const add = () => {
-          if (next) setEntries((list) => [...list, next]);
-        };
-        const remove = (entry: Entry<T>) =>
-          setEntries((list) => list.filter((item) => item !== entry));
-        if (!leaving) {
-          add();
+
+        if (current && value === current.value) {
           return;
         }
+
+        const leaving = current;
+
+        if (value) {
+          count += 1;
+          current = {
+            id: count,
+            value,
+            appear: first ? !!props.appear : true,
+          };
+        } else {
+          current = undefined;
+        }
+
+        if (first && !value) {
+          count += 1;
+        }
+
+        const next = current;
+
+        const add = () => {
+          if (next) {
+            setEntries((list) => [...list, next]);
+          }
+        };
+
+        if (!leaving) {
+          add();
+
+          return;
+        }
+
         const element = leaving.element?.();
+
         const exit =
           element && props.exit
             ? animateTo(
                 element,
                 props.exit,
-                props.exitTransition ?? props.transition,
+                props.exitTransition ?? props.transition
               )
             : Promise.resolve();
+
         if (props.mode === "wait") {
-          exit.then(() => {
+          afterAnimation(exit, () => {
             remove(leaving);
             add();
           });
         } else {
           add();
-          exit.then(() => remove(leaving));
+          afterAnimation(exit, () => remove(leaving));
         }
-      }),
+      })
   );
 
   return (
@@ -161,16 +187,18 @@ export function Presence<T>(props: PresenceProps<T>) {
             .find((node): node is Element => node instanceof Element);
         onSettled(() => {
           const element = entry.element?.();
+
           if (entry.appear && element && props.initial && props.animate) {
             animateTo(
               element,
               fromTo(props.initial, props.animate),
-              props.transition,
+              props.transition
             );
           }
         });
+
         return <>{resolved()}</>;
       }}
     </For>
   );
-}
+};

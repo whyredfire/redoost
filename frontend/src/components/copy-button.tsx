@@ -1,17 +1,18 @@
 import { Show } from "solid-js";
-import { Check, Copy } from "@/components/icons";
+
 import { Hint } from "@/components/hint";
+import { Check, Copy } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { useCopy } from "@/lib/clipboard";
 
-type CopyButtonProps = {
+interface CopyButtonProps {
   text: string;
   label: string;
   hint?: string;
   size?: "icon" | "icon-xs";
-};
+}
 
-export function CopyButton(props: CopyButtonProps) {
+export const CopyButton = (props: CopyButtonProps) => {
   const { copied, copy } = useCopy();
 
   return (
@@ -32,4 +33,4 @@ export function CopyButton(props: CopyButtonProps) {
       </Button>
     </Hint>
   );
-}
+};

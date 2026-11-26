@@ -27,9 +27,10 @@ and get a shareable address, with no build step.
   sites stay online for as long as they keep them.
 - **Manage your sites.** Each site has its own page, where you can update it
   with a new version, describe it, take it offline, or delete it.
-- **A command line too.** `redoost login` signs in through a link you can open
-  on any device, then `redoost publish ./dist` publishes a folder. See
-  [`cli/README.md`](cli/README.md).
+- **A command line too.** `npm install -g redoost` (or `npx redoost`, or
+  `bunx redoost`) on Node.js 20 or later: `redoost login` signs in
+  through a link you can open on any device, then `redoost publish ./dist`
+  publishes a folder. See [`cli/README.md`](cli/README.md).
 - **Works with AI agents.** `npx skills add whyredfire/redoost` installs the
   redoost skill, so agents like Claude Code, Codex, and Cursor can publish and
   manage sites for you.
@@ -57,9 +58,10 @@ flowchart LR
 4. Nginx serves `<slug>.<sites domain>` from Garage's website endpoint, after
    checking with the API (cached briefly) that the site exists.
 
-Built with Rust (axum and sqlx) on Postgres; React, TanStack Router,
-Tailwind, and shadcn/ui, built with Vite and Bun; [Garage](https://garagehq.deuxfleurs.fr) for storage; and
-Nginx for serving sites.
+Built with Rust (axum and sqlx) on Postgres; SolidJS, TanStack Router,
+Tailwind, and Kobalte, built with Vite and Bun; [Garage](https://garagehq.deuxfleurs.fr) for storage; and
+Nginx for serving sites. The CLI is TypeScript, and shares its upload code with
+the dashboard through the Bun workspace's [`shared/`](shared) package.
 
 ## Self-hosting on Kubernetes
 
@@ -143,7 +145,8 @@ docker compose watch
 
 `docker compose watch` syncs source changes into the containers, where the API
 recompiles and restarts with cargo-watch and the frontend reloads in place;
-`Cargo.toml` and lockfile changes rebuild the image. The
+`Cargo.toml` and lockfile changes rebuild the image. The frontend image builds
+from the repository root, since it needs `shared/` and the root `bun.lock`. The
 `Dockerfile.dev` images are for development only; `backend/Dockerfile` and
 `frontend/Dockerfile` build the production images.
 
@@ -167,6 +170,10 @@ and CORS, and `migrate` applies database migrations to the `postgres` service.
 See
 [`backend/README.md`](backend/README.md) and
 [`frontend/README.md`](frontend/README.md) for the API, migrations, and checks.
+
+The frontend, the CLI, and `shared/` are one Bun workspace. `bun install` at
+the root installs them all, and `bun run check`, `bun run typecheck`, and
+`bun run test` check them all.
 
 ## Configuration
 

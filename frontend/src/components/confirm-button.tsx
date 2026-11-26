@@ -1,5 +1,9 @@
+import { errorMessage } from "@redoost/shared";
 import type { JSX } from "@solidjs/web";
-import { Show, createSignal, omit, type ComponentProps } from "solid-js";
+import { Show, createSignal, omit } from "solid-js";
+import type { ComponentProps } from "solid-js";
+
+import { Hint } from "@/components/hint";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,10 +16,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Hint } from "@/components/hint";
-import { errorMessage } from "@/lib/format";
 
-// Props beyond these go to the trigger, a Button unless `as` says otherwise
 type ConfirmButtonProps = {
   label?: string;
   question: string;
@@ -28,7 +29,7 @@ type ConfirmButtonProps = {
   as?: ComponentProps<typeof AlertDialogTrigger>["as"];
 } & Omit<ComponentProps<typeof Button>, "children" | "onClick">;
 
-export function ConfirmButton(props: ConfirmButtonProps) {
+export const ConfirmButton = (props: ConfirmButtonProps) => {
   const trigger = omit(
     props,
     "label",
@@ -39,36 +40,44 @@ export function ConfirmButton(props: ConfirmButtonProps) {
     "details",
     "onConfirm",
     "children",
-    "as",
+    "as"
   );
+
   const [confirming, setConfirming] = createSignal(false);
   const [working, setWorking] = createSignal(false);
   const [error, setError] = createSignal("");
 
-  function changeOpen(open: boolean) {
-    if (working()) return;
+  const changeOpen = (open: boolean) => {
+    if (working()) {
+      return;
+    }
+
     setConfirming(open);
     setError("");
-  }
+  };
 
-  async function confirm(event: MouseEvent) {
-    // Radix closes the dialog on click; it stays open until the request finishes
+  const confirm = async (event: MouseEvent) => {
+    // WARNING: AlertDialogAction closes the dialog unless the click is default-prevented; it must stay open until the request finishes
     event.preventDefault();
     setWorking(true);
     setError("");
+
     try {
       await props.onConfirm();
       setConfirming(false);
-    } catch (cause) {
-      setError(errorMessage(cause));
+    } catch (error_) {
+      setError(errorMessage(error_));
     } finally {
       setWorking(false);
     }
-  }
+  };
 
   const button = () => (
-    // The trigger props are Button's or the `as` element's, which TypeScript can't relate
-    <AlertDialogTrigger as={props.as ?? Button} {...(trigger as Record<string, unknown>)}>
+    <AlertDialogTrigger
+      as={props.as ?? Button}
+      // SAFETY: trigger holds only Button's props (or the `as` element's), which the polymorphic trigger forwards to that element unchanged
+      {...(trigger as ComponentProps<typeof AlertDialogTrigger>)}
+    >
       {props.children}
     </AlertDialogTrigger>
   );
@@ -85,7 +94,7 @@ export function ConfirmButton(props: ConfirmButtonProps) {
         </AlertDialogHeader>
         {props.details}
         <Show when={error()}>
-          <p role="alert" class="text-sm text-destructive">
+          <p role="alert" class="text-destructive text-sm">
             {error()}
           </p>
         </Show>
@@ -102,4 +111,4 @@ export function ConfirmButton(props: ConfirmButtonProps) {
       </AlertDialogContent>
     </AlertDialog>
   );
-}
+};

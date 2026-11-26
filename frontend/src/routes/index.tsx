@@ -1,6 +1,7 @@
 import { Navigate, createFileRoute } from "@tanstack/solid-router";
-import { Show } from "solid-js";
 import { cn } from "cn";
+import { Show } from "solid-js";
+
 import { AddressPreview } from "@/components/address-preview";
 import { CliCommand } from "@/components/cli-command";
 import { FolderDrop } from "@/components/folder-drop";
@@ -9,17 +10,12 @@ import { inset } from "@/lib/layout";
 import { useToken } from "@/lib/session";
 import { usePageDrop, useUpload } from "@/lib/upload";
 
-export const Route = createFileRoute("/")({
-  component: LandingPage,
-});
-
-function LandingPage() {
+const LandingPage = () => {
   const upload = useUpload();
   const token = useToken();
   const signedOut = () => !token();
   const dragging = usePageDrop(() => !signedOut());
 
-  // Listed files are reviewed and published on their own page
   return (
     <Show
       when={upload.files.length === 0}
@@ -27,7 +23,7 @@ function LandingPage() {
     >
       <div class="flex flex-1 flex-col">
         <Show when={upload.session && upload.stage !== "ready"}>
-          <p class={cn(inset, "border-b bg-muted/60 py-3 text-sm")}>
+          <p class={cn(inset, "bg-muted/60 border-b py-3 text-sm")}>
             Select the same files to resume{" "}
             <span class="font-mono">{upload.session?.deployment.slug}</span>, or{" "}
             <button
@@ -41,7 +37,7 @@ function LandingPage() {
           </p>
         </Show>
         <Show when={upload.target && !upload.session}>
-          <p class={cn(inset, "border-b bg-muted/60 py-3 text-sm")}>
+          <p class={cn(inset, "bg-muted/60 border-b py-3 text-sm")}>
             Select the new version of{" "}
             <span class="font-mono">{upload.target}</span> to update it, or{" "}
             <button
@@ -55,7 +51,6 @@ function LandingPage() {
           </p>
         </Show>
         <FolderDrop
-          // The space between the rules is the drop zone, filling what the footer leaves
           class="flex-1 rounded-none bg-transparent shadow-none"
           heading
           prompt={
@@ -82,4 +77,8 @@ function LandingPage() {
       </div>
     </Show>
   );
-}
+};
+
+export const Route = createFileRoute("/")({
+  component: LandingPage,
+});

@@ -1,8 +1,9 @@
-import { createSignal, Show, untrack, type Accessor } from "solid-js";
+import { createSignal, Show, untrack } from "solid-js";
+import type { Accessor } from "solid-js";
+
 import { Choice } from "@/components/choice";
 import { Input } from "@/components/ui/input";
 
-// How each reads on its own, and within a sentence
 export const presets = [
   ["never", "Never", "until it's deleted"],
   ["1", "In a day", "for a day"],
@@ -14,74 +15,74 @@ export const presets = [
 
 export type Preset = (typeof presets)[number][0];
 
-function inDays(days: string) {
+const inDays = (days: string) => {
   const date = new Date();
   date.setDate(date.getDate() + Number(days));
+
   return date.toISOString();
-}
+};
 
-function localDay(date: Date) {
-  const pad = (part: number) => String(part).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
+const pad = (part: number) => String(part).padStart(2, "0");
 
-// Online through the day, so it ends at the next local midnight
-function endOfDay(day: string) {
+const localDay = (date: Date) =>
+  `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+
+const endOfDay = (day: string) => {
   const date = new Date(`${day}T00:00`);
   date.setDate(date.getDate() + 1);
+
   return date.toISOString();
-}
+};
 
-// The last day something expiring at this time is online
-function dayOf(value: string) {
-  return localDay(new Date(Date.parse(value) - 1));
-}
+const lastDayOnline = (expiresAt: string) =>
+  localDay(new Date(Date.parse(expiresAt) - 1));
 
-type ExpiryProps = {
-  // An ISO time, or null for never
+interface ExpiryProps {
   value: string | null;
   onChange: (value: string | null) => void;
   disabled?: boolean;
-};
+}
 
-// The preset comes from the first value only; later values are picked through it
-export function useExpiry(
+export const useExpiry = (
   value: Accessor<string | null>,
-  onChange: (value: string | null) => void,
-) {
+  onChange: (value: string | null) => void
+) => {
   const [preset, setPreset] = createSignal<Preset>(
-    untrack(value) === null ? "never" : "date",
+    untrack(value) === null ? "never" : "date"
   );
 
-  function choose(next: Preset) {
+  const choose = (next: Preset) => {
     setPreset(next);
-    if (next === "never") onChange(null);
-    else if (next !== "date") onChange(inDays(next));
-  }
+
+    if (next === "never") {
+      onChange(null);
+    } else if (next !== "date") {
+      onChange(inDays(next));
+    }
+  };
 
   return [preset, choose] as const;
-}
+};
 
-export function ExpiryDate(props: ExpiryProps) {
-  return (
-    <Input
-      type="date"
-      aria-label="Last day online"
-      value={props.value ? dayOf(props.value) : ""}
-      min={localDay(new Date())}
-      onInput={(event) => {
-        if (event.currentTarget.value)
-          props.onChange(endOfDay(event.currentTarget.value));
-      }}
-      disabled={props.disabled}
-    />
-  );
-}
+export const ExpiryDate = (props: ExpiryProps) => (
+  <Input
+    type="date"
+    aria-label="Last day online"
+    value={props.value ? lastDayOnline(props.value) : ""}
+    min={localDay(new Date())}
+    onInput={(event) => {
+      if (event.currentTarget.value) {
+        props.onChange(endOfDay(event.currentTarget.value));
+      }
+    }}
+    disabled={props.disabled}
+  />
+);
 
-export function ExpirySelect(props: ExpiryProps & { label?: string }) {
+export const ExpirySelect = (props: ExpiryProps & { label?: string }) => {
   const [preset, choose] = useExpiry(
     () => props.value,
-    (value) => props.onChange(value),
+    (value) => props.onChange(value)
   );
 
   return (
@@ -102,4 +103,4 @@ export function ExpirySelect(props: ExpiryProps & { label?: string }) {
       </Show>
     </div>
   );
-}
+};

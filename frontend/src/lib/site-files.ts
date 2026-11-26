@@ -1,306 +1,153 @@
-import { unzip } from "fflate";
-import type { Limits, ManifestFile, StoredFile } from "./deploy";
-import { formatBytes } from "./format";
+import {
+  defaultLimits,
+  formatBytes,
+  hidden,
+  toPages,
+  unzipSite,
+} from "@redoost/shared";
+import type { Limits, SiteFile, SizedPath } from "@redoost/shared";
 
-export type SiteFile = { path: string; file: File };
-export type UploadFile = SiteFile & {
-  gzip: boolean;
-  sha256: string;
-  originalSha256: string;
-};
-export type FileChange = "new" | "changed";
-export type SiteCheck = { label: string; passed: boolean };
+const isDirectoryEntry = (
+  entry: FileSystemEntry
+): entry is FileSystemDirectoryEntry => entry.isDirectory;
 
-const compressible =
-  /\.(html?|css|[cm]?js|json|map|svg|txt|xml|wasm|webmanifest)$/i;
+const readFile = (entry: FileSystemFileEntry) => {
+  const { promise, resolve, reject } = Promise.withResolvers<File>();
+  entry.file(resolve, reject);
 
-// The API's defaults, so zips stay bounded before the limits request finishes
-const defaultLimits: Limits = {
-  max_file_size: 20 * 1024 ** 2,
-  max_deployment_size: 150 * 1024 ** 2,
-  max_deployment_files: 2000,
+  return promise;
 };
 
-// Dotfiles like .env and .git/ are never published; .well-known/ is
-function hidden(path: string) {
-  return path
-    .split("/")
-    .some((part) => part.startsWith(".") && part !== ".well-known");
-}
+const readBatch = (reader: FileSystemDirectoryReader) => {
+  const { promise, resolve, reject } =
+    Promise.withResolvers<FileSystemEntry[]>();
 
-async function readEntry(
+  reader.readEntries(resolve, reject);
+
+  return promise;
+};
+
+const readEntry: (
   entry: FileSystemEntry,
-  prefix: string,
-): Promise<SiteFile[]> {
-  if (entry.isDirectory) {
-    return readDirectory(
-      entry as FileSystemDirectoryEntry,
-      `${prefix}${entry.name}/`,
-    );
+  prefix: string
+) => Promise<SiteFile[]> = async (entry, prefix) => {
+  if (isDirectoryEntry(entry)) {
+    return readDirectory(entry, `${prefix}${entry.name}/`);
   }
 
-  const file = await new Promise<File>((resolve, reject) =>
-    (entry as FileSystemFileEntry).file(resolve, reject),
-  );
-  return [{ path: `${prefix}${entry.name}`, file }];
-}
+  // SAFETY: an entry that isn't a directory is a file
+  const file = await readFile(entry as FileSystemFileEntry);
 
-async function readDirectory(
-  directory: FileSystemDirectoryEntry,
-  prefix: string,
-) {
+  return [{ path: `${prefix}${entry.name}`, file }];
+};
+
+const readInOrder: (
+  entries: FileSystemEntry[],
+  prefix: string
+) => Promise<SiteFile[]> = async (entries, prefix) => {
+  const [child, ...rest] = entries;
+
+  if (!child) {
+    return [];
+  }
+
+  const files = await readEntry(child, prefix);
+
+  return [...files, ...(await readInOrder(rest, prefix))];
+};
+
+const readDirectory = (directory: FileSystemDirectoryEntry, prefix: string) => {
   const reader = directory.createReader();
-  const files: SiteFile[] = [];
-  while (true) {
-    const entries = await new Promise<FileSystemEntry[]>((resolve, reject) =>
-      reader.readEntries(resolve, reject),
-    );
-    if (entries.length === 0) break;
-    for (const child of entries) {
-      files.push(...(await readEntry(child, prefix)));
+
+  const readRest: () => Promise<SiteFile[]> = async () => {
+    const entries = await readBatch(reader);
+
+    if (entries.length === 0) {
+      return [];
+    }
+
+    const files = await readInOrder(entries, prefix);
+
+    return [...files, ...(await readRest())];
+  };
+
+  return readRest();
+};
+
+const checkZip = (entries: SizedPath[], bounds: Limits) => {
+  let total = 0;
+
+  for (const [index, { path, size }] of entries.entries()) {
+    if (size > bounds.max_file_size) {
+      throw new Error(
+        `${path} is ${formatBytes(size)} uncompressed; files can be up to ${formatBytes(bounds.max_file_size)}.`
+      );
+    }
+
+    total += size;
+
+    if (total > bounds.max_deployment_size) {
+      throw new Error(
+        `This zip expands to more than ${formatBytes(bounds.max_deployment_size)}; sites can be up to ${formatBytes(bounds.max_deployment_size)}.`
+      );
+    }
+
+    if (index + 1 > bounds.max_deployment_files) {
+      throw new Error(
+        `This zip has more than ${bounds.max_deployment_files} files; sites can have up to ${bounds.max_deployment_files}.`
+      );
     }
   }
-  return files;
-}
+};
 
-async function unzipped(
-  archive: File,
-  limits: Limits | null,
-): Promise<SiteFile[]> {
+const unzipped = (archive: Blob, limits: Limits | null) => {
   const bounds = limits ?? defaultLimits;
+
   if (archive.size > bounds.max_deployment_size) {
     throw new Error(
-      `This zip is ${formatBytes(archive.size)}; sites can be up to ${formatBytes(bounds.max_deployment_size)}.`,
+      `This zip is ${formatBytes(archive.size)}; sites can be up to ${formatBytes(bounds.max_deployment_size)}.`
     );
   }
 
-  const buffer = await archive.arrayBuffer();
-  let total = 0;
-  let count = 0;
-  let rejected = "";
-  // fflate always allocates plain ArrayBuffers, which File accepts
-  const entries = await new Promise<Record<string, Uint8Array<ArrayBuffer>>>(
-    (resolve, reject) =>
-      unzip(
-        new Uint8Array(buffer),
-        {
-          // Runs before each entry is decompressed, so an oversized one is skipped
-          filter: ({ name, originalSize }) => {
-            if (rejected) return false;
-            if (
-              name.endsWith("/") ||
-              name.startsWith("__MACOSX/") ||
-              hidden(name)
-            ) {
-              return false;
-            }
-            if (originalSize > bounds.max_file_size) {
-              rejected = `${name} is ${formatBytes(originalSize)} uncompressed; files can be up to ${formatBytes(bounds.max_file_size)}.`;
-              return false;
-            }
-            total += originalSize;
-            if (total > bounds.max_deployment_size) {
-              rejected = `This zip expands to more than ${formatBytes(bounds.max_deployment_size)}; sites can be up to ${formatBytes(bounds.max_deployment_size)}.`;
-              return false;
-            }
-            count += 1;
-            if (count > bounds.max_deployment_files) {
-              rejected = `This zip has more than ${bounds.max_deployment_files} files; sites can have up to ${bounds.max_deployment_files}.`;
-              return false;
-            }
-            return true;
-          },
-        },
-        (error, result) =>
-          error
-            ? reject(new Error("This zip file can't be read."))
-            : resolve(result as Record<string, Uint8Array<ArrayBuffer>>),
-      ),
-  );
-  if (rejected) throw new Error(rejected);
-  const files = Object.entries(entries).map(([path, contents]) => ({
-    path,
-    file: new File([contents], path.split("/").pop()!),
-  }));
+  return unzipSite(archive, (entries) => checkZip(entries, bounds));
+};
 
-  // Zips often wrap the site in one folder, like my-site/index.html
-  const top = files[0]?.path.split("/")[0];
-  if (files.every(({ path }) => path.startsWith(`${top}/`))) {
-    return files.map((file) => ({
-      ...file,
-      path: file.path.slice(top!.length + 1),
-    }));
-  }
-  return files;
-}
+const toSite = async (files: SiteFile[], limits: Limits | null) => {
+  const [first] = files;
 
-async function toSite(
-  files: SiteFile[],
-  limits: Limits | null,
-): Promise<SiteFile[]> {
-  if (files.length === 1 && /\.zip$/i.test(files[0]!.path)) {
-    return toPages(await unzipped(files[0]!.file, limits));
+  if (files.length === 1 && first && /\.zip$/iu.test(first.path)) {
+    return toPages(await unzipped(first.file, limits));
   }
+
   return toPages(files.filter(({ path }) => !hidden(path)));
-}
+};
 
-// Without index.html, a lone root HTML file becomes the home page; otherwise siteChecks flags it
-function toPages(files: SiteFile[]): SiteFile[] {
-  const sorted = files.sort((a, b) => a.path.localeCompare(b.path));
-  if (!sorted.length || sorted.some(({ path }) => path === "index.html")) {
-    return sorted;
-  }
-
-  const pages = sorted.filter(({ path }) => /^[^/]+\.html?$/i.test(path));
-  if (pages.length === 1) {
-    const renamed = sorted.map((file) =>
-      file === pages[0] ? { ...file, path: "index.html" } : file,
-    );
-    return renamed.sort((a, b) => a.path.localeCompare(b.path));
-  }
-  if (sorted.length === 1) {
-    throw new Error("Choose an HTML file, a zip, or a folder.");
-  }
-  return sorted;
-}
-
-export function pickedFiles(
-  files: FileList,
-  limits: Limits | null,
-): Promise<SiteFile[]> {
-  // Folder picks include the folder's name; single file picks have no path
-  return toSite(
+export const pickedFiles = (files: FileList, limits: Limits | null) =>
+  toSite(
     Array.from(files, (file) => ({
       file,
       path: file.webkitRelativePath.split("/").slice(1).join("/") || file.name,
     })),
-    limits,
+    limits
   );
-}
 
-export async function droppedFiles(
+export const droppedFiles = async (
   items: DataTransferItemList,
-  limits: Limits | null,
-): Promise<SiteFile[]> {
+  limits: Limits | null
+) => {
   const entries = Array.from(items, (item) => item.webkitGetAsEntry()).filter(
-    (entry): entry is FileSystemEntry => entry !== null,
+    (entry): entry is FileSystemEntry => entry !== null
   );
-  if (entries.length === 1 && entries[0]!.isDirectory) {
-    const files = await readDirectory(
-      entries[0] as FileSystemDirectoryEntry,
-      "",
-    );
+
+  const [first] = entries;
+
+  if (entries.length === 1 && first && isDirectoryEntry(first)) {
+    const files = await readDirectory(first, "");
+
     return toSite(files, limits);
   }
 
   const files = await Promise.all(entries.map((entry) => readEntry(entry, "")));
+
   return toSite(files.flat(), limits);
-}
-
-// Text files are uploaded gzipped; CompressionStream gives the same bytes every time, so resumes still match
-async function compress(site: SiteFile): Promise<SiteFile & { gzip: boolean }> {
-  if (!compressible.test(site.path)) return { ...site, gzip: false };
-  const stream = site.file.stream().pipeThrough(new CompressionStream("gzip"));
-  const packed = await new Response(stream).blob();
-  // Tiny files can grow when compressed
-  if (packed.size >= site.file.size) return { ...site, gzip: false };
-  return {
-    path: site.path,
-    file: new File([packed], site.file.name),
-    gzip: true,
-  };
-}
-
-async function digest(file: File) {
-  const contents = await file.arrayBuffer();
-  const hash = await crypto.subtle.digest("SHA-256", contents);
-  return btoa(String.fromCharCode(...new Uint8Array(hash)));
-}
-
-export async function prepareFiles(
-  files: SiteFile[],
-  onFile: (file: UploadFile) => void,
-) {
-  // In the order given, since resuming compares manifests file by file
-  const prepared: UploadFile[] = [];
-  let next = 0;
-  async function worker() {
-    while (next < files.length) {
-      const index = next++;
-      const packed = await compress(files[index]!);
-      const originalSha256 = await digest(files[index]!.file);
-      const sha256 = packed.gzip ? await digest(packed.file) : originalSha256;
-      prepared[index] = { ...packed, sha256, originalSha256 };
-      onFile(prepared[index]);
-    }
-  }
-  await Promise.all(Array.from({ length: 4 }, () => worker()));
-  return prepared;
-}
-
-export function fileManifest(files: UploadFile[]): ManifestFile[] {
-  return files.map(({ path, file, sha256, gzip, originalSha256 }) => ({
-    path,
-    size: file.size,
-    sha256,
-    gzip,
-    original_sha256: originalSha256,
-  }));
-}
-
-// Clients compress the same file to different bytes
-function unchanged(stored: StoredFile, file: UploadFile) {
-  return stored.original_sha256
-    ? stored.original_sha256 === file.originalSha256
-    : stored.sha256 === file.sha256;
-}
-
-export function siteChanges(
-  files: SiteFile[],
-  prepared: UploadFile[],
-  stored: StoredFile[],
-) {
-  const published = new Map(stored.map((file) => [file.path, file]));
-  const changes = new Map<string, FileChange>();
-  for (const file of prepared) {
-    const before = published.get(file.path);
-    if (!before) changes.set(file.path, "new");
-    else if (!unchanged(before, file)) changes.set(file.path, "changed");
-  }
-  const selected = new Set(files.map(({ path }) => path));
-  const removed = stored
-    .map(({ path }) => path)
-    .filter((path) => !selected.has(path));
-  return { changes, removed };
-}
-
-// Mirrors the API's checks, so a site that would be rejected never reaches it
-export function siteChecks(
-  files: SiteFile[],
-  limits: Limits | null,
-): SiteCheck[] {
-  const checks = [
-    {
-      label: "index.html at the root",
-      passed: files.some(({ path }) => path === "index.html"),
-    },
-  ];
-  if (!limits) return checks;
-
-  const total = files.reduce((sum, { file }) => sum + file.size, 0);
-  return [
-    ...checks,
-    {
-      label: `Each file up to ${formatBytes(limits.max_file_size)}`,
-      passed: files.every(({ file }) => file.size <= limits.max_file_size),
-    },
-    {
-      label: `At most ${limits.max_deployment_files} files`,
-      passed: files.length <= limits.max_deployment_files,
-    },
-    {
-      label: `Up to ${formatBytes(limits.max_deployment_size)} in total`,
-      passed: total <= limits.max_deployment_size,
-    },
-  ];
-}
+};

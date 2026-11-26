@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/solid-router";
 import { For, Match, Switch, createSignal, onSettled } from "solid-js";
+
 import { ExternalLink } from "@/components/icons";
 import { SettingsSection } from "@/components/settings-section";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -8,20 +9,22 @@ import {
   repository,
   version,
   versionUrl,
-  type Contributor,
 } from "@/lib/config";
+import type { Contributor } from "@/lib/config";
 
 const link = "underline underline-offset-4 hover:text-foreground";
 
-// If GitHub fails, the link below still leads there
-function ContributorList() {
+const ContributorList = () => {
   const [contributors, setContributors] = createSignal<Contributor[] | null>(
-    null,
+    null
   );
+
   const [failed, setFailed] = createSignal(false);
 
   onSettled(() => {
-    readContributors().then(setContributors, () => setFailed(true));
+    readContributors()
+      .then(setContributors)
+      .catch(() => setFailed(true));
   });
 
   return (
@@ -32,7 +35,7 @@ function ContributorList() {
       </Match>
       <Match when={contributors()}>
         {(list) => (
-          <ul class="divide-y rounded-xl bg-card shadow-raised">
+          <ul class="bg-card shadow-raised divide-y rounded-xl">
             <For each={list()}>
               {(contributor) => (
                 <li class="flex items-center justify-between gap-4 px-4 py-3">
@@ -48,12 +51,12 @@ function ContributorList() {
                         alt=""
                       />
                       <AvatarFallback class="text-xs">
-                        {contributor.login[0]!.toUpperCase()}
+                        {contributor.login.charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <span class="truncate font-mono">{contributor.login}</span>
                   </a>
-                  <span class="shrink-0 text-muted-foreground">
+                  <span class="text-muted-foreground shrink-0">
                     {contributor.contributions}{" "}
                     {contributor.contributions === 1 ? "commit" : "commits"}
                   </span>
@@ -65,9 +68,9 @@ function ContributorList() {
       </Match>
     </Switch>
   );
-}
+};
 
-export function AboutSections() {
+export const AboutSections = () => {
   const versionLink = versionUrl(version);
 
   return (
@@ -81,7 +84,7 @@ export function AboutSections() {
           site, a zip, or an HTML file and get a shareable address, then update
           it, roll it back, or let it expire, from here or the CLI.
         </p>
-        <dl class="divide-y rounded-xl bg-card shadow-raised">
+        <dl class="bg-card shadow-raised divide-y rounded-xl">
           <div class="flex justify-between gap-4 px-4 py-3">
             <dt class="text-muted-foreground">Version</dt>
             <dd class="font-mono">
@@ -153,4 +156,4 @@ export function AboutSections() {
       </SettingsSection>
     </div>
   );
-}
+};

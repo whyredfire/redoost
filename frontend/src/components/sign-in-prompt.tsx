@@ -1,33 +1,35 @@
+import { errorMessage } from "@redoost/shared";
 import { Link, useRouter } from "@tanstack/solid-router";
 import { cn } from "cn";
 import { createSignal, Show } from "solid-js";
+
 import { EmptyState } from "@/components/empty-state";
 import { LogIn } from "@/components/icons";
 import { ProviderLogo } from "@/components/provider-logo";
 import { Button } from "@/components/ui/button";
 import { authConfig, providerNames, signIn, signInAsDev } from "@/lib/auth";
-import { errorMessage } from "@/lib/format";
 
-type SignInPromptProps = {
+interface SignInPromptProps {
   title: string;
   description: string;
   class?: string;
-};
+}
 
-export function SignInButton() {
+export const SignInButton = () => {
   const router = useRouter();
   const [error, setError] = createSignal("");
   const { oidc } = authConfig;
 
-  async function signInLocally() {
+  const signInLocally = async () => {
     setError("");
+
     try {
       await signInAsDev();
       await router.invalidate();
-    } catch (cause) {
-      setError(errorMessage(cause));
+    } catch (error_) {
+      setError(errorMessage(error_));
     }
-  }
+  };
 
   return (
     <div class="flex flex-col items-center">
@@ -39,35 +41,38 @@ export function SignInButton() {
       ) : (
         <Button onClick={signInLocally}>Sign in as dev user</Button>
       )}
-      <p class="mt-4 max-w-xs text-xs text-balance text-muted-foreground">
+      <p class="text-muted-foreground mt-4 max-w-xs text-xs text-balance">
         By signing in, you agree to the{" "}
         <Link
           to="/terms"
-          class="underline underline-offset-4 hover:text-foreground"
+          class="hover:text-foreground underline underline-offset-4"
         >
           Terms of Service
         </Link>{" "}
         and{" "}
         <Link
           to="/privacy"
-          class="underline underline-offset-4 hover:text-foreground"
+          class="hover:text-foreground underline underline-offset-4"
         >
           Privacy Policy
         </Link>
         .
       </p>
       <Show when={error()}>
-        <p role="alert" class="mt-3 text-sm text-destructive">
+        <p role="alert" class="text-destructive mt-3 text-sm">
           {error()}
         </p>
       </Show>
     </div>
   );
-}
+};
 
-export function SignInPrompt(props: SignInPromptProps) {
+export const SignInPrompt = (props: SignInPromptProps) => {
   const { oidc, dev } = authConfig;
-  if (!oidc && !dev) return null;
+
+  if (!oidc && !dev) {
+    return null;
+  }
 
   return (
     <EmptyState
@@ -79,4 +84,4 @@ export function SignInPrompt(props: SignInPromptProps) {
       <SignInButton />
     </EmptyState>
   );
-}
+};

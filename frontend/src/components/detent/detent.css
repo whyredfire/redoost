@@ -44,7 +44,6 @@
   --shadow-modal: var(--elev-modal);
   --shadow-field: var(--elev-field);
   --shadow-field-error: var(--elev-field-error);
-
 }
 
 @theme static {
@@ -127,7 +126,11 @@
   --line: var(--border, rgb(0 0 0 / 0.07));
   --line-strong: var(--input, rgb(0 0 0 / 0.12));
   --ink: var(--foreground, #18181b);
-  --ink-2: color-mix(in oklch, var(--foreground, #52525b) 42%, var(--muted-foreground, #52525b));
+  --ink-2: color-mix(
+    in oklch,
+    var(--foreground, #52525b) 42%,
+    var(--muted-foreground, #52525b)
+  );
   --ink-3: var(--muted-foreground, #6e6e76);
   --ai-1: #3ec6ff;
   --ai-2: #6a7bff;
@@ -139,7 +142,11 @@
   --ai-ink-3: #9b45d8;
   --ai-ink-4: #c43563;
   --ai-halo: 0.32;
-  --quiet: color-mix(in oklch, var(--muted-foreground, #8e8e93) 72%, var(--background, transparent));
+  --quiet: color-mix(
+    in oklch,
+    var(--muted-foreground, #8e8e93) 72%,
+    var(--background, transparent)
+  );
   --agents: #5b4fe0;
   --data: #135fc8;
   --inputs: #127541;
@@ -153,17 +160,33 @@
   --surface-3: var(--accent, #ebebed);
   --plate: #ffffff;
   --dt-accent: var(--primary, #3d6dff);
-  --dt-accent-ink: color-mix(in oklch, var(--primary, #2f5be6) 86%, var(--foreground, #2f5be6));
+  --dt-accent-ink: color-mix(
+    in oklch,
+    var(--primary, #2f5be6) 86%,
+    var(--foreground, #2f5be6)
+  );
   --focus: color-mix(in oklch, var(--dt-accent) 70%, transparent);
   --trace: rgb(0 0 0 / 0.22);
   --pulse: var(--dt-accent);
   --elev-border: 0 0 0 1px rgb(0 0 0 / 0.08);
-  --elev-raised: 0 0 0 1px rgb(0 0 0 / 0.07), 0 1px 2px rgb(0 0 0 / 0.06), 0 2px 6px -2px rgb(0 0 0 / 0.05);
+  --elev-raised:
+    0 0 0 1px rgb(0 0 0 / 0.07), 0 1px 2px rgb(0 0 0 / 0.06),
+    0 2px 6px -2px rgb(0 0 0 / 0.05);
   --elev-raised-hover: 0 0 0 1px rgb(0 0 0 / 0.12), 0 1px 3px rgb(0 0 0 / 0.07);
-  --elev-float: 0 0 0 1px rgb(0 0 0 / 0.06), 0 1px 2px rgb(0 0 0 / 0.04), 0 6px 12px -6px rgb(0 0 0 / 0.08), 0 20px 36px -14px rgb(0 0 0 / 0.16), 0 0 0 1px var(--bg);
-  --elev-modal: 0 0 0 1px rgb(0 0 0 / 0.06), 0 2px 4px rgb(0 0 0 / 0.04), 0 12px 24px -8px rgb(0 0 0 / 0.1), 0 32px 64px -16px rgb(0 0 0 / 0.24), 0 0 0 1px var(--bg);
-  --elev-field: 0 0 0 1px var(--line-strong), 0 0 0 4px color-mix(in oklch, var(--dt-accent) 16%, transparent);
-  --elev-field-error: 0 0 0 1px color-mix(in oklch, var(--danger) 70%, transparent), 0 0 0 4px color-mix(in oklch, var(--danger) 14%, transparent);
+  --elev-float:
+    0 0 0 1px rgb(0 0 0 / 0.06), 0 1px 2px rgb(0 0 0 / 0.04),
+    0 6px 12px -6px rgb(0 0 0 / 0.08), 0 20px 36px -14px rgb(0 0 0 / 0.16),
+    0 0 0 1px var(--bg);
+  --elev-modal:
+    0 0 0 1px rgb(0 0 0 / 0.06), 0 2px 4px rgb(0 0 0 / 0.04),
+    0 12px 24px -8px rgb(0 0 0 / 0.1), 0 32px 64px -16px rgb(0 0 0 / 0.24),
+    0 0 0 1px var(--bg);
+  --elev-field:
+    0 0 0 1px var(--line-strong),
+    0 0 0 4px color-mix(in oklch, var(--dt-accent) 16%, transparent);
+  --elev-field-error:
+    0 0 0 1px color-mix(in oklch, var(--danger) 70%, transparent),
+    0 0 0 4px color-mix(in oklch, var(--danger) 14%, transparent);
   --folder-back: #d8d5ce;
   --folder-front: #eae8e3;
   --folder-ink: #8b8880;
@@ -181,9 +204,17 @@
   --line: var(--border, rgb(255 255 255 / 0.09));
   --line-strong: var(--input, rgb(255 255 255 / 0.13));
   --ink: var(--foreground, #f5f5f7);
-  --ink-2: color-mix(in oklch, var(--foreground, #a1a1a6) 42%, var(--muted-foreground, #a1a1a6));
+  --ink-2: color-mix(
+    in oklch,
+    var(--foreground, #a1a1a6) 42%,
+    var(--muted-foreground, #a1a1a6)
+  );
   --ink-3: var(--muted-foreground, #909096);
-  --quiet: color-mix(in oklch, var(--muted-foreground, #7c7c82) 72%, var(--background, transparent));
+  --quiet: color-mix(
+    in oklch,
+    var(--muted-foreground, #7c7c82) 72%,
+    var(--background, transparent)
+  );
   --ai-1: #3ec6ff;
   --ai-2: #6a7bff;
   --ai-3: #c46bff;
@@ -205,17 +236,33 @@
   --warn: #f5a524;
   --warn-ink: #f7b955;
   --dt-accent: var(--primary, #5b8cff);
-  --dt-accent-ink: color-mix(in oklch, var(--primary, #84a8ff) 86%, var(--foreground, #84a8ff));
+  --dt-accent-ink: color-mix(
+    in oklch,
+    var(--primary, #84a8ff) 86%,
+    var(--foreground, #84a8ff)
+  );
   --focus: color-mix(in oklch, var(--dt-accent) 80%, transparent);
   --trace: rgb(255 255 255 / 0.4);
   --pulse: #ffffff;
   --elev-border: 0 0 0 1px rgb(255 255 255 / 0.145), 0 0 0 1px var(--bg);
-  --elev-raised: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 0 0 1px rgb(255 255 255 / 0.145), 0 1px 2px rgb(0 0 0 / 0.5), 0 0 0 1px var(--bg);
-  --elev-raised-hover: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 0 0 1px rgb(255 255 255 / 0.22), 0 1px 2px rgb(0 0 0 / 0.5), 0 0 0 1px var(--bg);
-  --elev-float: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 0 0 1px rgb(255 255 255 / 0.145), 0 8px 24px -8px rgb(0 0 0 / 0.8), 0 0 0 1px var(--bg);
-  --elev-modal: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 0 0 1px rgb(255 255 255 / 0.145), 0 16px 40px -12px rgb(0 0 0 / 0.9), 0 0 0 1px var(--bg);
-  --elev-field: 0 0 0 1px rgb(255 255 255 / 0.32), 0 0 0 4px color-mix(in oklch, var(--dt-accent) 22%, transparent);
-  --elev-field-error: 0 0 0 1px color-mix(in oklch, var(--danger) 70%, transparent), 0 0 0 4px color-mix(in oklch, var(--danger) 18%, transparent);
+  --elev-raised:
+    inset 0 1px 0 rgb(255 255 255 / 0.05), 0 0 0 1px rgb(255 255 255 / 0.145),
+    0 1px 2px rgb(0 0 0 / 0.5), 0 0 0 1px var(--bg);
+  --elev-raised-hover:
+    inset 0 1px 0 rgb(255 255 255 / 0.06), 0 0 0 1px rgb(255 255 255 / 0.22),
+    0 1px 2px rgb(0 0 0 / 0.5), 0 0 0 1px var(--bg);
+  --elev-float:
+    inset 0 1px 0 rgb(255 255 255 / 0.06), 0 0 0 1px rgb(255 255 255 / 0.145),
+    0 8px 24px -8px rgb(0 0 0 / 0.8), 0 0 0 1px var(--bg);
+  --elev-modal:
+    inset 0 1px 0 rgb(255 255 255 / 0.06), 0 0 0 1px rgb(255 255 255 / 0.145),
+    0 16px 40px -12px rgb(0 0 0 / 0.9), 0 0 0 1px var(--bg);
+  --elev-field:
+    0 0 0 1px rgb(255 255 255 / 0.32),
+    0 0 0 4px color-mix(in oklch, var(--dt-accent) 22%, transparent);
+  --elev-field-error:
+    0 0 0 1px color-mix(in oklch, var(--danger) 70%, transparent),
+    0 0 0 4px color-mix(in oklch, var(--danger) 18%, transparent);
   --folder-back: #1f1f22;
   --folder-front: #2a2a2e;
   --folder-ink: #a1a1a6;
@@ -239,12 +286,15 @@
   --shell-on: rgb(0 0 0 / 0.065);
   --panel: #ffffff;
   --panel-edge: 0 0 0 1px rgb(0 0 0 / 0.06), 0 1px 3px rgb(0 0 0 / 0.04);
-  --leaf-edge: inset 0 1px 0 rgb(255 255 255 / 0.9), 0 0 0 1px rgb(0 0 0 / 0.03);
-  --dt-card-edge: 0 0 0 1px rgb(21 22 26 / 0.05), 0 1px 2px rgb(21 22 26 / 0.04);
-  --dt-card-lift: 0 0 0 1px rgb(21 22 26 / 0.07), 0 30px 60px -30px rgb(30 30 60 / 0.28);
+  --leaf-edge:
+    inset 0 1px 0 rgb(255 255 255 / 0.9), 0 0 0 1px rgb(0 0 0 / 0.03);
+  --dt-card-edge:
+    0 0 0 1px rgb(21 22 26 / 0.05), 0 1px 2px rgb(21 22 26 / 0.04);
+  --dt-card-lift:
+    0 0 0 1px rgb(21 22 26 / 0.07), 0 30px 60px -30px rgb(30 30 60 / 0.28);
 }
 :is(.dark, [data-theme="dark"]) {
-    --ground: #141416;
+  --ground: #141416;
   --leaf: #1a1a1d;
   --nav: #2e2e31;
   --paper: #1a1a1d;
@@ -257,10 +307,15 @@
   --shell-hover: rgb(255 255 255 / 0.05);
   --shell-on: rgb(255 255 255 / 0.08);
   --panel: #1a1a1e;
-  --panel-edge: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 0 0 1px rgb(255 255 255 / 0.09);
-  --leaf-edge: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 0 0 1px rgb(255 255 255 / 0.08);
-  --dt-card-edge: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 0 0 1px rgb(255 255 255 / 0.1);
-  --dt-card-lift: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 0 0 1px rgb(255 255 255 / 0.16), 0 30px 60px -30px rgb(0 0 0 / 0.9);
+  --panel-edge:
+    inset 0 1px 0 rgb(255 255 255 / 0.04), 0 0 0 1px rgb(255 255 255 / 0.09);
+  --leaf-edge:
+    inset 0 1px 0 rgb(255 255 255 / 0.05), 0 0 0 1px rgb(255 255 255 / 0.08);
+  --dt-card-edge:
+    inset 0 1px 0 rgb(255 255 255 / 0.05), 0 0 0 1px rgb(255 255 255 / 0.1);
+  --dt-card-lift:
+    inset 0 1px 0 rgb(255 255 255 / 0.06), 0 0 0 1px rgb(255 255 255 / 0.16),
+    0 30px 60px -30px rgb(0 0 0 / 0.9);
 }
 
 .pro-app {
@@ -298,10 +353,20 @@
   --ink: light-dark(#1c1b19, #ededed);
   --ink-2: light-dark(#54514c, #a1a1a1);
   --ink-3: light-dark(#6f6b65, #8f8f8f);
-  --elev-border: 0 0 0 1px light-dark(rgb(40 32 16 / 0.09), rgb(255 255 255 / 0.145));
-  --elev-raised: inset 0 1px 0 light-dark(rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.04)), 0 0 0 1px light-dark(rgb(40 32 16 / 0.09), rgb(255 255 255 / 0.12)), 0 1px 1px light-dark(rgb(40 32 16 / 0.05), rgb(0 0 0 / 0.5));
-  --elev-float: inset 0 1px 0 light-dark(rgb(255 255 255 / 0.95), rgb(255 255 255 / 0.05)), 0 0 0 1px light-dark(rgb(40 32 16 / 0.09), rgb(255 255 255 / 0.13)), 0 1px 2px light-dark(rgb(40 32 16 / 0.05), rgb(0 0 0 / 0.5)), 0 6px 14px -6px light-dark(rgb(40 32 16 / 0.1), rgb(0 0 0 / 0.75));
-  --elev-field: 0 0 0 1px var(--line-strong), 0 1px 1px light-dark(rgb(40 32 16 / 0.04), rgb(0 0 0 / 0.3));
+  --elev-border: 0 0 0 1px
+    light-dark(rgb(40 32 16 / 0.09), rgb(255 255 255 / 0.145));
+  --elev-raised:
+    inset 0 1px 0 light-dark(rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.04)),
+    0 0 0 1px light-dark(rgb(40 32 16 / 0.09), rgb(255 255 255 / 0.12)),
+    0 1px 1px light-dark(rgb(40 32 16 / 0.05), rgb(0 0 0 / 0.5));
+  --elev-float:
+    inset 0 1px 0 light-dark(rgb(255 255 255 / 0.95), rgb(255 255 255 / 0.05)),
+    0 0 0 1px light-dark(rgb(40 32 16 / 0.09), rgb(255 255 255 / 0.13)),
+    0 1px 2px light-dark(rgb(40 32 16 / 0.05), rgb(0 0 0 / 0.5)),
+    0 6px 14px -6px light-dark(rgb(40 32 16 / 0.1), rgb(0 0 0 / 0.75));
+  --elev-field:
+    0 0 0 1px var(--line-strong),
+    0 1px 1px light-dark(rgb(40 32 16 / 0.04), rgb(0 0 0 / 0.3));
   font-size: 13px;
   background: var(--app-root, var(--surface));
   color: var(--ink);
@@ -337,7 +402,9 @@
   --ai-halo: 0.2;
 }
 .lit {
-  box-shadow: inset 0 1px 0 light-dark(rgb(255 255 255 / 0.75), rgb(255 255 255 / 0.04)), inset 0 -1px 0 light-dark(rgb(40 32 16 / 0.04), transparent);
+  box-shadow:
+    inset 0 1px 0 light-dark(rgb(255 255 255 / 0.75), rgb(255 255 255 / 0.04)),
+    inset 0 -1px 0 light-dark(rgb(40 32 16 / 0.04), transparent);
 }
 .pro-app [data-row] {
   transition: transform 160ms cubic-bezier(0.2, 0.9, 0.25, 1);
@@ -347,11 +414,20 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pro-app [data-row]:active { transform: none; }
+  .pro-app [data-row]:active {
+    transform: none;
+  }
 }
 
 @media (pointer: coarse) {
-  input:not([type='checkbox'], [type='radio'], [type='range'], .pro-app *, [data-fit] *, [data-demo] *),
+  input:not(
+    [type="checkbox"],
+    [type="radio"],
+    [type="range"],
+    .pro-app *,
+    [data-fit] *,
+    [data-demo] *
+  ),
   select:not(.pro-app *, [data-fit] *, [data-demo] *),
   textarea:not(.pro-app *, [data-fit] *, [data-demo] *) {
     font-size: 16px !important;
@@ -359,11 +435,33 @@
 }
 
 @media (pointer: coarse) {
-  .pro-app :where(button, [role='button'], [role='switch'], [role='tab'], [role='radio'], [role='menuitem'], [role='option'], summary, a.ring-focus):not(.absolute, .fixed, .sticky, [data-hit='off']) {
+  .pro-app
+    :where(
+      button,
+      [role="button"],
+      [role="switch"],
+      [role="tab"],
+      [role="radio"],
+      [role="menuitem"],
+      [role="option"],
+      summary,
+      a.ring-focus
+    ):not(.absolute, .fixed, .sticky, [data-hit="off"]) {
     position: relative;
   }
-  .pro-app :where(button, [role='button'], [role='switch'], [role='tab'], [role='radio'], [role='menuitem'], [role='option'], summary, a.ring-focus):not([data-hit='off'])::after {
-    content: '';
+  .pro-app
+    :where(
+      button,
+      [role="button"],
+      [role="switch"],
+      [role="tab"],
+      [role="radio"],
+      [role="menuitem"],
+      [role="option"],
+      summary,
+      a.ring-focus
+    ):not([data-hit="off"])::after {
+    content: "";
     position: absolute;
     left: 50%;
     top: 50%;
@@ -371,7 +469,7 @@
     height: max(100%, 36px);
     transform: translate(-50%, -50%);
   }
-  .pro-app :is([class*='text-[10px]'], [class*='text-[10.5px]']) {
+  .pro-app :is([class*="text-[10px]"], [class*="text-[10.5px]"]) {
     font-size: 11px;
   }
 }
@@ -388,8 +486,18 @@
   }
 }
 .chip {
-  background: var(--chip-bg, light-dark(color-mix(in oklch, var(--chip) var(--chip-wash, 12%), transparent), color-mix(in oklch, var(--chip) 16%, transparent)));
-  box-shadow: inset 0 0 0 1px light-dark(transparent, var(--chip-edge, color-mix(in oklch, var(--chip) 38%, transparent)));
+  background: var(
+    --chip-bg,
+    light-dark(
+      color-mix(in oklch, var(--chip) var(--chip-wash, 12%), transparent),
+      color-mix(in oklch, var(--chip) 16%, transparent)
+    )
+  );
+  box-shadow: inset 0 0 0 1px
+    light-dark(
+      transparent,
+      var(--chip-edge, color-mix(in oklch, var(--chip) 38%, transparent))
+    );
 }
 .chip-plain {
   --chip-bg: var(--surface-2);
@@ -397,11 +505,22 @@
 }
 
 @keyframes sheen {
-  from { background-position: 150% 0; }
-  to { background-position: -50% 0; }
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
 }
 .sheen {
-  background: linear-gradient(90deg, var(--ink-3) 0%, var(--ink-3) 35%, var(--ink) 50%, var(--ink-3) 65%, var(--ink-3) 100%);
+  background: linear-gradient(
+    90deg,
+    var(--ink-3) 0%,
+    var(--ink-3) 35%,
+    var(--ink) 50%,
+    var(--ink-3) 65%,
+    var(--ink-3) 100%
+  );
   background-size: 250% 100%;
   -webkit-background-clip: text;
   background-clip: text;
@@ -410,11 +529,25 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sheen { animation: none; color: var(--ink-3); }
+  .sheen {
+    animation: none;
+    color: var(--ink-3);
+  }
 }
 
-.rows > * + * { position: relative; }
-.rows > * + *::before { content: ''; position: absolute; top: 0; right: 0; left: var(--rule-inset, 60px); height: 1px; background: var(--line); pointer-events: none; }
+.rows > * + * {
+  position: relative;
+}
+.rows > * + *::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: var(--rule-inset, 60px);
+  height: 1px;
+  background: var(--line);
+  pointer-events: none;
+}
 
 @keyframes word-in {
   from {
@@ -440,10 +573,14 @@
   transition: box-shadow 120ms ease-out;
 }
 .sink:active {
-  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.22), inset 0 0 0 1px rgb(0 0 0 / 0.06) !important;
+  box-shadow:
+    inset 0 1px 2px rgb(0 0 0 / 0.22),
+    inset 0 0 0 1px rgb(0 0 0 / 0.06) !important;
 }
 :is(.dark, [data-theme="dark"]) .sink:active {
-  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.65), inset 0 0 0 1px rgb(255 255 255 / 0.07) !important;
+  box-shadow:
+    inset 0 1px 2px rgb(0 0 0 / 0.65),
+    inset 0 0 0 1px rgb(255 255 255 / 0.07) !important;
 }
 
 .glass {
@@ -458,15 +595,19 @@
 }
 
 @property --ai-turn {
-  syntax: '<angle>';
+  syntax: "<angle>";
   inherits: false;
   initial-value: 0deg;
 }
 @keyframes ai-turn {
-  to { --ai-turn: 360deg; }
+  to {
+    --ai-turn: 360deg;
+  }
 }
 @keyframes ai-breathe {
-  50% { opacity: calc(var(--ai-halo) * 0.65); }
+  50% {
+    opacity: calc(var(--ai-halo) * 0.65);
+  }
 }
 .ai-ring {
   position: absolute;
@@ -474,73 +615,155 @@
   pointer-events: none;
   padding: 1.5px;
   background:
-    conic-gradient(from var(--ai-turn), transparent 0deg 170deg, var(--ai-1) 220deg, var(--ai-2) 265deg, var(--ai-3) 305deg, var(--ai-4) 340deg, transparent 360deg),
-    conic-gradient(from calc(0deg - var(--ai-turn)), color-mix(in oklch, var(--ai-1) 40%, transparent), color-mix(in oklch, var(--ai-3) 40%, transparent), color-mix(in oklch, var(--ai-5) 40%, transparent), color-mix(in oklch, var(--ai-1) 40%, transparent));
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    conic-gradient(
+      from var(--ai-turn),
+      transparent 0deg 170deg,
+      var(--ai-1) 220deg,
+      var(--ai-2) 265deg,
+      var(--ai-3) 305deg,
+      var(--ai-4) 340deg,
+      transparent 360deg
+    ),
+    conic-gradient(
+      from calc(0deg - var(--ai-turn)),
+      color-mix(in oklch, var(--ai-1) 40%, transparent),
+      color-mix(in oklch, var(--ai-3) 40%, transparent),
+      color-mix(in oklch, var(--ai-5) 40%, transparent),
+      color-mix(in oklch, var(--ai-1) 40%, transparent)
+    );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
   animation: ai-turn 2.8s linear infinite;
 }
 .ai-halo {
   position: absolute;
   inset: 2px;
   pointer-events: none;
-  background: conic-gradient(from 200deg, var(--ai-1), var(--ai-2), var(--ai-3), var(--ai-4), var(--ai-5), var(--ai-1));
+  background: conic-gradient(
+    from 200deg,
+    var(--ai-1),
+    var(--ai-2),
+    var(--ai-3),
+    var(--ai-4),
+    var(--ai-5),
+    var(--ai-1)
+  );
   filter: blur(22px);
   opacity: var(--ai-halo);
   will-change: opacity;
   animation: ai-breathe 3.2s ease-in-out infinite;
 }
 @keyframes ai-flow {
-  to { background-position: -200% 0; }
+  to {
+    background-position: -200% 0;
+  }
 }
 .ai-text {
-  background: linear-gradient(90deg, var(--ai-ink-1), var(--ai-ink-2), var(--ai-ink-3), var(--ai-ink-4), var(--ai-ink-1)) 0 0 / 200% 100%;
+  background: linear-gradient(
+      90deg,
+      var(--ai-ink-1),
+      var(--ai-ink-2),
+      var(--ai-ink-3),
+      var(--ai-ink-4),
+      var(--ai-ink-1)
+    )
+    0 0 / 200% 100%;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   animation: ai-flow 2.6s linear infinite;
 }
 @keyframes ai-warm {
-  from { color: var(--ai-word, var(--ai-ink-2)); }
+  from {
+    color: var(--ai-word, var(--ai-ink-2));
+  }
 }
 .ai-warm {
   animation: ai-warm 1100ms cubic-bezier(0.4, 0, 0.6, 1) both;
 }
 .word-in.ai-warm {
-  animation: word-in 600ms cubic-bezier(0.2, 0.9, 0.25, 1) both, ai-warm 1100ms cubic-bezier(0.4, 0, 0.6, 1) both;
+  animation:
+    word-in 600ms cubic-bezier(0.2, 0.9, 0.25, 1) both,
+    ai-warm 1100ms cubic-bezier(0.4, 0, 0.6, 1) both;
 }
 .ai-ring.ai-quiet {
-  background: conic-gradient(from var(--ai-turn), transparent 0deg 190deg, color-mix(in oklch, var(--ink) 34%, transparent) 300deg, transparent 360deg);
+  background: conic-gradient(
+    from var(--ai-turn),
+    transparent 0deg 190deg,
+    color-mix(in oklch, var(--ink) 34%, transparent) 300deg,
+    transparent 360deg
+  );
 }
 .ai-text.ai-quiet {
-  background: linear-gradient(90deg, var(--ink-3) 0%, var(--ink-3) 35%, var(--ink) 50%, var(--ink-3) 65%, var(--ink-3) 100%) 0 0 / 250% 100%;
+  background: linear-gradient(
+      90deg,
+      var(--ink-3) 0%,
+      var(--ink-3) 35%,
+      var(--ink) 50%,
+      var(--ink-3) 65%,
+      var(--ink-3) 100%
+    )
+    0 0 / 250% 100%;
   -webkit-background-clip: text;
   background-clip: text;
   animation: sheen 1.8s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ai-ring, .ai-halo, .ai-text { animation: none; }
-  .ai-text.ai-quiet { animation: none; color: var(--ink-3); }
-  .ai-warm, .word-in.ai-warm { animation: none; }
+  .ai-ring,
+  .ai-halo,
+  .ai-text {
+    animation: none;
+  }
+  .ai-text.ai-quiet {
+    animation: none;
+    color: var(--ink-3);
+  }
+  .ai-warm,
+  .word-in.ai-warm {
+    animation: none;
+  }
 }
 
 @keyframes bloom {
-  from { box-shadow: 0 0 0 0 color-mix(in oklch, var(--bloom) 55%, transparent), 0 0 0 0 color-mix(in oklch, var(--bloom) 30%, transparent); }
-  to { box-shadow: 0 0 0 var(--bloom-spread) color-mix(in oklch, var(--bloom) 0%, transparent), 0 0 calc(var(--bloom-spread) * 2) calc(var(--bloom-spread) / 2) color-mix(in oklch, var(--bloom) 0%, transparent); }
+  from {
+    box-shadow:
+      0 0 0 0 color-mix(in oklch, var(--bloom) 55%, transparent),
+      0 0 0 0 color-mix(in oklch, var(--bloom) 30%, transparent);
+  }
+  to {
+    box-shadow:
+      0 0 0 var(--bloom-spread)
+        color-mix(in oklch, var(--bloom) 0%, transparent),
+      0 0 calc(var(--bloom-spread) * 2) calc(var(--bloom-spread) / 2)
+        color-mix(in oklch, var(--bloom) 0%, transparent);
+  }
 }
 .bloom {
   animation: bloom 720ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bloom { animation: none; }
+  .bloom {
+    animation: none;
+  }
 }
-.glint { transform: translateX(-12px); }
+.glint {
+  transform: translateX(-12px);
+}
 @keyframes glint {
-  0% { transform: translateX(-12px); }
-  26%, 100% { transform: translateX(36px); }
+  0% {
+    transform: translateX(-12px);
+  }
+  26%,
+  100% {
+    transform: translateX(36px);
+  }
 }
 
 :root,
@@ -555,6 +778,10 @@
 }
 
 @keyframes sheen {
-  from { background-position: 150% 0; }
-  to { background-position: -50% 0; }
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
 }

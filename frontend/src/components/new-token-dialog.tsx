@@ -1,6 +1,10 @@
+import { errorMessage, scopes } from "@redoost/shared";
+import type { CreatedToken, Scope } from "@redoost/shared";
 import { For, Show, createSignal } from "solid-js";
-import { Plus } from "@/components/icons";
+
 import { CopyButton } from "@/components/copy-button";
+import { ExpirySelect } from "@/components/expiry-select";
+import { Plus } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,20 +16,15 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { ExpirySelect } from "@/components/expiry-select";
-import { errorMessage } from "@/lib/format";
+import { api } from "@/lib/api";
 import { loadToken } from "@/lib/session";
-import {
-  createToken,
-  scopeDetails,
-  scopes,
-  type CreatedToken,
-  type Scope,
-} from "@/lib/tokens";
+import { scopeDetails } from "@/lib/tokens";
 
-type NewTokenDialogProps = { onCreated: () => Promise<void> };
+interface NewTokenDialogProps {
+  onCreated: () => Promise<void>;
+}
 
-export function NewTokenDialog(props: NewTokenDialogProps) {
+export const NewTokenDialog = (props: NewTokenDialogProps) => {
   const [open, setOpen] = createSignal(false);
   const [name, setName] = createSignal("");
   const [chosen, setChosen] = createSignal<Scope[]>(["read", "publish"]);
@@ -34,9 +33,13 @@ export function NewTokenDialog(props: NewTokenDialogProps) {
   const [created, setCreated] = createSignal<CreatedToken | null>(null);
   const [error, setError] = createSignal("");
 
-  function changeOpen(next: boolean) {
-    if (creating()) return;
+  const changeOpen = (next: boolean) => {
+    if (creating()) {
+      return;
+    }
+
     setOpen(next);
+
     if (!next) {
       setName("");
       setChosen(["read", "publish"]);
@@ -44,35 +47,42 @@ export function NewTokenDialog(props: NewTokenDialogProps) {
       setCreated(null);
       setError("");
     }
-  }
+  };
 
-  function toggle(scope: Scope) {
+  const toggle = (scope: Scope) => {
     setChosen((current) =>
       current.includes(scope)
         ? current.filter((entry) => entry !== scope)
-        : scopes.filter((entry) => entry === scope || current.includes(entry)),
+        : scopes.filter((entry) => entry === scope || current.includes(entry))
     );
-  }
+  };
 
-  async function create(event: SubmitEvent) {
+  const create = async (event: SubmitEvent) => {
     event.preventDefault();
     const token = loadToken();
-    if (!token) return;
+
+    if (!token) {
+      return;
+    }
+
     setCreating(true);
     setError("");
+
     try {
-      const made = await createToken(
-        { name: name(), scopes: chosen(), expires_at: expiresAt() },
-        token,
-      );
+      const made = await api(token).createToken({
+        name: name(),
+        scopes: chosen(),
+        expires_at: expiresAt(),
+      });
+
       await props.onCreated();
       setCreated(made);
-    } catch (cause) {
-      setError(errorMessage(cause));
+    } catch (error_) {
+      setError(errorMessage(error_));
     } finally {
       setCreating(false);
     }
-  }
+  };
 
   return (
     <Dialog open={open()} onOpenChange={changeOpen}>
@@ -111,13 +121,13 @@ export function NewTokenDialog(props: NewTokenDialogProps) {
               </div>
               <fieldset class="space-y-2" disabled={creating()}>
                 <legend class="mb-2 text-sm font-medium">What it can do</legend>
-                <div class="divide-y rounded-xl bg-card shadow-raised">
+                <div class="bg-card shadow-raised divide-y rounded-xl">
                   <For each={scopes}>
                     {(scope) => (
                       <label class="flex cursor-pointer items-start gap-3 px-4 py-3 text-sm">
                         <input
                           type="checkbox"
-                          class="mt-1 accent-brand"
+                          class="accent-brand mt-1"
                           checked={chosen().includes(scope)}
                           onChange={() => toggle(scope)}
                         />
@@ -125,7 +135,7 @@ export function NewTokenDialog(props: NewTokenDialogProps) {
                           <span class="font-medium">
                             {scopeDetails[scope].label}
                           </span>
-                          <span class="block text-muted-foreground">
+                          <span class="text-muted-foreground block">
                             {scopeDetails[scope].description}
                           </span>
                         </span>
@@ -144,7 +154,7 @@ export function NewTokenDialog(props: NewTokenDialogProps) {
                 />
               </div>
               <Show when={error()}>
-                <p role="alert" class="text-sm text-destructive">
+                <p role="alert" class="text-destructive text-sm">
                   {error()}
                 </p>
               </Show>
@@ -169,7 +179,7 @@ export function NewTokenDialog(props: NewTokenDialogProps) {
                   Copy it now. It won't be shown again.
                 </DialogDescription>
               </DialogHeader>
-              <div class="flex items-center gap-2 rounded-lg border bg-muted/40 py-1.5 pr-1.5 pl-4">
+              <div class="bg-muted/40 flex items-center gap-2 rounded-lg border py-1.5 pr-1.5 pl-4">
                 <span class="min-w-0 flex-1 truncate font-mono text-sm">
                   {made().token}
                 </span>
@@ -179,7 +189,7 @@ export function NewTokenDialog(props: NewTokenDialogProps) {
                   hint="Copy token"
                 />
               </div>
-              <p class="text-sm text-muted-foreground">
+              <p class="text-muted-foreground text-sm">
                 Set it as <span class="font-mono">REDOOST_TOKEN</span> where the
                 CLI runs, or sign in with{" "}
                 <span class="font-mono">redoost login --token</span>.
@@ -195,4 +205,4 @@ export function NewTokenDialog(props: NewTokenDialogProps) {
       </DialogContent>
     </Dialog>
   );
-}
+};

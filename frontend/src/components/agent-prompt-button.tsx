@@ -1,4 +1,5 @@
 import { Show } from "solid-js";
+
 import { AgentLogos } from "@/components/agent-logos";
 import { Bot, Check } from "@/components/icons";
 import { Button } from "@/components/ui/button";
@@ -9,8 +10,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useCopy } from "@/lib/clipboard";
 
-// The prompt only points at the setup steps, which agents fetch and follow
-export function AgentPromptButton() {
+export const AgentPromptButton = () => {
   const { copied, copy } = useCopy();
 
   return (
@@ -25,7 +25,7 @@ export function AgentPromptButton() {
         }
         onClick={() =>
           copy(
-            `Fetch and follow the instructions to set me up for redoost from ${location.origin}/agent-setup.md`,
+            `Fetch and follow the instructions to set me up for redoost from ${location.origin}/agent-setup.md`
           )
         }
       >
@@ -38,4 +38,4 @@ export function AgentPromptButton() {
       <TooltipContent>Copied</TooltipContent>
     </Tooltip>
   );
-}
+};
