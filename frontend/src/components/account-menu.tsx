@@ -20,17 +20,15 @@ interface AccountMenuProps {
 }
 
 export const AccountMenu = (props: AccountMenuProps) => (
-  <DropdownMenu placement="bottom-end">
+  <DropdownMenu>
     <DropdownMenuTrigger
-      as={Button}
-      variant="ghost"
-      size="icon"
+      render={(trigger) => <Button {...trigger} variant="ghost" size="icon" />}
       class="rounded-full"
       aria-label="Your account"
     >
       <UserAvatar user={props.user} class="size-7" />
     </DropdownMenuTrigger>
-    <DropdownMenuContent class="w-60">
+    <DropdownMenuContent side="bottom" align="end" class="w-60">
       <Show when={props.user}>
         {(user) => (
           <>
@@ -48,7 +46,7 @@ export const AccountMenu = (props: AccountMenuProps) => (
           </>
         )}
       </Show>
-      <DropdownMenuItem as={Link} to="/settings">
+      <DropdownMenuItem render={(item) => <Link {...item} to="/settings" />}>
         <Settings />
         Settings
       </DropdownMenuItem>

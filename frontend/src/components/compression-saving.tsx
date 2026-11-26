@@ -58,14 +58,14 @@ export const Sizes = (props: SizesProps) => {
 };
 
 export const SizeInfo = (props: { update: boolean }) => (
-  <Popover placement="bottom-start">
+  <Popover>
     <PopoverTrigger
       class="hover:text-foreground rounded-full transition-colors"
       aria-label="What this size means"
     >
       <Info class="size-4" />
     </PopoverTrigger>
-    <PopoverContent class="text-sm">
+    <PopoverContent side="bottom" align="start" class="text-sm">
       {props.update
         ? "What this update uploads: only new and changed files. Text files like HTML, CSS, and JavaScript are gzipped in your browser first."
         : "The size of the whole site. Text files like HTML, CSS, and JavaScript are gzipped in your browser before uploading, so less is stored."}

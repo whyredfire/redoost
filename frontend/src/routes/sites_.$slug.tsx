@@ -342,7 +342,7 @@ const SitePage = () => {
                     <Switch
                       checked={shown().enabled}
                       disabled={switching()}
-                      onChange={toggle}
+                      onCheckedChange={toggle}
                       aria-label="Online"
                     />
                   </div>

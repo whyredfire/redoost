@@ -1,74 +1,45 @@
-import * as DialogPrimitive from "@kobalte/core/dialog";
-import type { PolymorphicProps } from "@kobalte/core/polymorphic";
-import type { ComponentProps, ValidComponent } from "@solidjs/web";
+import type { ComponentProps } from "@solidjs/web";
+import * as DialogPrimitive from "@ui-sdk/solid/dialog";
 import { omit, Show } from "solid-js";
 
 import { XIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 
-const Dialog = DialogPrimitive.Root;
+const { Dialog } = DialogPrimitive;
 
-const DialogTrigger = <T extends ValidComponent = "button">(
-  props: PolymorphicProps<T, DialogPrimitive.DialogTriggerProps<T>>
-) => <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />;
-
-const DialogPortal = (props: DialogPrimitive.DialogPortalProps) => (
-  <DialogPrimitive.Portal {...props} />
-);
-
-const DialogClose = <T extends ValidComponent = "button">(
-  props: PolymorphicProps<T, DialogPrimitive.DialogCloseButtonProps<T>>
-) => <DialogPrimitive.CloseButton data-slot="dialog-close" {...props} />;
-
-const DialogOverlay = (
-  props: PolymorphicProps<"div", DialogPrimitive.DialogOverlayProps<"div">>
-) => {
-  const others = omit(props, "class");
-
-  return (
-    <DialogPrimitive.Overlay
-      data-slot="dialog-overlay"
-      class={cn(
-        "data-[closed]:animate-out data-[closed]:fade-out-0 data-[expanded]:animate-in data-[expanded]:fade-in-0 fixed inset-0 z-50 bg-black/50",
-        props.class
-      )}
-      {...others}
-    />
-  );
-};
+const { DialogTrigger } = DialogPrimitive;
 
 const DialogContent = (
-  props: PolymorphicProps<"div", DialogPrimitive.DialogContentProps<"div">> & {
+  props: ComponentProps<typeof DialogPrimitive.DialogContent> & {
+    class?: string;
     showCloseButton?: boolean;
   }
 ) => {
   const others = omit(props, "class", "children", "showCloseButton");
 
   return (
-    <DialogPortal>
-      <DialogOverlay />
-      <DialogPrimitive.Content
-        data-slot="dialog-content"
+    <>
+      <DialogPrimitive.DialogBackdrop class="fixed inset-0 z-50 bg-black/50 transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0" />
+      <DialogPrimitive.DialogContent
         class={cn(
-          "rounded-card bg-card shadow-modal data-[closed]:animate-out data-[closed]:fade-out-0 data-[closed]:zoom-out-95 data-[expanded]:animate-in data-[expanded]:fade-in-0 data-[expanded]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 p-6 duration-200 outline-none sm:max-w-lg",
+          "rounded-card bg-card shadow-modal fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 p-6 transition-[opacity,scale] duration-200 outline-none data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0 sm:max-w-lg",
           props.class
         )}
         {...others}
       >
         {props.children}
         <Show when={props.showCloseButton ?? true}>
-          <DialogPrimitive.CloseButton
-            data-slot="dialog-close"
+          <DialogPrimitive.DialogClose
             aria-label="Close"
-            class="ring-offset-background focus:ring-ring data-[expanded]:bg-accent data-[expanded]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            class="ring-offset-background focus:ring-ring absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
           >
             <XIcon />
             <span class="sr-only">Close</span>
-          </DialogPrimitive.CloseButton>
+          </DialogPrimitive.DialogClose>
         </Show>
-      </DialogPrimitive.Content>
-    </DialogPortal>
+      </DialogPrimitive.DialogContent>
+    </>
   );
 };
 
@@ -102,26 +73,24 @@ const DialogFooter = (
     >
       {props.children}
       <Show when={props.showCloseButton}>
-        <DialogPrimitive.CloseButton
-          as={Button}
-          variant="outline"
+        <DialogPrimitive.DialogClose
           aria-label="Close"
+          render={(close) => <Button {...close} variant="outline" />}
         >
           Close
-        </DialogPrimitive.CloseButton>
+        </DialogPrimitive.DialogClose>
       </Show>
     </div>
   );
 };
 
 const DialogTitle = (
-  props: PolymorphicProps<"h2", DialogPrimitive.DialogTitleProps<"h2">>
+  props: ComponentProps<typeof DialogPrimitive.DialogTitle> & { class?: string }
 ) => {
   const others = omit(props, "class");
 
   return (
-    <DialogPrimitive.Title
-      data-slot="dialog-title"
+    <DialogPrimitive.DialogTitle
       class={cn("text-lg leading-none font-semibold", props.class)}
       {...others}
     />
@@ -129,13 +98,14 @@ const DialogTitle = (
 };
 
 const DialogDescription = (
-  props: PolymorphicProps<"p", DialogPrimitive.DialogDescriptionProps<"p">>
+  props: ComponentProps<typeof DialogPrimitive.DialogDescription> & {
+    class?: string;
+  }
 ) => {
   const others = omit(props, "class");
 
   return (
-    <DialogPrimitive.Description
-      data-slot="dialog-description"
+    <DialogPrimitive.DialogDescription
       class={cn("text-muted-foreground text-sm", props.class)}
       {...others}
     />
@@ -144,13 +114,10 @@ const DialogDescription = (
 
 export {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogOverlay,
-  DialogPortal,
   DialogTitle,
   DialogTrigger,
 };

@@ -1,4 +1,5 @@
 import { errorMessage } from "@redoost/shared";
+import { Dynamic } from "@solidjs/web";
 import type { JSX } from "@solidjs/web";
 import { Show, createSignal, omit } from "solid-js";
 import type { ComponentProps } from "solid-js";
@@ -26,8 +27,9 @@ type ConfirmButtonProps = {
   details?: JSX.Element;
   onConfirm: () => Promise<void>;
   children: JSX.Element;
-  as?: ComponentProps<typeof AlertDialogTrigger>["as"];
-} & Omit<ComponentProps<typeof Button>, "children" | "onClick">;
+  as?: "button";
+} & Omit<ComponentProps<typeof AlertDialogTrigger>, "children" | "onClick"> &
+  Pick<ComponentProps<typeof Button>, "variant" | "size">;
 
 export const ConfirmButton = (props: ConfirmButtonProps) => {
   const trigger = omit(
@@ -74,9 +76,8 @@ export const ConfirmButton = (props: ConfirmButtonProps) => {
 
   const button = () => (
     <AlertDialogTrigger
-      as={props.as ?? Button}
-      // SAFETY: trigger holds only Button's props (or the `as` element's), which the polymorphic trigger forwards to that element unchanged
-      {...(trigger as ComponentProps<typeof AlertDialogTrigger>)}
+      {...trigger}
+      render={(part) => <Dynamic component={props.as ?? Button} {...part} />}
     >
       {props.children}
     </AlertDialogTrigger>

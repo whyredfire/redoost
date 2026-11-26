@@ -1,7 +1,3 @@
-import type {
-  SelectRootItemComponentProps,
-  SelectRootSectionComponentProps,
-} from "@kobalte/core/select";
 import type { Deployment, FileChange } from "@redoost/shared";
 import type { JSX } from "@solidjs/web";
 import { useNavigate } from "@tanstack/solid-router";
@@ -23,8 +19,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
+  SelectGroup,
+  SelectGroupLabel,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -52,19 +49,6 @@ const changeColor: Record<FileChange | "removed", string> = {
   changed: "text-amber-600 dark:text-amber-500",
   removed: "text-destructive",
 };
-
-interface SiteChoice {
-  value: string;
-  label: string;
-  description?: string;
-}
-
-interface SiteGroup {
-  label: string;
-  options: SiteChoice[];
-}
-
-const newSite: SiteChoice = { value: "new", label: "A new site" };
 
 const FileRow = (props: ListedFile & { compressed: number | null }) => {
   const slash = () => props.path.lastIndexOf("/") + 1;
@@ -279,34 +263,6 @@ export const PublishCard = () => {
     />
   );
 
-  const siteOptions = createMemo(() =>
-    sites().map(({ slug, description }) => ({
-      value: slug,
-      label: slug,
-      description: description || undefined,
-    }))
-  );
-
-  const siteChoices = createMemo<(SiteChoice | SiteGroup)[]>(() => [
-    newSite,
-    { label: "Update a site", options: siteOptions() },
-  ]);
-
-  const chosen = createMemo(() => {
-    const { target } = upload;
-
-    if (!target) {
-      return newSite;
-    }
-
-    return (
-      siteOptions().find(({ value }) => value === target) ?? {
-        value: target,
-        label: target,
-      }
-    );
-  });
-
   return (
     <Card
       class={cn(
@@ -360,56 +316,39 @@ export const PublishCard = () => {
                 <div class="mt-4 space-y-1.5">
                   <p class="text-muted-foreground text-sm">Publish as</p>
                   <Select
-                    options={siteChoices()}
-                    optionValue="value"
-                    optionTextValue="label"
-                    optionGroupChildren="options"
-                    value={chosen()}
-                    onChange={(choice: SiteChoice | null) => {
-                      if (choice) {
-                        upload.chooseTarget(
-                          choice.value === "new" ? null : choice.value
-                        );
+                    value={upload.target ?? "new"}
+                    onValueChange={(value: string | null) => {
+                      if (value) {
+                        upload.chooseTarget(value === "new" ? null : value);
                       }
                     }}
-                    itemComponent={(
-                      item: SelectRootItemComponentProps<SiteChoice>
-                    ) => (
-                      <SelectItem item={item.item}>
-                        <Show
-                          when={item.item.rawValue.value !== "new"}
-                          fallback="A new site"
-                        >
-                          <span class="flex min-w-0 flex-col">
-                            <span class="font-mono">
-                              {item.item.rawValue.value}
-                            </span>
-                            <Show when={item.item.rawValue.description}>
-                              <span class="text-muted-foreground max-w-64 truncate text-xs">
-                                {item.item.rawValue.description}
-                              </span>
-                            </Show>
-                          </span>
-                        </Show>
-                      </SelectItem>
-                    )}
-                    sectionComponent={(
-                      section: SelectRootSectionComponentProps<SiteGroup>
-                    ) => (
-                      <SelectLabel>
-                        {section.section.rawValue.label}
-                      </SelectLabel>
-                    )}
                   >
                     <SelectTrigger
                       class={`w-full ${upload.target ? "font-mono" : ""}`}
                       aria-label="Publish as"
                     >
-                      <SelectValue>
-                        {() => upload.target ?? "A new site"}
-                      </SelectValue>
+                      <SelectValue>{upload.target ?? "A new site"}</SelectValue>
                     </SelectTrigger>
-                    <SelectContent />
+                    <SelectContent>
+                      <SelectItem value="new">A new site</SelectItem>
+                      <SelectGroup>
+                        <SelectGroupLabel>Update a site</SelectGroupLabel>
+                        <For each={sites()}>
+                          {(site) => (
+                            <SelectItem value={site.slug} label={site.slug}>
+                              <span class="flex min-w-0 flex-col">
+                                <span class="font-mono">{site.slug}</span>
+                                <Show when={site.description}>
+                                  <span class="text-muted-foreground max-w-64 truncate text-xs">
+                                    {site.description}
+                                  </span>
+                                </Show>
+                              </span>
+                            </SelectItem>
+                          )}
+                        </For>
+                      </SelectGroup>
+                    </SelectContent>
                   </Select>
                 </div>
               </Show>

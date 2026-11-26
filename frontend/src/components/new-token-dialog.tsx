@@ -86,7 +86,7 @@ export const NewTokenDialog = (props: NewTokenDialogProps) => {
 
   return (
     <Dialog open={open()} onOpenChange={changeOpen}>
-      <DialogTrigger as={Button}>
+      <DialogTrigger render={(trigger) => <Button {...trigger} />}>
         <Plus />
         New token
       </DialogTrigger>

@@ -9,10 +9,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@kobalte/core": "^2.0.0-alpha.5",
     "@redoost/shared": "workspace:*",
     "@solidjs/web": "^2.0.3",
     "@tanstack/solid-router": "^2.0.0-rc.12",
+    "@ui-sdk/core": "0.1.0-beta.17",
+    "@ui-sdk/solid": "0.1.0-beta.17",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.2",
     "lucide": "^1.79.0",

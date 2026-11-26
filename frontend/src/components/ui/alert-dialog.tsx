@@ -1,68 +1,34 @@
-import * as AlertDialogPrimitive from "@kobalte/core/alert-dialog";
-import { useDialogContext } from "@kobalte/core/dialog";
-import type { PolymorphicProps } from "@kobalte/core/polymorphic";
-import type { ComponentProps, ValidComponent } from "@solidjs/web";
+import type { ComponentProps } from "@solidjs/web";
+import * as AlertDialogPrimitive from "@ui-sdk/solid/alert-dialog";
 import { omit } from "solid-js";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 
-const AlertDialog = AlertDialogPrimitive.Root;
+const { AlertDialog } = AlertDialogPrimitive;
 
-const AlertDialogTrigger = <T extends ValidComponent = "button">(
-  props: PolymorphicProps<T, AlertDialogPrimitive.AlertDialogTriggerProps<T>>
-) => (
-  <AlertDialogPrimitive.Trigger data-slot="alert-dialog-trigger" {...props} />
-);
-
-const AlertDialogPortal = (
-  props: AlertDialogPrimitive.AlertDialogPortalProps
-) => <AlertDialogPrimitive.Portal {...props} />;
-
-const AlertDialogOverlay = (
-  props: PolymorphicProps<
-    "div",
-    AlertDialogPrimitive.AlertDialogOverlayProps<"div">
-  >
-) => {
-  const others = omit(props, "class");
-
-  return (
-    <AlertDialogPrimitive.Overlay
-      data-slot="alert-dialog-overlay"
-      class={cn(
-        "data-[closed]:animate-out data-[closed]:fade-out-0 data-[expanded]:animate-in data-[expanded]:fade-in-0 fixed inset-0 z-50 bg-black/50",
-        props.class
-      )}
-      {...others}
-    />
-  );
-};
+const { AlertDialogTrigger } = AlertDialogPrimitive;
 
 const AlertDialogContent = (
-  props: PolymorphicProps<
-    "div",
-    AlertDialogPrimitive.AlertDialogContentProps<"div">
-  > & {
+  props: ComponentProps<typeof AlertDialogPrimitive.AlertDialogContent> & {
+    class?: string;
     size?: "default" | "sm";
   }
 ) => {
   const others = omit(props, "class", "size");
 
   return (
-    <AlertDialogPortal>
-      <AlertDialogOverlay />
-      <AlertDialogPrimitive.Content
-        data-slot="alert-dialog-content"
+    <>
+      <AlertDialogPrimitive.AlertDialogBackdrop class="fixed inset-0 z-50 bg-black/50 transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0" />
+      <AlertDialogPrimitive.AlertDialogContent
         data-size={props.size ?? "default"}
         class={cn(
-          "group/alert-dialog-content rounded-card bg-card shadow-modal data-[closed]:animate-out data-[closed]:fade-out-0 data-[closed]:zoom-out-95 data-[expanded]:animate-in data-[expanded]:fade-in-0 data-[expanded]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 p-6 duration-200 data-[size=sm]:max-w-xs data-[size=default]:sm:max-w-lg",
+          "group/alert-dialog-content rounded-card bg-card shadow-modal fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 p-6 transition-[opacity,scale] duration-200 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0 data-[size=sm]:max-w-xs data-[size=default]:sm:max-w-lg",
           props.class
         )}
-        onPointerDownOutside={(event) => event.preventDefault()}
         {...others}
       />
-    </AlertDialogPortal>
+    </>
   );
 };
 
@@ -97,16 +63,14 @@ const AlertDialogFooter = (props: ComponentProps<"div">) => {
 };
 
 const AlertDialogTitle = (
-  props: PolymorphicProps<
-    "h2",
-    AlertDialogPrimitive.AlertDialogTitleProps<"h2">
-  >
+  props: ComponentProps<typeof AlertDialogPrimitive.AlertDialogTitle> & {
+    class?: string;
+  }
 ) => {
   const others = omit(props, "class");
 
   return (
-    <AlertDialogPrimitive.Title
-      data-slot="alert-dialog-title"
+    <AlertDialogPrimitive.AlertDialogTitle
       class={cn(
         "text-lg font-semibold sm:group-data-[size=default]/alert-dialog-content:group-has-data-[slot=alert-dialog-media]/alert-dialog-content:col-start-2",
         props.class
@@ -117,66 +81,46 @@ const AlertDialogTitle = (
 };
 
 const AlertDialogDescription = (
-  props: PolymorphicProps<
-    "p",
-    AlertDialogPrimitive.AlertDialogDescriptionProps<"p">
-  >
+  props: ComponentProps<typeof AlertDialogPrimitive.AlertDialogDescription> & {
+    class?: string;
+  }
 ) => {
   const others = omit(props, "class");
 
   return (
-    <AlertDialogPrimitive.Description
-      data-slot="alert-dialog-description"
+    <AlertDialogPrimitive.AlertDialogDescription
       class={cn("text-muted-foreground text-sm", props.class)}
       {...others}
     />
   );
 };
 
-const AlertDialogMedia = (props: ComponentProps<"div">) => {
-  const others = omit(props, "class");
-
-  return (
-    <div
-      data-slot="alert-dialog-media"
-      class={cn(
-        "bg-muted mb-2 inline-flex size-16 items-center justify-center rounded-md sm:group-data-[size=default]/alert-dialog-content:row-span-2 *:[svg:not([class*='size-'])]:size-8",
-        props.class
-      )}
-      {...others}
-    />
-  );
-};
-
-type AlertDialogButtonProps = Omit<ComponentProps<typeof Button>, "onClick"> & {
-  onClick?: (event: MouseEvent) => void;
-};
+type AlertDialogButtonProps = ComponentProps<
+  typeof AlertDialogPrimitive.AlertDialogClose
+> &
+  Pick<ComponentProps<typeof Button>, "variant" | "size">;
 
 const closingButton =
-  (slot: string, variant: AlertDialogButtonProps["variant"]) =>
+  (variant: AlertDialogButtonProps["variant"]) =>
   (props: AlertDialogButtonProps) => {
-    const dialog = useDialogContext();
-    const others = omit(props, "variant", "size", "onClick");
+    const others = omit(props, "variant", "size");
 
     return (
-      <Button
-        data-slot={slot}
-        variant={props.variant ?? variant}
-        size={props.size ?? "default"}
-        onClick={(event) => {
-          props.onClick?.(event);
-
-          if (!event.defaultPrevented) {
-            dialog.close();
-          }
-        }}
+      <AlertDialogPrimitive.AlertDialogClose
         {...others}
+        render={(close) => (
+          <Button
+            {...close}
+            variant={props.variant ?? variant}
+            size={props.size ?? "default"}
+          />
+        )}
       />
     );
   };
 
-const AlertDialogAction = closingButton("alert-dialog-action", "default");
-const AlertDialogCancel = closingButton("alert-dialog-cancel", "outline");
+const AlertDialogAction = closingButton("default");
+const AlertDialogCancel = closingButton("outline");
 
 export {
   AlertDialog,
@@ -186,9 +130,6 @@ export {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogMedia,
-  AlertDialogOverlay,
-  AlertDialogPortal,
   AlertDialogTitle,
   AlertDialogTrigger,
 };

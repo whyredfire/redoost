@@ -1,3 +1,5 @@
+@layer ui-sdk;
+
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -116,6 +118,10 @@
           "cv11" 1, /* Sleek geometric single-story 'a' */
           "cv06" 1; /* Clean, simplified 'u' */
     @apply bg-background text-foreground font-sans;
+  }
+  /* WARNING: popups render in place in the top layer, so without this they inherit their trigger's typography */
+  :where([popover], dialog) {
+    @apply text-foreground text-start font-sans text-base font-normal tracking-normal normal-case not-italic;
   }
 }
 

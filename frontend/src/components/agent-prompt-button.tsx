@@ -16,9 +16,8 @@ export const AgentPromptButton = () => {
   return (
     <Tooltip open={copied()}>
       <TooltipTrigger
-        as={Button}
+        render={(trigger) => <Button {...trigger} variant="ghost" />}
         type="button"
-        variant="ghost"
         class="text-muted-foreground"
         aria-label={
           copied() ? "Copied" : "Copy a prompt that sets up your agent"

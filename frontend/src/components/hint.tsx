@@ -19,7 +19,10 @@ export const Hint = (props: {
       open={hovered() || (props.open ?? false)}
       onOpenChange={(open: boolean) => setHovered(open)}
     >
-      <TooltipTrigger as="span" class="inline-flex">
+      <TooltipTrigger
+        class="inline-flex"
+        render={(trigger) => <span {...trigger} />}
+      >
         {props.children}
       </TooltipTrigger>
       <TooltipContent>{props.label}</TooltipContent>
