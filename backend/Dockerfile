@@ -1,30 +1,30 @@
-FROM registry.access.redhat.com/hi/python:3.15-builder@sha256:0f1e045db12ce181ff15ac036156225816394e2e76e3c87f51ff61596924f098 AS builder
+FROM rust:1.100-slim-trixie@sha256:3b199fd6db7d709274df56565b8f4003f9e30d7bfcff9d53148c86053b7855e2 AS builder
 
-COPY --from=ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff /uv /uvx /usr/local/bin/
-
-# Only the builder runs as root; the final image keeps the default non-root user
-USER root
-WORKDIR /app
-ENV UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy \
-    UV_PYTHON_DOWNLOADS=never
-
-COPY pyproject.toml uv.lock .python-version ./
-RUN uv sync --locked --no-dev
-
-# Then, use a final image without uv
-FROM registry.access.redhat.com/hi/python:3.15@sha256:a8241403eb7003db09cd13f0e0e1aad672c3d0bad0a39cf36d2b3c7ee7b70879
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends musl-tools ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && rustup target add "$(uname -m)-unknown-linux-musl"
 
 WORKDIR /app
-ENV PATH="/app/.venv/bin:$PATH" \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
 
-COPY --from=builder /app/.venv ./.venv
-COPY pyproject.toml ./
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir src \
+    && echo "fn main() {}" > src/main.rs \
+    && touch src/lib.rs \
+    && cargo build --release --locked --target "$(uname -m)-unknown-linux-musl" \
+    && rm -rf src
+
 COPY src ./src
 COPY migrations ./migrations
-COPY scripts ./scripts
+RUN touch src/main.rs src/lib.rs \
+    && cargo build --release --locked --target "$(uname -m)-unknown-linux-musl" \
+    && cp "target/$(uname -m)-unknown-linux-musl/release/redoost-api" /redoost-api
+
+FROM scratch
+
+# The S3 client and OIDC sign-in check TLS certificates against the system's
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=builder /redoost-api /usr/local/bin/redoost-api
 
 ARG VERSION=dev
 ENV REDOOST_VERSION=$VERSION
@@ -32,5 +32,6 @@ ENV REDOOST_VERSION=$VERSION
 ARG CLI_SHA256=
 ENV REDOOST_CLI_SHA256=$CLI_SHA256
 
+USER 65532:65532
 EXPOSE 8000
-CMD ["python", "-m", "src.main"]
+CMD ["redoost-api", "serve"]

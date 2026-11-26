@@ -57,7 +57,7 @@ flowchart LR
 4. Nginx serves `<slug>.<sites domain>` from Garage's website endpoint, after
    checking with the API (cached briefly) that the site exists.
 
-Built with FastAPI, SQLModel, and Alembic on Postgres; React, TanStack Router,
+Built with Rust (axum and sqlx) on Postgres; React, TanStack Router,
 Tailwind, and shadcn/ui, built with Vite and Bun; [Garage](https://garagehq.deuxfleurs.fr) for storage; and
 Nginx for serving sites.
 
@@ -103,7 +103,7 @@ s3:
   websiteUpstream: garage.garage.svc.cluster.local:3902
   existingSecret: redoost-s3
 database:
-  url: postgresql+asyncpg://redoost:password@postgres:5432/redoost
+  url: postgres://redoost:password@postgres:5432/redoost
 auth:
   # openssl rand -hex 32
   jwtSecret: 3f7c2a9e5b1d8c4f6a0e3d7b9c2f5a8e
@@ -142,7 +142,8 @@ docker compose watch
 ```
 
 `docker compose watch` syncs source changes into the containers, where the API
-and frontend reload in place; lockfile changes rebuild the image. The
+recompiles and restarts with cargo-watch and the frontend reloads in place;
+`Cargo.toml` and lockfile changes rebuild the image. The
 `Dockerfile.dev` images are for development only; `backend/Dockerfile` and
 `frontend/Dockerfile` build the production images.
 
@@ -176,7 +177,7 @@ values.
 | --- | --- | --- |
 | `REDOOST_APP_ORIGIN` | | Dashboard origin, allowed to upload to the bucket |
 | `REDOOST_LOG_LEVEL` | | `INFO` or `VERBOSE` |
-| `REDOOST_DATABASE_URL` | | Postgres database URL, `postgresql+asyncpg://user:password@host/db` |
+| `REDOOST_DATABASE_URL` | | Postgres database URL, `postgres://user:password@host/db` |
 | `REDOOST_S3_ENDPOINT` | | S3 endpoint used by the API |
 | `REDOOST_S3_PUBLIC_ENDPOINT` | | S3 endpoint used by browsers for uploads |
 | `REDOOST_S3_REGION` | | Region used for signing |

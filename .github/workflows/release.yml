@@ -103,9 +103,6 @@ jobs:
           # Update version in chart/Chart.yaml
           yq -i '.version = strenv(VERSION) | .appVersion = strenv(VERSION)' chart/Chart.yaml
 
-          # Update version in backend/pyproject.toml
-          (cd backend && uv version "$VERSION" --no-sync)
-
           # Update version in cli/pyproject.toml
           (cd cli && uv version "$VERSION" --no-sync)
 

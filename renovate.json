@@ -24,8 +24,8 @@
       "groupName": "Docker images"
     },
     {
-      "matchManagers": ["pep621"],
-      "groupName": "Python packages"
+      "matchManagers": ["cargo"],
+      "groupName": "Rust crates"
     },
     {
       "matchManagers": ["npm", "bun"],
@@ -35,25 +35,6 @@
       "description": "Keep Bun in the Dockerfiles and CI on one version",
       "matchPackageNames": ["oven/bun", "bun"],
       "groupName": "Bun"
-    },
-    {
-      "description": "Python stays on 3.15 until upgraded by hand",
-      "matchDepTypes": ["requires-python"],
-      "enabled": false
-    },
-    {
-      "matchManagers": ["pyenv"],
-      "enabled": false
-    },
-    {
-      "description": "New 3.15 builds of the base images, but never a new Python version",
-      "matchPackageNames": ["registry.access.redhat.com/hi/python"],
-      "matchUpdateTypes": ["major", "minor", "patch"],
-      "enabled": false
-    },
-    {
-      "matchPackageNames": ["registry.access.redhat.com/hi/python"],
-      "groupName": "Python base images"
     },
     {
       "matchUpdateTypes": [

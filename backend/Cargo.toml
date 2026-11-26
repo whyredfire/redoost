@@ -1,0 +1,39 @@
+[package]
+name = "redoost-api"
+# Releases set the version through REDOOST_VERSION instead
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+anyhow = "1.0.105"
+aws-sdk-s3 = "1.161.0"
+axum = "0.8.9"
+base64 = "0.23.1"
+chrono = { version = "0.4.45", features = ["serde"] }
+clap = { version = "4.6.10", features = ["derive"] }
+form_urlencoded = "1.2.3"
+futures = "0.3.34"
+hex = "0.4.3"
+hmac = "0.13.0"
+jsonwebtoken = { version = "12.0.0", default-features = false, features = ["aws_lc_rs"] }
+mime_guess = "2.0.5"
+percent-encoding = "2.3.2"
+petname = { version = "3.2.0", default-features = false, features = ["default-rng", "default-words"] }
+rand = "0.10.4"
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls", "json", "form"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = { version = "1.0.154", features = ["preserve_order"] }
+sha2 = "0.11.1"
+sqlx = { version = "0.9.1", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "chrono", "json", "migrate", "macros", "derive"] }
+tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros", "signal", "net", "sync"] }
+tracing = "0.1.44"
+tracing-subscriber = "0.3.23"
+url = "2.5.9"
+
+[dev-dependencies]
+# Tests upload files with S3 POST policies, as browsers do
+reqwest = { version = "0.13.5", default-features = false, features = ["multipart"] }
+
+[profile.release]
+strip = true

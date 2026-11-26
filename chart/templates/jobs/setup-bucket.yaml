@@ -22,7 +22,7 @@ spec:
         - name: setup-bucket
           image: {{ include "redoost.image" (dict "image" .Values.api.image "context" $) }}
           imagePullPolicy: {{ .Values.api.image.pullPolicy }}
-          command: ["python", "-m", "scripts.setup_bucket"]
+          command: ["redoost-api", "setup-bucket"]
           envFrom:
             {{- include "redoost.apiEnvFrom" . | nindent 12 }}
           resources:

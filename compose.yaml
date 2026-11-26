@@ -56,10 +56,10 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
-    command: ["uv", "run", "--no-sync", "python", "-m", "scripts.setup_bucket"]
+    command: ["redoost-api", "setup-bucket"]
     env_file: .env
     environment:
-      REDOOST_DATABASE_URL: postgresql+asyncpg://redoost:redoost@postgres/redoost
+      REDOOST_DATABASE_URL: postgres://redoost:redoost@postgres/redoost
     depends_on:
       garage:
         condition: service_healthy
@@ -69,10 +69,10 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
-    command: ["uv", "run", "--no-sync", "alembic", "upgrade", "head"]
+    command: ["redoost-api", "migrate"]
     env_file: .env
     environment:
-      REDOOST_DATABASE_URL: postgresql+asyncpg://redoost:redoost@postgres/redoost
+      REDOOST_DATABASE_URL: postgres://redoost:redoost@postgres/redoost
     depends_on:
       postgres:
         condition: service_healthy
@@ -87,9 +87,12 @@ services:
       dockerfile: Dockerfile.dev
     env_file: .env
     environment:
-      REDOOST_DATABASE_URL: postgresql+asyncpg://redoost:redoost@postgres/redoost
-      REDOOST_TEST_DATABASE_URL: postgresql+asyncpg://redoost:redoost@postgres/redoost_test
-      REDOOST_RELOAD: "true"
+      REDOOST_DATABASE_URL: postgres://redoost:redoost@postgres/redoost
+      REDOOST_TEST_DATABASE_URL: postgres://redoost:redoost@postgres/redoost_test
+    # Kept between rebuilds, so cargo only recompiles what changed
+    volumes:
+      - cargo-registry:/usr/local/cargo/registry
+      - cargo-target:/app/target
     depends_on:
       init:
         condition: service_completed_successfully
@@ -104,10 +107,12 @@ services:
           path: ./backend/tests
           target: /app/tests
         - action: sync
-          path: ./backend/scripts
-          target: /app/scripts
+          path: ./backend/migrations
+          target: /app/migrations
         - action: rebuild
-          path: ./backend/uv.lock
+          path: ./backend/Cargo.toml
+        - action: rebuild
+          path: ./backend/Cargo.lock
 
   frontend:
     build:
@@ -166,6 +171,8 @@ services:
 volumes:
   garage-data:
   postgres-data:
+  cargo-registry:
+  cargo-target:
 
 configs:
   test-database:

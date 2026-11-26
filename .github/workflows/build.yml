@@ -32,18 +32,36 @@ jobs:
           --health-interval 2s
           --health-retries 15
     env:
-      REDOOST_TEST_DATABASE_URL: postgresql+asyncpg://redoost:redoost@localhost:5432/redoost
+      REDOOST_TEST_DATABASE_URL: postgres://redoost:redoost@localhost:5432/redoost
+      REDOOST_S3_ENDPOINT: http://localhost:3900
+      REDOOST_S3_PUBLIC_ENDPOINT: http://localhost:3900
+      REDOOST_S3_BUCKET: redoost-sites
+      REDOOST_S3_ACCESS_KEY_ID: GK00000000000000000000000000000000
+      REDOOST_S3_SECRET_ACCESS_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.3.3
+      # A service container can't be given Garage's command, so it's started here
+      - name: Start Garage
+        working-directory: .
+        run: |
+          docker run -d --name garage -p 3900:3900 \
+            -v "$PWD/garage.toml:/etc/garage.toml:ro" \
+            -e GARAGE_RPC_SECRET=0000000000000000000000000000000000000000000000000000000000000000 \
+            -e GARAGE_ADMIN_TOKEN=0000000000000000000000000000000000000000000000000000000000000000 \
+            -e GARAGE_DEFAULT_ACCESS_KEY="$REDOOST_S3_ACCESS_KEY_ID" \
+            -e GARAGE_DEFAULT_SECRET_KEY="$REDOOST_S3_SECRET_ACCESS_KEY" \
+            -e GARAGE_DEFAULT_BUCKET="$REDOOST_S3_BUCKET" \
+            dxflrs/garage:v2.5.0 /garage server --single-node --default-bucket
+          timeout 60 sh -c 'until docker exec garage /garage status; do sleep 1; done'
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          enable-cache: true
-          cache-dependency-glob: backend/uv.lock
-      - run: uv sync --locked
-      - run: uv run ruff format --check .
-      - run: uv run ruff check .
-      - run: uv run basedpyright src scripts tests migrations
-      - run: uv run python -m pytest
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+      - run: cargo fmt --check
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo test --locked
 
   frontend:
     runs-on: ubuntu-slim

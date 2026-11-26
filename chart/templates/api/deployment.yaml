@@ -29,7 +29,7 @@ spec:
         - name: migrate
           image: {{ include "redoost.image" (dict "image" .Values.api.image "context" $) }}
           imagePullPolicy: {{ .Values.api.image.pullPolicy }}
-          command: ["python", "-m", "alembic", "upgrade", "head"]
+          command: ["redoost-api", "migrate"]
           envFrom:
             {{- include "redoost.apiEnvFrom" . | nindent 12 }}
           resources:

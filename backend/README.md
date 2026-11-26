@@ -1,7 +1,9 @@
 # Redoost backend
 
-FastAPI, async SQLModel on Postgres, and async S3. It runs as the `api` service
-in Compose (see the root README).
+Rust: axum, sqlx on Postgres, and the AWS S3 SDK, built as one `redoost-api`
+binary with four subcommands: `serve` (the API, on port 8000), `migrate`,
+`setup-bucket`, and `cleanup`. It runs as the `api` service in Compose (see
+the root README).
 
 ## Users
 
@@ -131,31 +133,31 @@ file's key, size, content type, and SHA-256, and expire after
 
 ## Migrations
 
-Alembic manages the schema, configured under `[tool.alembic]` in
-`pyproject.toml`. The one-off `migrate` service runs `alembic upgrade head`
-before `api` starts, like an init container on the API pod would. Watch mode
-reruns it when `migrations/` changes.
+sqlx manages the schema from the SQL files in `migrations/`, which are embedded
+in the binary when it's built. `redoost-api migrate` applies the ones a
+database hasn't had yet; the one-off `migrate` service runs it before `api`
+starts, like the init container on the API pod. Watch mode rebuilds and reruns
+it when `migrations/` changes.
 
-After changing a model, generate a migration from the repository root. Mounting
-`migrations/` writes the new file back to your checkout:
+To change the schema, add a file named `<version>_<description>.sql`, with a
+version after the last one, and never edit one that's been released.
 
-```sh
-docker compose run --rm --no-deps -v ./backend/migrations:/app/migrations migrate uv run --no-sync alembic revision --autogenerate -m "Describe the change"
-```
-
-Review the generated file before committing. `tests/test_migrations.py` fails
-if a model changes without a migration.
+The first migration is a baseline equal to the schema the Python backend's
+Alembic migrations left. A fresh database gets that schema; a database already
+migrated by Alembic must be at its last revision, and then keeps its tables and
+only loses the `alembic_version` table. Upgrade to the last Python release
+first if it isn't.
 
 ## Cleanup
 
-`python -m scripts.cleanup` removes deployments still uploading after their
+`redoost-api cleanup` removes deployments still uploading after their
 upload window and bucket folders without a deployment, lets go of updates
 nobody finished, deletes the folders let go of once their upload window has
 passed or Nginx can no longer have them cached, and removes expired CLI sign-in
 links, API tokens, and address offers. It handles up to 100 of each per run. The chart runs it as a CronJob (`cleanup.schedule`, hourly by default),
 keeping the last 10 successful and failed runs (`cleanup.successfulJobsHistoryLimit`,
 `cleanup.failedJobsHistoryLimit`); in Compose, run it with
-`docker compose exec api uv run --no-sync python -m scripts.cleanup`.
+`docker compose exec api cargo run -- cleanup`.
 
 ## Checks
 
@@ -165,8 +167,7 @@ that's `redoost_test` on the `postgres` service. The public S3 endpoint is
 overridden so upload tests can reach Garage from inside the container:
 
 ```sh
-docker compose exec -e REDOOST_S3_PUBLIC_ENDPOINT=http://garage:3900 api uv run --no-sync python -m pytest
-docker compose exec api uv run --no-sync ruff check .
-docker compose exec api uv run --no-sync ruff format --check .
-docker compose exec api uv run --no-sync basedpyright src scripts tests migrations
+docker compose exec -e REDOOST_S3_PUBLIC_ENDPOINT=http://garage:3900 api cargo test
+docker compose exec api cargo clippy --all-targets -- -D warnings
+docker compose exec api cargo fmt --check
 ```

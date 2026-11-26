@@ -59,7 +59,7 @@ auth:
   # of the secrets above
   existingSecret: ""
 
-# Postgres database, e.g. postgresql+asyncpg://user:password@host:5432/redoost;
+# Postgres database, e.g. postgres://user:password@host:5432/redoost;
 # one of the two values is required
 database:
   url: ""
