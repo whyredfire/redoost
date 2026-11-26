@@ -127,8 +127,6 @@ jobs:
             echo "# Or run it without installing, with Node.js or Bun"
             echo "npx redoost@${VERSION} --help"
             echo "bunx redoost@${VERSION} --help"
-            echo "# Or with the install script"
-            echo "curl -fsSL https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}/install.sh | REDOOST_VERSION=${VERSION} sh"
             echo '```'
             if [ -n "$previous" ]; then
               echo
@@ -146,4 +144,4 @@ jobs:
           git commit -am "chore: Release v${VERSION}"
           git tag "v${VERSION}"
           git push origin HEAD "v${VERSION}"
-          gh release create "v${VERSION}" --title "v${VERSION}" --notes-file "$RUNNER_TEMP/notes.md" frontend/public/install.sh
+          gh release create "v${VERSION}" --title "v${VERSION}" --notes-file "$RUNNER_TEMP/notes.md"

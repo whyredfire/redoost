@@ -2,13 +2,7 @@
 
 Publish static sites to redoost from the command line. It needs Node.js 20 or later.
 
-Install it globally with the script, which uses npm:
-
-```sh
-curl -fsSL https://redoost.whyredfire.dev/install.sh | sh
-```
-
-Any redoost serves the same script at `/install.sh`; `REDOOST_VERSION=0.7.0` installs that release instead. Or install it yourself:
+Install it globally:
 
 ```sh
 npm i -g redoost

@@ -37,8 +37,6 @@ export const readContributors = async () => {
   return contributors.filter((contributor) => contributor.type === "User");
 };
 
-export const installUrl = `${repository}/tree/main/cli#readme`;
-
 interface Config {
   sitesOrigin: string | null;
 }

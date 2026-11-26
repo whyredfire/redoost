@@ -1,7 +1,12 @@
 import { Show } from "solid-js";
 
 import { CopyButton } from "@/components/copy-button";
-import { installUrl } from "@/lib/config";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/cn";
 
 interface CliCommandProps {
   command?: string;
@@ -27,14 +32,7 @@ export const CliCommand = (props: CliCommandProps) => {
             hint="Copy command"
             size="icon-xs"
           />
-          <a
-            href={installUrl}
-            target="_blank"
-            rel="noreferrer"
-            class="hover:text-foreground font-sans underline-offset-4 hover:underline"
-          >
-            Install the CLI
-          </a>
+          <InstallCli class="font-sans" />
         </p>
       }
     >
@@ -44,14 +42,7 @@ export const CliCommand = (props: CliCommandProps) => {
           {command()}
         </span>
         <Show when={variant() === "box"}>
-          <a
-            href={installUrl}
-            target="_blank"
-            rel="noreferrer"
-            class="text-muted-foreground hover:text-foreground hidden shrink-0 font-sans underline-offset-4 hover:underline sm:inline"
-          >
-            Install the CLI
-          </a>
+          <InstallCli class="text-muted-foreground hidden shrink-0 font-sans sm:inline" />
         </Show>
         <CopyButton
           text={command()}
@@ -62,3 +53,21 @@ export const CliCommand = (props: CliCommandProps) => {
     </Show>
   );
 };
+
+export const InstallCli = (props: { class?: string }) => (
+  <Popover>
+    <PopoverTrigger
+      class={cn(
+        "hover:text-foreground underline-offset-4 hover:underline",
+        props.class
+      )}
+    >
+      Install the CLI
+    </PopoverTrigger>
+    <PopoverContent side="top" class="w-80 space-y-2">
+      <CliCommand command="npm i -g redoost" variant="compact" />
+      <CliCommand command="bun add -g redoost" variant="compact" />
+      <p class="text-muted-foreground text-xs">Needs Node.js 20 or later.</p>
+    </PopoverContent>
+  </Popover>
+);

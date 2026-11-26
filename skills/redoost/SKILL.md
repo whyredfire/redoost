@@ -22,8 +22,7 @@ npm install -g redoost
 ```
 
 To run it once without installing, use `npx redoost <command>`, or
-`bunx redoost <command>` on a machine that only has Bun. On Linux or macOS,
-`curl -fsSL https://redoost.whyredfire.dev/install.sh | sh` installs it too.
+`bunx redoost <command>` on a machine that only has Bun.
 If it's already installed, `redoost update` brings it up to date.
 
 It uses redoost.whyredfire.dev. For another redoost, add

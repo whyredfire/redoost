@@ -1,6 +1,6 @@
 {
   "name": "redoost",
-  "version": "0.7.0",
+  "version": "0.7.9",
   "description": "Publish static sites to redoost from the command line",
   "keywords": [
     "cli",

@@ -22,7 +22,7 @@ If `redoost --version` works, it's already installed: run `redoost update` to br
 npm install -g redoost
 ```
 
-If only Bun is installed, don't install it: run every `redoost` command below as `bunx redoost` instead. With neither, ask the user to install Node.js from https://nodejs.org first. On Linux or macOS, `curl -fsSL https://redoost.whyredfire.dev/install.sh | sh` installs it too.
+If only Bun is installed, don't install it: run every `redoost` command below as `bunx redoost` instead. With neither, ask the user to install Node.js from https://nodejs.org first.
 
 ## 3. Sign in
 

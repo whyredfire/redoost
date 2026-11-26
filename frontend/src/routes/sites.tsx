@@ -4,7 +4,7 @@ import { Link, createFileRoute, useRouter } from "@tanstack/solid-router";
 import { Show, createMemo, createSignal } from "solid-js";
 
 import { Choice } from "@/components/choice";
-import { CliCommand } from "@/components/cli-command";
+import { CliCommand, InstallCli } from "@/components/cli-command";
 import { EmptyState } from "@/components/empty-state";
 import { Globe, Search } from "@/components/icons";
 import { PageHeading } from "@/components/page-heading";
@@ -15,7 +15,6 @@ import { StorageUsage } from "@/components/storage-usage";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
-import { installUrl } from "@/lib/config";
 import { loadSignedIn, loadToken, useToken } from "@/lib/session";
 
 type Send = (batch: string[]) => Promise<object>;
@@ -306,14 +305,7 @@ const Sidebar = (props: SidebarProps) => {
       <section class="bg-card shadow-raised space-y-3 rounded-xl px-4 py-3">
         <h2 class="font-medium">From the terminal</h2>
         <CliCommand command="redoost list" variant="compact" />
-        <a
-          href={installUrl}
-          target="_blank"
-          rel="noreferrer"
-          class="text-muted-foreground hover:text-foreground inline-block underline-offset-4 hover:underline"
-        >
-          Install the CLI
-        </a>
+        <InstallCli class="text-muted-foreground block" />
       </section>
     </aside>
   );
