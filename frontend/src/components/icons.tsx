@@ -1,5 +1,4 @@
 import type { JSX } from "@solidjs/web";
-import { cn } from "cn";
 import {
   ArrowLeft as ArrowLeftNode,
   Bot as BotNode,
@@ -33,6 +32,8 @@ import {
 } from "lucide";
 import type { IconNode } from "lucide";
 import { omit } from "solid-js";
+
+import { cn } from "@/lib/cn";
 
 export type LucideIcon = (
   props: JSX.SvgSVGAttributes<SVGSVGElement>

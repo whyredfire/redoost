@@ -1,8 +1,9 @@
 import type { PolymorphicProps } from "@kobalte/core/polymorphic";
 import * as PopoverPrimitive from "@kobalte/core/popover";
 import type { ComponentProps, ValidComponent } from "@solidjs/web";
-import { cn } from "cn";
 import { omit } from "solid-js";
+
+import { cn } from "@/lib/cn";
 
 const Popover = (props: PopoverPrimitive.PopoverRootProps) => (
   <PopoverPrimitive.Root gutter={4} {...props} />

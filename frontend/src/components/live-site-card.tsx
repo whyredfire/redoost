@@ -1,5 +1,4 @@
 import { Link } from "@tanstack/solid-router";
-import { cn } from "cn";
 import { animate } from "motion";
 import { onSettled, Show } from "solid-js";
 
@@ -10,6 +9,7 @@ import { SiteAddress } from "@/components/site-address";
 import { SitePreview } from "@/components/site-preview";
 import { buttonVariants, Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/cn";
 import { siteUrl } from "@/lib/format";
 import { useReducedMotion } from "@/lib/motion";
 import { useUpload } from "@/lib/upload";

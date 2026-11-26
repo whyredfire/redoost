@@ -1,11 +1,11 @@
 import { Navigate, createFileRoute } from "@tanstack/solid-router";
-import { cn } from "cn";
 import { Show } from "solid-js";
 
 import { AddressPreview } from "@/components/address-preview";
 import { CliCommand } from "@/components/cli-command";
 import { FolderDrop } from "@/components/folder-drop";
 import { SignInButton } from "@/components/sign-in-prompt";
+import { cn } from "@/lib/cn";
 import { inset } from "@/lib/layout";
 import { useToken } from "@/lib/session";
 import { usePageDrop, useUpload } from "@/lib/upload";

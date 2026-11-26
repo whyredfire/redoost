@@ -1,7 +1,8 @@
 import type { PolymorphicProps } from "@kobalte/core/polymorphic";
 import * as SwitchPrimitive from "@kobalte/core/switch";
-import { cn } from "cn";
 import { omit } from "solid-js";
+
+import { cn } from "@/lib/cn";
 
 const Switch = (
   props: PolymorphicProps<"div", SwitchPrimitive.SwitchRootProps<"div">> & {

@@ -1,8 +1,9 @@
 import type { ComponentProps } from "@solidjs/web";
 import { cva } from "class-variance-authority";
 import type { VariantProps } from "class-variance-authority";
-import { cn } from "cn";
 import { omit } from "solid-js";
+
+import { cn } from "@/lib/cn";
 
 const buttonVariants = cva(
   "sink rounded-control ease-detent focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 inline-flex shrink-0 items-center justify-center gap-2 text-sm font-medium whitespace-nowrap transition-[background-color,color,box-shadow,scale] duration-150 outline-none select-none focus-visible:ring-[3px] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-45 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",

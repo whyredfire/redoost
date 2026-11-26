@@ -1,12 +1,12 @@
 import { errorMessage } from "@redoost/shared";
 import type { Limits, SiteCheck, SiteFile } from "@redoost/shared";
 import type { JSX } from "@solidjs/web";
-import { cn } from "cn";
 import { For, Show } from "solid-js";
 
 import { Folder } from "@/components/detent/ui/folder";
 import { Check } from "@/components/icons";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/cn";
 import { Presence } from "@/lib/motion";
 import { pickedFiles } from "@/lib/site-files";
 

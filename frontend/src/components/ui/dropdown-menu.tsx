@@ -1,10 +1,10 @@
 import * as DropdownMenuPrimitive from "@kobalte/core/dropdown-menu";
 import type { PolymorphicProps } from "@kobalte/core/polymorphic";
 import type { ComponentProps, ValidComponent } from "@solidjs/web";
-import { cn } from "cn";
 import { omit } from "solid-js";
 
 import { CheckIcon, ChevronRightIcon, CircleIcon } from "@/components/icons";
+import { cn } from "@/lib/cn";
 
 const DropdownMenu = (props: DropdownMenuPrimitive.DropdownMenuRootProps) => (
   <DropdownMenuPrimitive.Root gutter={4} {...props} />

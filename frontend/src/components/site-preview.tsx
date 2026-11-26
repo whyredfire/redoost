@@ -1,5 +1,6 @@
-import { cn } from "cn";
 import { createMemo, createSignal, onSettled } from "solid-js";
+
+import { cn } from "@/lib/cn";
 
 const width = 1280;
 const height = 800;

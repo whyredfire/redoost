@@ -15,7 +15,7 @@ export const DangerAction = (props: DangerActionProps) => {
   const confirm = omit(props, "title", "description");
 
   return (
-    <div class="border-destructive/30 flex items-center justify-between gap-4 rounded-lg border px-4 py-3 text-sm">
+    <div class="border-destructive/30 bg-destructive/10 flex items-center justify-between gap-4 rounded-lg border px-4 py-3 text-sm">
       <div>
         <p class="font-medium">{props.title}</p>
         <p class="text-muted-foreground">{props.description}</p>

@@ -1,10 +1,10 @@
 import type { PolymorphicProps } from "@kobalte/core/polymorphic";
 import * as SelectPrimitive from "@kobalte/core/select";
 import type { ComponentProps } from "@solidjs/web";
-import { cn } from "cn";
 import { omit } from "solid-js";
 
 import { CheckIcon, ChevronDownIcon } from "@/components/icons";
+import { cn } from "@/lib/cn";
 
 const Select = <Option, OptGroup = never>(
   props: PolymorphicProps<

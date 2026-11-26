@@ -1,6 +1,7 @@
 import type { ComponentProps } from "@solidjs/web";
-import { cn } from "cn";
 import { omit } from "solid-js";
+
+import { cn } from "@/lib/cn";
 
 const ScrollArea = (props: ComponentProps<"div">) => {
   const others = omit(props, "class", "children");

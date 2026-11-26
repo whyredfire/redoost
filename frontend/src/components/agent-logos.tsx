@@ -1,4 +1,3 @@
-import { cn } from "cn";
 import { For, Show } from "solid-js";
 
 import claude from "@/assets/agents/claude.svg";
@@ -6,6 +5,7 @@ import codex from "@/assets/agents/codex.png";
 import cursor from "@/assets/agents/cursor.svg";
 import opencodeDark from "@/assets/agents/opencode-dark.svg";
 import opencodeLight from "@/assets/agents/opencode-light.svg";
+import { cn } from "@/lib/cn";
 
 const agents: { name: string; logo: string; dark?: string }[] = [
   { name: "Claude", logo: claude },

@@ -43,7 +43,7 @@ const SettingsLayout = () => {
             {(section) => (
               <Link
                 to={section.to}
-                class="text-muted-foreground hover:bg-muted/60 hover:text-foreground data-[status=active]:bg-muted data-[status=active]:text-foreground flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors data-[status=active]:font-medium"
+                class="text-muted-foreground hover:bg-muted/60 hover:text-foreground data-[status=active]:bg-muted data-[status=active]:text-foreground flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors"
               >
                 <section.icon class="size-4" />
                 {section.label}

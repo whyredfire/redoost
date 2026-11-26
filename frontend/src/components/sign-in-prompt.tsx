@@ -1,6 +1,5 @@
 import { errorMessage } from "@redoost/shared";
 import { Link, useRouter } from "@tanstack/solid-router";
-import { cn } from "cn";
 import { createSignal, Show } from "solid-js";
 
 import { EmptyState } from "@/components/empty-state";
@@ -8,6 +7,7 @@ import { LogIn } from "@/components/icons";
 import { ProviderLogo } from "@/components/provider-logo";
 import { Button } from "@/components/ui/button";
 import { authConfig, providerNames, signIn, signInAsDev } from "@/lib/auth";
+import { cn } from "@/lib/cn";
 
 interface SignInPromptProps {
   title: string;

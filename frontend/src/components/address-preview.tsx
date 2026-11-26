@@ -1,7 +1,6 @@
-import { cn } from "cn";
-
 import { LiveDot } from "@/components/live-dot";
 import { RotatingWord } from "@/components/rotating-word";
+import { cn } from "@/lib/cn";
 import { config } from "@/lib/config";
 
 const slugs = [

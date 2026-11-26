@@ -1,7 +1,8 @@
 import type { PolymorphicProps } from "@kobalte/core/polymorphic";
 import * as ProgressPrimitive from "@kobalte/core/progress";
-import { cn } from "cn";
 import { omit } from "solid-js";
+
+import { cn } from "@/lib/cn";
 
 const Progress = (
   props: PolymorphicProps<"div", ProgressPrimitive.ProgressRootProps<"div">>

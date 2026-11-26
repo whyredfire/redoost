@@ -7,7 +7,6 @@ import {
   useNavigate,
   useRouter,
 } from "@tanstack/solid-router";
-import { cn } from "cn";
 import { For, Show } from "solid-js";
 
 import { AccountMenu } from "@/components/account-menu";
@@ -16,6 +15,7 @@ import { PageHeading } from "@/components/page-heading";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { buttonVariants } from "@/components/ui/button";
 import { signOut, signedInUser } from "@/lib/auth";
+import { cn } from "@/lib/cn";
 import { frame, inset } from "@/lib/layout";
 import { useToken } from "@/lib/session";
 import { useUpload } from "@/lib/upload";

@@ -1,11 +1,11 @@
 import { errorMessage } from "@redoost/shared";
-import { cn } from "cn";
 import { createSignal, Match, Switch } from "solid-js";
 
 import { Hint } from "@/components/hint";
 import { Pencil } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/cn";
 
 interface SiteDescriptionProps {
   description: string;

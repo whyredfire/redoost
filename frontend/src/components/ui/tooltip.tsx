@@ -1,8 +1,9 @@
 import type { PolymorphicProps } from "@kobalte/core/polymorphic";
 import * as TooltipPrimitive from "@kobalte/core/tooltip";
 import type { ValidComponent } from "@solidjs/web";
-import { cn } from "cn";
 import { omit } from "solid-js";
+
+import { cn } from "@/lib/cn";
 
 const Tooltip = (props: TooltipPrimitive.TooltipRootProps) => (
   <TooltipPrimitive.Root

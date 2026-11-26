@@ -1,8 +1,8 @@
 import type { JSX } from "@solidjs/web";
 import { Dynamic } from "@solidjs/web";
-import { cn } from "cn";
 
 import type { LucideIcon } from "@/components/icons";
+import { cn } from "@/lib/cn";
 
 const EmptyStateIcon = (props: { icon: LucideIcon }) => (
   <div class="bg-muted mb-4 flex size-12 items-center justify-center rounded-full">

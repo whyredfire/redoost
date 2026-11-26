@@ -1,8 +1,9 @@
 import * as AvatarPrimitive from "@kobalte/core/image";
 import type { PolymorphicProps } from "@kobalte/core/polymorphic";
 import type { ComponentProps } from "@solidjs/web";
-import { cn } from "cn";
 import { omit } from "solid-js";
+
+import { cn } from "@/lib/cn";
 
 const Avatar = (
   props: PolymorphicProps<"span", AvatarPrimitive.ImageRootProps<"span">> & {

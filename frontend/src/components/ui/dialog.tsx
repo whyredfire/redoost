@@ -1,11 +1,11 @@
 import * as DialogPrimitive from "@kobalte/core/dialog";
 import type { PolymorphicProps } from "@kobalte/core/polymorphic";
 import type { ComponentProps, ValidComponent } from "@solidjs/web";
-import { cn } from "cn";
 import { omit, Show } from "solid-js";
 
 import { XIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/cn";
 
 const Dialog = DialogPrimitive.Root;
 

@@ -1,5 +1,6 @@
-import { cn } from "cn";
 import { Show } from "solid-js";
+
+import { cn } from "@/lib/cn";
 
 interface LiveDotProps {
   pulse?: boolean;

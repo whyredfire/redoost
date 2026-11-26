@@ -5,7 +5,6 @@ import type {
 import type { Deployment, FileChange } from "@redoost/shared";
 import type { JSX } from "@solidjs/web";
 import { useNavigate } from "@tanstack/solid-router";
-import { cn } from "cn";
 import { createMemo, createSignal, For, onSettled, Show } from "solid-js";
 import type { Accessor } from "solid-js";
 
@@ -30,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { api } from "@/lib/api";
+import { cn } from "@/lib/cn";
 import { formatTime } from "@/lib/format";
 import { loadToken } from "@/lib/session";
 import { usePageDrop, useUpload } from "@/lib/upload";
