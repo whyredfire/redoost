@@ -136,8 +136,8 @@ services:
           path: ./frontend/index.html
           target: /app/frontend/index.html
         - action: sync
-          path: ./frontend/vite.config.ts
-          target: /app/frontend/vite.config.ts
+          path: ./frontend/rsbuild.config.ts
+          target: /app/frontend/rsbuild.config.ts
         - action: sync
           path: ./shared/src
           target: /app/shared/src

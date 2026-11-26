@@ -1,10 +1,10 @@
 # Redoost frontend
 
-SolidJS 2, TanStack Router, Tailwind CSS, and Kobalte (styled after shadcn/ui), built with Vite and managed with Bun. It runs as the `frontend` service in Compose (see the root README) behind the gateway at <http://localhost:8081>, with hot reload. The gateway sends `/api/` to the API, so the frontend calls it on the same origin.
+SolidJS 2, TanStack Router, Tailwind CSS, and Kobalte (styled after shadcn/ui), built with Rsbuild and managed with Bun. It runs as the `frontend` service in Compose (see the root README) behind the gateway at <http://localhost:8081>, with hot reload. The gateway sends `/api/` to the API, so the frontend calls it on the same origin.
 
-Routes are files in `src/routes/`. The router plugin regenerates `src/routeTree.gen.ts` whenever Vite runs; commit it with route changes.
+Routes are files in `src/routes/`. The router plugin regenerates `src/routeTree.gen.ts` whenever Rsbuild runs; commit it with route changes.
 
-The base URL for published site links comes from `/config.json` at runtime, so builds aren't tied to a domain. The Vite dev server fills it from `REDOOST_SITES_ORIGIN` (derived from `REDOOST_SITES_DOMAIN` in Compose); in production the frontend's Nginx serves it.
+The base URL for published site links comes from `/config.json` at runtime, so builds aren't tied to a domain. The Rsbuild dev server fills it from `REDOOST_SITES_ORIGIN` (derived from `REDOOST_SITES_DOMAIN` in Compose); in production the frontend's Nginx serves it.
 
 ## Checks
 

@@ -1,6 +1,6 @@
 export const repository = "https://github.com/whyredfire/redoost";
 
-export const version: string = import.meta.env.VITE_VERSION || "dev";
+export const version: string = import.meta.env.PUBLIC_VERSION || "dev";
 
 export const versionUrl = (release: string) => {
   if (/^\d+\.\d+\.\d+$/u.test(release)) {
