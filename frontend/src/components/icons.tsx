@@ -2,6 +2,7 @@ import type { JSX } from "@solidjs/web";
 import {
   ArrowLeft as ArrowLeftNode,
   Bot as BotNode,
+  CalendarClock as CalendarClockNode,
   Check as CheckNode,
   ChevronDown as ChevronDownNode,
   ChevronRight as ChevronRightNode,
@@ -22,8 +23,11 @@ import {
   Palette as PaletteNode,
   Pencil as PencilNode,
   Plus as PlusNode,
+  Power as PowerNode,
   RefreshCw as RefreshCwNode,
+  Route as RouteNode,
   Search as SearchNode,
+  Server as ServerNode,
   Settings as SettingsNode,
   Sun as SunNode,
   Trash2 as Trash2Node,
@@ -73,6 +77,7 @@ const icon = (name: string, node: IconNode) => {
 
 export const ArrowLeft = icon("arrow-left", ArrowLeftNode);
 export const Bot = icon("bot", BotNode);
+export const CalendarClock = icon("calendar-clock", CalendarClockNode);
 export const Check = icon("check", CheckNode);
 export const ChevronDown = icon("chevron-down", ChevronDownNode);
 export const ChevronRight = icon("chevron-right", ChevronRightNode);
@@ -93,8 +98,11 @@ export const Moon = icon("moon", MoonNode);
 export const Palette = icon("palette", PaletteNode);
 export const Pencil = icon("pencil", PencilNode);
 export const Plus = icon("plus", PlusNode);
+export const Power = icon("power", PowerNode);
 export const RefreshCw = icon("refresh-cw", RefreshCwNode);
+export const Route = icon("route", RouteNode);
 export const Search = icon("search", SearchNode);
+export const Server = icon("server", ServerNode);
 export const Settings = icon("settings", SettingsNode);
 export const Sun = icon("sun", SunNode);
 export const Trash2 = icon("trash-2", Trash2Node);

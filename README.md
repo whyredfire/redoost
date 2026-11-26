@@ -6,10 +6,8 @@ and get a shareable address, with no build step.
 
 **[Try it at redoost.whyredfire.dev](https://redoost.whyredfire.dev)**
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png">
-  <img alt="The redoost dashboard" src="docs/screenshot-light.png">
-</picture>
+<img alt="The redoost dashboard" src="docs/screenshot-light.png#gh-light-mode-only">
+<img alt="The redoost dashboard" src="docs/screenshot-dark.png#gh-dark-mode-only">
 
 ## Features
 
@@ -59,7 +57,7 @@ flowchart LR
    checking with the API (cached briefly) that the site exists.
 
 Built with Rust (axum and sqlx) on Postgres; SolidJS, TanStack Router,
-Tailwind, and Kobalte, built with Rsbuild and Bun; [Garage](https://garagehq.deuxfleurs.fr) for storage; and
+Tailwind, and UI SDK, built with Rsbuild and Bun; [Garage](https://garagehq.deuxfleurs.fr) for storage; and
 Nginx for serving sites. The CLI is TypeScript, and shares its upload code with
 the dashboard through the Bun workspace's [`shared/`](shared) package.
 

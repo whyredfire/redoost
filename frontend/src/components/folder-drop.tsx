@@ -69,8 +69,18 @@ export const FolderDrop = (props: Props) => {
       )}
     >
       <div aria-hidden="true" class="dot-grid absolute inset-0 -z-10" />
-      <div class="flex flex-1 flex-col items-center justify-center px-6 py-12">
-        <div class="grid w-full max-w-2xl grid-cols-[minmax(0,1fr)] place-items-center">
+      <div
+        class={cn(
+          "flex flex-1 flex-col items-center justify-center px-6 py-12",
+          props.heading && "py-8"
+        )}
+      >
+        <div
+          class={cn(
+            "grid w-full max-w-2xl grid-cols-[minmax(0,1fr)] place-items-center",
+            props.heading && "max-w-4xl"
+          )}
+        >
           <Presence
             when={view()}
             initial={layer.hidden}
@@ -82,47 +92,57 @@ export const FolderDrop = (props: Props) => {
               <div class="col-start-1 row-start-1 flex w-full flex-col items-center">
                 {shown === "prompt" && (
                   <>
-                    <div class="mb-6 [zoom:0.75]">
-                      <Folder open={props.dragging} />
-                    </div>
-                    {props.heading ? (
-                      <h1 class="text-4xl font-semibold tracking-tighter text-balance sm:text-6xl">
-                        {props.prompt ?? "Drop your site anywhere on this page"}
-                      </h1>
-                    ) : (
-                      <p class="text-lg font-medium text-balance">
-                        {props.prompt ?? "Drop your site anywhere on this page"}
-                      </p>
-                    )}
-                    <p
+                    <div
                       class={cn(
-                        "text-muted-foreground text-balance",
-                        props.heading
-                          ? "mt-4 mb-8 max-w-xl sm:text-lg"
-                          : "mt-1 mb-6 max-w-md text-sm"
+                        "mb-6 [zoom:0.75]",
+                        props.heading &&
+                          "sm:[zoom:0.7] [@media(max-height:880px)]:hidden"
                       )}
                     >
-                      {props.hint ?? "A folder, a zip, or an HTML file"}
-                    </p>
-                    {props.actions ?? (
-                      <div class="flex justify-center gap-3">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => folderInput.click()}
-                        >
-                          Choose folder
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => filesInput.click()}
-                        >
-                          Choose files
-                        </Button>
-                      </div>
-                    )}
-                    {props.footer}
+                      <Folder open={props.dragging} />
+                    </div>
+                    <div class="flex w-full flex-col items-center">
+                      {props.heading ? (
+                        <h1 class="text-5xl font-semibold tracking-tighter text-balance sm:text-7xl lg:text-[min(6rem,9svh)]">
+                          {props.prompt ??
+                            "Drop your site anywhere on this page"}
+                        </h1>
+                      ) : (
+                        <p class="text-lg font-medium text-balance">
+                          {props.prompt ??
+                            "Drop your site anywhere on this page"}
+                        </p>
+                      )}
+                      <p
+                        class={cn(
+                          "text-muted-foreground text-balance",
+                          props.heading
+                            ? "mt-6 mb-8 max-w-2xl sm:text-xl"
+                            : "mt-1 mb-6 max-w-md text-sm"
+                        )}
+                      >
+                        {props.hint ?? "A folder, a zip, or an HTML file"}
+                      </p>
+                      {props.actions ?? (
+                        <div class="flex justify-center gap-3">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => folderInput.click()}
+                          >
+                            Choose folder
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => filesInput.click()}
+                          >
+                            Choose files
+                          </Button>
+                        </div>
+                      )}
+                      {props.footer}
+                    </div>
                   </>
                 )}
                 {shown === "error" && (

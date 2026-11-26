@@ -2,9 +2,16 @@ import { Navigate, createFileRoute } from "@tanstack/solid-router";
 import { Show } from "solid-js";
 
 import { AddressPreview } from "@/components/address-preview";
-import { CliCommand } from "@/components/cli-command";
 import { FolderDrop } from "@/components/folder-drop";
+import { HeroSnippets } from "@/components/hero-snippets";
+import {
+  Benefits,
+  Faq,
+  Features,
+  HowItWorks,
+} from "@/components/landing-sections";
 import { SignInButton } from "@/components/sign-in-prompt";
+import { TerminalSection } from "@/components/terminal-section";
 import { cn } from "@/lib/cn";
 import { inset } from "@/lib/layout";
 import { useToken } from "@/lib/session";
@@ -50,30 +57,54 @@ const LandingPage = () => {
             instead.
           </p>
         </Show>
-        <FolderDrop
-          class="flex-1 rounded-none bg-transparent shadow-none"
-          heading
-          prompt={
-            <>
-              Drop a folder.
-              <br />
-              <span class="text-muted-foreground">Get an address.</span>
-            </>
-          }
-          hint="Publish a built site, a zip, or a single HTML file. No build step, no config, and it stays online until you delete it."
-          actions={signedOut() ? <SignInButton /> : undefined}
-          footer={<AddressPreview class="mt-10 w-full max-w-lg" />}
-          dragging={dragging()}
-          limits={upload.limits}
-          error={upload.message}
-          checks={upload.checks}
-          onFiles={upload.selectFiles}
-          onError={upload.showError}
-          onDismiss={upload.clearFiles}
-        />
-        <div class={cn(inset, "flex justify-center border-t py-4")}>
-          <CliCommand variant="plain" />
+        <div
+          class={cn(
+            "flex min-h-[calc(100svh-3.5rem)] flex-col",
+            signedOut() && "pb-14"
+          )}
+        >
+          <div class="relative isolate flex flex-1 flex-col">
+            <div
+              aria-hidden="true"
+              class="absolute inset-0 -z-10 bg-[radial-gradient(45%_40%_at_50%_45%,color-mix(in_oklch,var(--brand)_9%,transparent),transparent)]"
+            />
+            <Show when={signedOut()}>
+              <HeroSnippets />
+            </Show>
+            <FolderDrop
+              class="flex-1 rounded-none bg-transparent shadow-none"
+              heading
+              prompt={
+                <>
+                  Drop a folder.
+                  <br />
+                  <span class="text-muted-foreground">Get an address.</span>
+                </>
+              }
+              hint="Publish a built site, a zip, or a single HTML file. No build step, no config, and it stays online until you delete it."
+              actions={signedOut() ? <SignInButton /> : undefined}
+              footer={<AddressPreview class="mt-8 w-full max-w-lg" />}
+              dragging={dragging()}
+              limits={upload.limits}
+              error={upload.message}
+              checks={upload.checks}
+              onFiles={upload.selectFiles}
+              onError={upload.showError}
+              onDismiss={upload.clearFiles}
+            />
+          </div>
+          <Show when={signedOut()}>
+            <Benefits />
+          </Show>
         </div>
+        <Show when={signedOut()}>
+          <HowItWorks />
+          <Features />
+        </Show>
+        <TerminalSection />
+        <Show when={signedOut()}>
+          <Faq limits={upload.limits} />
+        </Show>
       </div>
     </Show>
   );

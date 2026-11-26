@@ -304,7 +304,7 @@ const Sidebar = (props: SidebarProps) => {
       </section>
       <section class="bg-card shadow-raised space-y-3 rounded-xl px-4 py-3">
         <h2 class="font-medium">From the terminal</h2>
-        <CliCommand command="redoost list" variant="compact" />
+        <CliCommand command="redoost list" />
         <InstallCli class="text-muted-foreground block" />
       </section>
     </aside>

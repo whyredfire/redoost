@@ -55,9 +55,6 @@ const Layout = () => {
   const navigate = useNavigate();
   const token = useToken();
 
-  const column = () =>
-    cn(frame, "sm:border-x", pathname() !== "/" && "sm:border-x-transparent");
-
   const startFresh = () => {
     if (!upload.busy) {
       upload.startOver();
@@ -75,9 +72,7 @@ const Layout = () => {
     <div class="flex min-h-screen flex-col">
       <HeadContent />
       <header class="bg-background/80 sticky top-0 z-10 border-b backdrop-blur">
-        <div
-          class={cn(column(), inset, "flex h-14 items-center gap-4 sm:gap-6")}
-        >
+        <div class={cn(frame, inset, "flex h-14 items-center gap-4 sm:gap-6")}>
           <Link
             to="/"
             class="flex items-center gap-2 font-semibold"
@@ -111,7 +106,7 @@ const Layout = () => {
         </div>
       </header>
 
-      <div class={cn(column(), "flex flex-1 flex-col")}>
+      <div class={cn(frame, "flex flex-1 flex-col")}>
         <main
           class={cn(
             inset,
@@ -126,7 +121,7 @@ const Layout = () => {
       <footer class="border-t">
         <div
           class={cn(
-            column(),
+            frame,
             inset,
             "text-muted-foreground flex flex-col items-center gap-3 py-6 text-sm sm:flex-row sm:justify-between"
           )}
